@@ -38,6 +38,21 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return text ? (JSON.parse(text) as T) : (undefined as T);
 }
 
+/**
+ * Fecha de HOY en la zona horaria LOCAL del usuario (no UTC).
+ * `new Date().toISOString().slice(0,10)` da la fecha en UTC, que puede
+ * desfasarse un día respecto a lo que el usuario percibe como "hoy"
+ * (ej. medianoche pasada en horario de verano europeo) - crítico para
+ * un tracker diario donde el día importa (readiness, macros, sesión).
+ */
+export function todayLocalDate(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export type User = {
   id: number;
   nombre: string;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { api, ApiError, type BodyMeasurement } from "@/lib/api";
+import { api, ApiError, todayLocalDate, type BodyMeasurement } from "@/lib/api";
 
 export function BodyMeasurementForm({ userId }: { userId: number }) {
   const [pesoKg, setPesoKg] = useState(80);
@@ -19,7 +19,7 @@ export function BodyMeasurementForm({ userId }: { userId: number }) {
     setResultado(null);
     try {
       const medicion = await api.createBodyMeasurement(userId, {
-        target_date: new Date().toISOString().slice(0, 10),
+        target_date: todayLocalDate(),
         peso_kg: pesoKg,
         cuello_cm: cuelloCm ? Number(cuelloCm) : undefined,
         cintura_cm: cinturaCm ? Number(cinturaCm) : undefined,

@@ -31,16 +31,7 @@ def client():
     app.dependency_overrides.clear()
 
 
-def test_incluye_cabecera_cors_para_el_origen_configurado(client, monkeypatch):
-    monkeypatch.setenv("PULSE_FRONTEND_ORIGIN", "http://localhost:3000")
-    resp = client.get("/health", headers={"Origin": "http://localhost:3000"})
-    # Nota: el middleware de CORS se registra al importar el módulo, así
-    # que este test verifica el comportamiento con el valor por defecto
-    # (localhost:3000) que ya está activo en el `app` importado.
-    assert resp.status_code == 200
-
-
-def test_preflight_options_responde_con_allow_origin(client):
+def test_preflight_options_responde_con_allow_origin_permitido(client):
     resp = client.options(
         "/users/1",
         headers={
@@ -48,5 +39,26 @@ def test_preflight_options_responde_con_allow_origin(client):
             "Access-Control-Request-Method": "GET",
         },
     )
+    assert resp.status_code == 200
+    assert resp.headers.get("access-control-allow-origin") == "http://localhost:3000"
+
+
+def test_preflight_options_no_incluye_allow_origin_para_origen_no_permitido(client):
+    # Prueba negativa real: un origen distinto al configurado NO debe
+    # recibir la cabecera - es lo que demuestra que la restricción de
+    # CORS funciona, no solo que el origen bueno pasa.
+    resp = client.options(
+        "/users/1",
+        headers={
+            "Origin": "http://evil.example.com",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    assert resp.headers.get("access-control-allow-origin") != "http://evil.example.com"
+    assert "access-control-allow-origin" not in resp.headers
+
+
+def test_get_health_incluye_cabecera_cors_para_origen_permitido(client):
+    resp = client.get("/health", headers={"Origin": "http://localhost:3000"})
     assert resp.status_code == 200
     assert resp.headers.get("access-control-allow-origin") == "http://localhost:3000"
