@@ -1,16 +1,12 @@
 """Orquesta la decisión de sesión de entrenamiento del día.
 
 Conecta: ReadinessLog (ya persistido por services.readiness_service para
-`target_date`) -> engine.guardrails (deload forzado por ACWR sostenido,
-descanso forzado pre-competición) -> engine.periodization.decide_session
-(regla normal RED/YELLOW/GREEN) -> AuditLog.
-
-Alcance deliberadamente acotado: `planned_session` (qué tocaría hoy
-según el plan semanal/bloque de periodización) se recibe como parámetro
-explícito. El subsistema de "plan semanal -> sesión de cada día"
-(TrainingBlock) es una pieza futura no construida aún - no se improvisa
-aquí para no acoplar este servicio a un diseño de scheduling que todavía
-no se ha decidido con cuidado.
+`target_date`) -> repositories.training_block_repository (deriva
+`planned_session` del bloque/plan semanal activo, si `planned_session`
+no se pasa explícito) -> engine.guardrails (deload forzado por ACWR
+sostenido, descanso forzado pre-competición) ->
+engine.periodization.decide_session (regla normal RED/YELLOW/GREEN) ->
+AuditLog.
 """
 from __future__ import annotations
 
@@ -26,6 +22,7 @@ from engine.periodization import (
 )
 from models.schema import AuditLog, UserProfile
 from repositories.readiness_log_repository import get_latest_readiness_level
+from repositories.training_block_repository import get_planned_session_for_date
 from services.errors import EntityNotFoundError
 
 
@@ -33,7 +30,7 @@ def compute_daily_session(
     session: Session,
     user_id: int,
     target_date: date,
-    planned_session: SessionType,
+    planned_session: SessionType | None = None,
     acwr_history: list[float] | None = None,
     days_to_competition: int | None = None,
 ) -> SessionRecommendation:
@@ -41,6 +38,14 @@ def compute_daily_session(
     de última instancia (deload por ACWR sostenido, descanso pre-
     competición) y, si ninguno se dispara, la regla normal de
     `decide_session` según el readiness ya calculado.
+
+    `planned_session` es opcional (Fase F del plan autónomo, ver
+    docs/02-roadmap/02-plan-autonomo.md): si no se proporciona, se
+    deriva automáticamente del TrainingBlock/WeeklySchedule activo para
+    `target_date` vía `repositories.training_block_repository`. Se
+    mantiene como parámetro explícito para permitir overrides manuales
+    (ej. un cambio de plan puntual) sin tener que tocar el bloque
+    persistido.
 
     Orden de prioridad entre guardrails (decisión consciente, no
     incidental): `should_force_deload` se evalúa primero porque ACWR
@@ -52,10 +57,11 @@ def compute_daily_session(
     por lo que el orden no compromete la seguridad del usuario en
     ningún escenario, solo determina el tipo exacto de descanso.
 
-    Lanza ValueError si `user_id` no existe, o si no hay un ReadinessLog
+    Lanza ValueError si `user_id` no existe, si no hay un ReadinessLog
     para `target_date` (debe ejecutarse
     `services.readiness_service.sync_and_compute_readiness` antes, para
-    ese mismo día).
+    ese mismo día), o si `planned_session` no se proporciona y tampoco
+    hay ningún plan semanal activo del que derivarlo.
     """
     if session.get(UserProfile, user_id) is None:
         raise EntityNotFoundError(f"No existe UserProfile con id={user_id}")
@@ -66,6 +72,15 @@ def compute_daily_session(
             f"No hay readiness calculado para user_id={user_id} en {target_date}: "
             "ejecutar sync_and_compute_readiness primero"
         )
+
+    if planned_session is None:
+        planned_session = get_planned_session_for_date(session, user_id, target_date)
+        if planned_session is None:
+            raise ValueError(
+                f"No se proporcionó planned_session y no hay plan semanal activo "
+                f"para user_id={user_id} en {target_date}: crea un TrainingBlock con "
+                "WeeklySchedule, o pasa planned_session explícitamente."
+            )
 
     regla_disparada = "decide_session"
 

@@ -97,7 +97,7 @@ class ReadinessOut(BaseModel):
 
 class DailySessionRequest(BaseModel):
     target_date: date
-    planned_session: _SessionTypeLiteral
+    planned_session: _SessionTypeLiteral | None = None
     acwr_history: list[float] | None = None
     days_to_competition: int | None = None
 
@@ -108,3 +108,25 @@ class DailySessionOut(BaseModel):
     intensity_rpe_cap: int | None
     narrative_text: str
     narrative_source: str
+
+
+_DiaSemana = Literal["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+
+
+class TrainingBlockCreateRequest(BaseModel):
+    fecha_inicio: date
+    fecha_fin: date
+    objetivo_prioritario: str
+    objetivos_mantenimiento: list[str] = []
+    weekly_schedule: dict[_DiaSemana, _SessionTypeLiteral] = {}
+
+
+class TrainingBlockOut(BaseModel):
+    id: int
+    fecha_inicio: date
+    fecha_fin: date
+    objetivo_prioritario: str
+    semana_actual: int
+    es_deload: bool
+
+    model_config = {"from_attributes": True}

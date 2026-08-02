@@ -30,6 +30,7 @@ from models.schema import (
     ReadinessLog,
     TrainingBlock,
     UserProfile,
+    WeeklySchedule,
 )
 
 
@@ -286,6 +287,66 @@ class TestTrainingBlockYCoachConversation:
         session.add(bloque)
         session.commit()
         assert "bjj" in bloque.objetivos_mantenimiento
+
+    def test_weekly_schedule_asigna_session_type_por_dia(self, session):
+        usuario = _crear_usuario(session)
+        bloque = TrainingBlock(
+            user_id=usuario.id,
+            fecha_inicio=date(2026, 8, 1),
+            fecha_fin=date(2026, 9, 12),
+            objetivo_prioritario="strength",
+        )
+        session.add(bloque)
+        session.commit()
+
+        entrada = WeeklySchedule(
+            training_block_id=bloque.id, dia_semana="mon", session_type="strength_heavy"
+        )
+        session.add(entrada)
+        session.commit()
+        assert entrada.session_type == "strength_heavy"
+
+    def test_weekly_schedule_rechaza_dia_duplicado_para_el_mismo_bloque(self, session):
+        usuario = _crear_usuario(session)
+        bloque = TrainingBlock(
+            user_id=usuario.id,
+            fecha_inicio=date(2026, 8, 1),
+            fecha_fin=date(2026, 9, 12),
+            objetivo_prioritario="strength",
+        )
+        session.add(bloque)
+        session.commit()
+
+        session.add(
+            WeeklySchedule(
+                training_block_id=bloque.id, dia_semana="mon", session_type="strength_heavy"
+            )
+        )
+        session.commit()
+        session.add(
+            WeeklySchedule(
+                training_block_id=bloque.id, dia_semana="mon", session_type="rest"
+            )
+        )
+        with pytest.raises(Exception):
+            session.commit()
+
+    def test_weekly_schedule_rechaza_dia_semana_invalido(self, session):
+        usuario = _crear_usuario(session)
+        bloque = TrainingBlock(
+            user_id=usuario.id,
+            fecha_inicio=date(2026, 8, 1),
+            fecha_fin=date(2026, 9, 12),
+            objetivo_prioritario="strength",
+        )
+        session.add(bloque)
+        session.commit()
+        with pytest.raises(Exception):
+            entrada = WeeklySchedule(
+                training_block_id=bloque.id, dia_semana="lunes", session_type="strength_heavy"
+            )
+            session.add(entrada)
+            session.commit()
 
     def test_coach_conversation_referencia_opcional_a_decision(self, session):
         usuario = _crear_usuario(session)

@@ -186,6 +186,49 @@ class TrainingBlock(Base):
     es_deload: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
+_DIA_SEMANA_VALORES = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+_SESSION_TYPE_VALORES = (
+    "rest",
+    "active_recovery",
+    "strength_heavy",
+    "strength_hypertrophy",
+    "endurance_intervals",
+    "endurance_long",
+    "martial_arts_technical",
+    "martial_arts_sparring",
+)
+
+
+class WeeklySchedule(Base):
+    """Plan semanal: qué SessionType toca cada día de la semana para un
+    TrainingBlock activo. Es la pieza que permite decidir
+    `planned_session` automáticamente en vez de recibirlo como parámetro
+    manual en cada llamada a session_service.compute_daily_session (ver
+    docs/02-roadmap/02-plan-autonomo.md, Fase F).
+
+    Una fila por (training_block_id, dia_semana) - no append-only, a
+    diferencia de los logs: el plan semanal SÍ se edita/actualiza en
+    sitio si el usuario cambia el plan de un bloque activo (no es un
+    historial de eventos, es configuración).
+    """
+
+    __tablename__ = "weekly_schedule"
+    __table_args__ = (
+        Index("ix_weekly_schedule_block_dia", "training_block_id", "dia_semana", unique=True),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    training_block_id: Mapped[int] = mapped_column(
+        ForeignKey("training_block.id"), index=True
+    )
+    dia_semana: Mapped[str] = mapped_column(
+        Enum(*_DIA_SEMANA_VALORES, name="dia_semana_enum", create_constraint=True)
+    )
+    session_type: Mapped[str] = mapped_column(
+        Enum(*_SESSION_TYPE_VALORES, name="session_type_schedule_enum", create_constraint=True)
+    )
+
+
 class ReadinessLog(Base):
     """Append-only: una fila por día con el resultado completo del
     semáforo de engine.periodization, para auditoría histórica."""
