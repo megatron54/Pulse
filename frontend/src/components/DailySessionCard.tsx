@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { api, ApiError, SESSION_TYPES, type DailySessionResult, type SessionTypeValue } from "@/lib/api";
+import { api, ApiError, SESSION_TYPES, todayLocalDate, type DailySessionResult, type SessionTypeValue } from "@/lib/api";
 
 const LABELS: Record<SessionTypeValue, string> = {
   rest: "Descanso",
@@ -27,7 +27,7 @@ export function DailySessionCard({ userId }: { userId: number }) {
     setResultado(null);
     try {
       const r = await api.getDailySession(userId, {
-        target_date: new Date().toISOString().slice(0, 10),
+        target_date: todayLocalDate(),
         planned_session: plannedSession,
       });
       setResultado(r);

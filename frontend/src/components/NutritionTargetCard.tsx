@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { api, ApiError, type NutritionTarget } from "@/lib/api";
+import { api, ApiError, todayLocalDate, type NutritionTarget } from "@/lib/api";
 
 export function NutritionTargetCard({ userId }: { userId: number }) {
   const [resultado, setResultado] = useState<NutritionTarget | null>(null);
@@ -12,7 +12,7 @@ export function NutritionTargetCard({ userId }: { userId: number }) {
     setLoading(true);
     setError(null);
     try {
-      const r = await api.getNutritionTarget(userId, new Date().toISOString().slice(0, 10));
+      const r = await api.getNutritionTarget(userId, todayLocalDate());
       setResultado(r);
     } catch (err) {
       setError(

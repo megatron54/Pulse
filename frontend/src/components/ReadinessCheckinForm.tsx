@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { api, ApiError, type ReadinessResult } from "@/lib/api";
+import { api, ApiError, todayLocalDate, type ReadinessResult } from "@/lib/api";
 
 const READINESS_COLORS: Record<string, string> = {
   green: "bg-green-100 text-green-800",
@@ -36,7 +36,7 @@ export function ReadinessCheckinForm({
     setResultado(null);
     try {
       const r = await api.manualReadinessCheckin(userId, {
-        target_date: new Date().toISOString().slice(0, 10),
+        target_date: todayLocalDate(),
         hrv_today: hrvToday,
         hrv_baseline_28d: hrvBaseline,
         hrv_trend_7d: 0,
@@ -66,6 +66,7 @@ export function ReadinessCheckinForm({
           HRV hoy (ms)
           <input
             type="number"
+            min={1}
             className="border rounded px-2 py-1"
             value={hrvToday}
             onChange={(e) => setHrvToday(Number(e.target.value))}
@@ -75,6 +76,7 @@ export function ReadinessCheckinForm({
           HRV baseline 28d (ms)
           <input
             type="number"
+            min={1}
             className="border rounded px-2 py-1"
             value={hrvBaseline}
             onChange={(e) => setHrvBaseline(Number(e.target.value))}
@@ -84,6 +86,8 @@ export function ReadinessCheckinForm({
           Body Battery (0-100)
           <input
             type="number"
+            min={0}
+            max={100}
             className="border rounded px-2 py-1"
             value={bodyBattery}
             onChange={(e) => setBodyBattery(Number(e.target.value))}
@@ -93,6 +97,8 @@ export function ReadinessCheckinForm({
           Sueño (0-100)
           <input
             type="number"
+            min={0}
+            max={100}
             className="border rounded px-2 py-1"
             value={sleepScore}
             onChange={(e) => setSleepScore(Number(e.target.value))}
@@ -118,6 +124,7 @@ export function ReadinessCheckinForm({
           <input
             type="number"
             step="0.1"
+            min={0}
             className="border rounded px-2 py-1"
             value={acwr}
             onChange={(e) => setAcwr(Number(e.target.value))}
