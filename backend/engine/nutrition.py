@@ -16,12 +16,28 @@ Fórmulas y umbrales con respaldo científico (ver docs/00-research/
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from enum import Enum
 
 _SEXOS_VALIDOS = {"M", "F"}
 _ACTIVIDAD_MIN = 1.0
 _ACTIVIDAD_MAX = 2.5
+
+# Límites fisiológicos plausibles - evita que NaN/infinito o valores
+# absurdos se propaguen silenciosamente a los cálculos de macros.
+_PESO_KG_MIN, _PESO_KG_MAX = 20.0, 400.0
+_ALTURA_CM_MIN, _ALTURA_CM_MAX = 50.0, 260.0
+_EDAD_MIN, _EDAD_MAX = 5, 120
+
+# kcal por gramo de cada macronutriente (Atwater).
+_KCAL_PER_G_PROTEIN = 4
+_KCAL_PER_G_CARB = 4
+_KCAL_PER_G_FAT = 9
+
+
+def _is_valid_positive_finite(value: float, minimum: float, maximum: float) -> bool:
+    return math.isfinite(value) and minimum <= value <= maximum
 
 
 class WeightPhase(str, Enum):
@@ -43,12 +59,18 @@ class UserBiometrics:
     sexo: str  # "M" | "F"
 
     def __post_init__(self) -> None:
-        if self.peso_kg <= 0:
-            raise ValueError("peso_kg debe ser positivo")
-        if self.altura_cm <= 0:
-            raise ValueError("altura_cm debe ser positivo")
-        if self.edad <= 0:
-            raise ValueError("edad debe ser positiva")
+        if not _is_valid_positive_finite(self.peso_kg, _PESO_KG_MIN, _PESO_KG_MAX):
+            raise ValueError(
+                f"peso_kg debe ser un número finito entre {_PESO_KG_MIN} y {_PESO_KG_MAX}"
+            )
+        if not _is_valid_positive_finite(
+            self.altura_cm, _ALTURA_CM_MIN, _ALTURA_CM_MAX
+        ):
+            raise ValueError(
+                f"altura_cm debe ser un número finito entre {_ALTURA_CM_MIN} y {_ALTURA_CM_MAX}"
+            )
+        if not (_EDAD_MIN <= self.edad <= _EDAD_MAX):
+            raise ValueError(f"edad debe estar entre {_EDAD_MIN} y {_EDAD_MAX}")
         if self.sexo not in _SEXOS_VALIDOS:
             raise ValueError(f"sexo debe ser uno de {_SEXOS_VALIDOS}")
 
@@ -113,10 +135,12 @@ def calculate_macros(peso_kg: float, tdee: float, fase: WeightPhase) -> MacroTar
       con proteína alta, ver Lafontant et al. 2025).
     - SURPLUS: TDEE * (1 + 0.10) -> superávit leve.
     """
-    if peso_kg <= 0:
-        raise ValueError("peso_kg debe ser positivo")
-    if tdee <= 0:
-        raise ValueError("tdee debe ser positivo")
+    if not _is_valid_positive_finite(peso_kg, _PESO_KG_MIN, _PESO_KG_MAX):
+        raise ValueError(
+            f"peso_kg debe ser un número finito entre {_PESO_KG_MIN} y {_PESO_KG_MAX}"
+        )
+    if not math.isfinite(tdee) or tdee <= 0:
+        raise ValueError("tdee debe ser un número finito positivo")
 
     if fase == WeightPhase.CUT:
         kcal_objetivo = tdee * (1 - _DEFICIT_CUT)
@@ -126,13 +150,13 @@ def calculate_macros(peso_kg: float, tdee: float, fase: WeightPhase) -> MacroTar
         kcal_objetivo = tdee
 
     proteina_g = peso_kg * _PROTEIN_G_PER_KG[fase]
-    kcal_proteina = proteina_g * 4
+    kcal_proteina = proteina_g * _KCAL_PER_G_PROTEIN
 
     kcal_grasa = kcal_objetivo * _FAT_FRACTION_OF_KCAL
-    grasa_g = kcal_grasa / 9
+    grasa_g = kcal_grasa / _KCAL_PER_G_FAT
 
     kcal_restantes = max(kcal_objetivo - kcal_proteina - kcal_grasa, 0)
-    carbohidratos_g = kcal_restantes / 4
+    carbohidratos_g = kcal_restantes / _KCAL_PER_G_CARB
 
     return MacroTargets(
         kcal_objetivo=kcal_objetivo,

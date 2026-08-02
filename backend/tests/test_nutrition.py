@@ -35,6 +35,28 @@ class TestCalculateBMR:
         with pytest.raises(ValueError):
             UserBiometrics(peso_kg=0, altura_cm=180, edad=30, sexo="M")
 
+    def test_bmr_rechaza_peso_fuera_de_rango_fisiologico(self):
+        with pytest.raises(ValueError):
+            UserBiometrics(peso_kg=500, altura_cm=180, edad=30, sexo="M")
+
+    def test_bmr_rechaza_peso_nan_o_infinito(self):
+        with pytest.raises(ValueError):
+            UserBiometrics(peso_kg=float("nan"), altura_cm=180, edad=30, sexo="M")
+        with pytest.raises(ValueError):
+            UserBiometrics(peso_kg=float("inf"), altura_cm=180, edad=30, sexo="M")
+
+    def test_bmr_rechaza_altura_no_positiva(self):
+        with pytest.raises(ValueError):
+            UserBiometrics(peso_kg=80, altura_cm=0, edad=30, sexo="M")
+
+    def test_bmr_rechaza_edad_no_positiva(self):
+        with pytest.raises(ValueError):
+            UserBiometrics(peso_kg=80, altura_cm=180, edad=0, sexo="M")
+
+    def test_bmr_rechaza_edad_fuera_de_rango(self):
+        with pytest.raises(ValueError):
+            UserBiometrics(peso_kg=80, altura_cm=180, edad=150, sexo="M")
+
     def test_bmr_rechaza_sexo_invalido(self):
         with pytest.raises(ValueError):
             UserBiometrics(peso_kg=80, altura_cm=180, edad=30, sexo="X")
@@ -54,12 +76,29 @@ class TestCalculateTDEE:
         with pytest.raises(ValueError):
             calculate_tdee(bio, factor_actividad=3.0)  # fuera de rango razonable
 
+    def test_tdee_acepta_bordes_del_rango_de_actividad(self):
+        bio = UserBiometrics(peso_kg=80, altura_cm=180, edad=30, sexo="M")
+        bmr = calculate_bmr(bio)
+        assert calculate_tdee(bio, factor_actividad=1.0) == pytest.approx(bmr)
+        assert calculate_tdee(bio, factor_actividad=2.5) == pytest.approx(bmr * 2.5)
+
+    def test_tdee_rechaza_factor_actividad_negativo(self):
+        bio = UserBiometrics(peso_kg=80, altura_cm=180, edad=30, sexo="M")
+        with pytest.raises(ValueError):
+            calculate_tdee(bio, factor_actividad=-1.2)
+
 
 class TestCalculateMacros:
     def test_mantenimiento_no_ajusta_calorias(self):
         macros = calculate_macros(
             peso_kg=80, tdee=2500, fase=WeightPhase.MAINTENANCE
         )
+        assert macros.kcal_objetivo == pytest.approx(2500, abs=1)
+
+    def test_recomp_no_ajusta_calorias(self):
+        # Recomposición: calorías de mantenimiento + proteína alta
+        # (Lafontant et al. 2025), no un ajuste calórico distinto.
+        macros = calculate_macros(peso_kg=80, tdee=2500, fase=WeightPhase.RECOMP)
         assert macros.kcal_objetivo == pytest.approx(2500, abs=1)
 
     def test_corte_aplica_deficit_dentro_del_rango_seguro(self):
@@ -104,3 +143,16 @@ class TestCalculateMacros:
     def test_rechaza_tdee_no_positivo(self):
         with pytest.raises(ValueError):
             calculate_macros(peso_kg=80, tdee=0, fase=WeightPhase.MAINTENANCE)
+
+    def test_rechaza_tdee_nan_o_infinito(self):
+        with pytest.raises(ValueError):
+            calculate_macros(peso_kg=80, tdee=float("nan"), fase=WeightPhase.MAINTENANCE)
+        with pytest.raises(ValueError):
+            calculate_macros(peso_kg=80, tdee=float("inf"), fase=WeightPhase.MAINTENANCE)
+
+    def test_carbohidratos_se_recortan_a_cero_si_proteina_y_grasa_superan_kcal(self):
+        # Peso alto + TDEE bajo: proteína (2.2g/kg) + grasa (25% kcal) puede
+        # superar el total de kcal objetivo. Los carbohidratos deben quedar
+        # en 0, nunca negativos, ejercitando el clamp max(...,0).
+        macros = calculate_macros(peso_kg=150, tdee=1200, fase=WeightPhase.CUT)
+        assert macros.carbohidratos_g == 0
