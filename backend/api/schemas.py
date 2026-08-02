@@ -119,8 +119,6 @@ class TrainingBlockCreateRequest(BaseModel):
     objetivo_prioritario: str
     objetivos_mantenimiento: list[str] = []
     weekly_schedule: dict[_DiaSemana, _SessionTypeLiteral] = {}
-
-
 class TrainingBlockOut(BaseModel):
     id: int
     fecha_inicio: date
