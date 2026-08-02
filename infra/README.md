@@ -60,6 +60,32 @@ despliegue con acceso remoto.
   en cuando hacer `git pull` dentro de `wger-docker/` para traer
   actualizaciones del compose oficial.
 
+## Base de datos propia de Pulse (separada de wger)
+
+`docker-compose.pulse.yml` levanta un PostgreSQL **propio** para las
+tablas de dominio de Pulse (readiness_log, body_measurements,
+garmin_daily_metrics, etc. — ver `01-arquitectura/03-modelo-datos.md`),
+deliberadamente separado de la base de datos interna de wger para no
+acoplar nuestro esquema a sus migraciones.
+
+```powershell
+cd infra
+docker compose -f docker-compose.pulse.yml up -d
+```
+
+- **Conexión:** `postgresql+psycopg2://pulse:pulse_dev_password@localhost:5433/pulse`
+- **Puerto:** 5433 (el 5432 de wger no se publica al host, así que no hay conflicto)
+- Modelo SQLAlchemy en `backend/models/schema.py` (10 tablas, todas con
+  índice `(user_id, fecha)` donde aplica). Crear las tablas:
+  ```powershell
+  cd ..\backend
+  .venv\Scripts\python.exe -c "from models.database import create_pulse_engine; from models.schema import Base; Base.metadata.create_all(create_pulse_engine())"
+  ```
+
+**Todo 100% local por decisión explícita.** Si en el futuro se despliega
+online, la opción evaluada es Vercel (frontend/API) + Supabase (Postgres
+gestionado) — mismo motor de base de datos, migración de bajo esfuerzo.
+
 ## Siguiente pieza (independiente de Docker): sync de Garmin
 
 El módulo `backend/garmin_sync/` no depende de Docker/wger — corre en un
