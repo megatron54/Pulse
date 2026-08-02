@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from engine.body_composition import estimate_body_fat_navy
 from models.schema import AuditLog, BodyMeasurements, UserProfile
+from services.errors import EntityNotFoundError
 
 
 def record_body_measurement(
@@ -40,7 +41,7 @@ def record_body_measurement(
     """
     usuario = session.get(UserProfile, user_id)
     if usuario is None:
-        raise ValueError(f"No existe UserProfile con id={user_id}")
+        raise EntityNotFoundError(f"No existe UserProfile con id={user_id}")
 
     bodyfat_min: float | None = None
     bodyfat_max: float | None = None
