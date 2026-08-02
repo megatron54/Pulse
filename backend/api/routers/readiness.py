@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from datetime import date
+
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_db, verify_api_key
 from api.schemas import ManualReadinessRequest, ReadinessOut
 from engine.periodization import RecoveryContext
 from models.schema import ReadinessLog
+from repositories.readiness_log_repository import get_readiness_history
 from services.readiness_service import record_manual_readiness
 
 router = APIRouter(
@@ -35,3 +38,18 @@ def manual_readiness_checkin(
         joint_pain_flag=payload.joint_pain_flag,
     )
     return record_manual_readiness(db, user_id=user_id, target_date=payload.target_date, ctx=ctx)
+
+
+@router.get("/history", response_model=list[ReadinessOut])
+def get_readiness_history_endpoint(
+    user_id: int,
+    days: int = Query(default=30, ge=1, le=365),
+    as_of: date | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> list[ReadinessLog]:
+    """Historial de readiness para dashboards de tendencia (Fase I).
+
+    Mismo matiz que en body_composition.get_body_measurement_history:
+    `as_of` por defecto es fecha del SERVIDOR, no la fecha local del
+    usuario - los clientes deben enviarlo explícito."""
+    return get_readiness_history(db, user_id, as_of=as_of or date.today(), days=days)
