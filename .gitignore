@@ -1,0 +1,23 @@
+# Repos de terceros clonados como recurso local (no forman parte de este repo)
+recursos/repos/
+infra/wger-docker/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+
+# Entornos y secretos
+.env
+.env.*
+!.env.example
+**/garmin_tokens.json
+.garminconnect/
+
+# SO / editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
