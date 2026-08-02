@@ -2,6 +2,18 @@
 
 > Filosofía: sin prisa, cada fase debe quedar sólida (con tests) antes de pasar a la siguiente. No se rusheará.
 
+## Estado real a fecha de esta actualización (238 tests, 16 PRs fusionados)
+
+- ✅ **Fase 0 (cimientos):** wger corriendo en Docker, Postgres propio de Pulse, sync Garmin sin red real en tests.
+- ✅ **Fase 1 (motor de reglas):** nutrition, progression, periodization, guardrails, body_composition — Capa 1 completa y 100% determinista.
+- ✅ **Orquestación (no estaba en el plan original como fase separada, pero es donde ha ido el esfuerzo principal):** `readiness_service`, `nutrition_service`, `session_service`, `body_composition_service` conectan Capa 1 + persistencia + Garmin de extremo a extremo.
+- ✅ **Capa 3 conversacional:** implementada con Google Gemini (free tier) + fallback determinista garantizado — decisión de stack que sustituye a GPT-4o-mini/Ollama del plan original.
+- ⬜ **Fase 2 (análisis corporal por foto):** solo la fórmula (Navy) está hecha. Falta la ingesta real de fotos + MediaPipe Pose para derivar medidas automáticamente — hoy `record_body_measurement` recibe medidas ya tomadas a mano.
+- ⬜ **Fase 3 (app cliente):** no empezada. Sigue siendo fork de la app Flutter oficial de wger.
+- ⬜ **Motor de periodización de bloques/rotación semanal:** `decide_session` decide el día a partir de un `planned_session` recibido como parámetro; el subsistema que decide automáticamente qué toca cada día de la semana (usando `TrainingBlock`) no está construido — se dejó fuera deliberadamente para no improvisar un diseño de scheduling sin pensarlo con cuidado.
+- ⬜ **Integración de series/repeticiones reales:** `engine/progression.py` (1RM, doble progresión, RIR) está completo y probado, pero no conectado a persistencia porque esos datos viven en el tracking de wger (base de datos separada) — pendiente decidir cómo integrar (API REST de wger vs. tabla propia).
+- ⬜ **Cron real:** `sync_and_compute_readiness` se ejecuta hoy manualmente/desde tests; falta el scheduler diario real (Fase 0 lo mencionaba, no implementado).
+
 ## Fase 0 — Cimientos (infraestructura, sin IA todavía)
 - Desplegar wger self-hosted vía Docker Compose.
 - Poblar BD de ejercicios (wger + free-exercise-db como complemento).
