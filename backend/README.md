@@ -23,5 +23,5 @@ pytest
 - ✅ `engine/nutrition.py` — cálculo de TDEE (Mifflin-St Jeor) + reparto de macros por fase de peso.
 - ✅ `engine/progression.py` — estimación de 1RM (Epley), doble progresión de series, autorregulación de carga vía RIR (APRE).
 - ✅ `engine/periodization.py` — semáforo de readiness diario (RED/YELLOW/GREEN) a partir de HRV/Body Battery/Training Readiness/ACWR/sueño/dolor, y decisión de sesión del día.
-- ⬜ `engine/guardrails.py` — pendiente (Fase 1: reglas de seguridad transversales, ej. pausar déficit calórico si RED 3 días seguidos).
+- ✅ `engine/guardrails.py` — guardrails transversales: deload forzado por ACWR sostenido, pausa de déficit calórico por RED sostenido en corte, descanso forzado pre-competición, validación de no apilar sesiones de alta demanda.
 - ⬜ `garmin_sync/client.py` — pendiente (siguiente paso).
