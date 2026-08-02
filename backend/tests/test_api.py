@@ -161,6 +161,53 @@ class TestBodyMeasurements:
         assert resp.status_code == 404
 
 
+class TestBodyMeasurementHistory:
+    def test_devuelve_historial_en_orden_cronologico(self, client):
+        usuario = _crear_usuario(client)
+        client.post(
+            f"/users/{usuario['id']}/body-measurements",
+            json={"target_date": "2026-07-01", "peso_kg": 82.0},
+        )
+        client.post(
+            f"/users/{usuario['id']}/body-measurements",
+            json={"target_date": "2026-08-01", "peso_kg": 80.0},
+        )
+        resp = client.get(
+            f"/users/{usuario['id']}/body-measurements/history",
+            params={"as_of": "2026-08-02", "days": 90},
+        )
+        assert resp.status_code == 200
+        pesos = [m["peso_kg"] for m in resp.json()]
+        assert pesos == [82.0, 80.0]
+
+    def test_lista_vacia_sin_historial(self, client):
+        usuario = _crear_usuario(client)
+        resp = client.get(f"/users/{usuario['id']}/body-measurements/history")
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    def test_dias_fuera_de_rango_da_422(self, client):
+        usuario = _crear_usuario(client)
+        resp = client.get(
+            f"/users/{usuario['id']}/body-measurements/history", params={"days": 0}
+        )
+        assert resp.status_code == 422
+        resp = client.get(
+            f"/users/{usuario['id']}/body-measurements/history", params={"days": 731}
+        )
+        assert resp.status_code == 422
+
+    def test_usuario_inexistente_devuelve_lista_vacia_no_404(self, client):
+        # Decisión deliberada (no accidental): este endpoint de solo
+        # lectura no valida existencia del usuario, a diferencia de los
+        # endpoints de escritura - no hay nada que filtrar/exponer, así
+        # que un usuario inexistente da 200 [] en vez de 404. Fijado
+        # aquí como contrato explícito, no como comportamiento implícito.
+        resp = client.get("/users/9999/body-measurements/history")
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+
 class TestNutrition:
     def test_calcula_objetivo_diario(self, client):
         usuario = _crear_usuario(client)
@@ -392,6 +439,65 @@ class TestTrainingBlocks:
             json={"target_date": "2026-08-03"},
         )
         assert resp.status_code == 400
+
+
+class TestReadinessHistory:
+    def test_devuelve_historial_incluyendo_hoy(self, client):
+        usuario = _crear_usuario(client)
+        client.post(
+            f"/users/{usuario['id']}/readiness/manual-checkin",
+            json={
+                "target_date": "2026-08-01",
+                "hrv_today": 65.0,
+                "hrv_baseline_28d": 65.0,
+                "hrv_trend_7d": 0.0,
+                "body_battery_am": 40,
+                "training_readiness": "moderate",
+                "sleep_score": 40,
+                "acwr": 1.0,
+                "joint_pain_flag": False,
+            },
+        )
+        client.post(
+            f"/users/{usuario['id']}/readiness/manual-checkin",
+            json={
+                "target_date": "2026-08-02",
+                "hrv_today": 65.0,
+                "hrv_baseline_28d": 65.0,
+                "hrv_trend_7d": 0.0,
+                "body_battery_am": 80,
+                "training_readiness": "high",
+                "sleep_score": 85,
+                "acwr": 1.0,
+                "joint_pain_flag": False,
+            },
+        )
+        resp = client.get(
+            f"/users/{usuario['id']}/readiness/history",
+            params={"as_of": "2026-08-02", "days": 30},
+        )
+        assert resp.status_code == 200
+        resultados = [r["resultado"] for r in resp.json()]
+        assert resultados == ["yellow", "green"]
+
+    def test_lista_vacia_sin_historial(self, client):
+        usuario = _crear_usuario(client)
+        resp = client.get(f"/users/{usuario['id']}/readiness/history")
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    def test_dias_fuera_de_rango_da_422(self, client):
+        usuario = _crear_usuario(client)
+        resp = client.get(f"/users/{usuario['id']}/readiness/history", params={"days": 0})
+        assert resp.status_code == 422
+        resp = client.get(f"/users/{usuario['id']}/readiness/history", params={"days": 366})
+        assert resp.status_code == 422
+
+    def test_usuario_inexistente_devuelve_lista_vacia_no_404(self, client):
+        # Misma decisión deliberada que en body-measurements/history.
+        resp = client.get("/users/9999/readiness/history")
+        assert resp.status_code == 200
+        assert resp.json() == []
 
 
 class TestDailySession:

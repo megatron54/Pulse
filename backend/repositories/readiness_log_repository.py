@@ -51,3 +51,23 @@ def get_recent_readiness_levels(
     )
     filas = session.execute(stmt).scalars().all()
     return [ReadinessLevel(valor) for valor in filas]
+
+
+def get_readiness_history(
+    session: Session, user_id: int, as_of: date, days: int
+) -> list[ReadinessLog]:
+    """Historial de ReadinessLog de los últimos `days` días, INCLUYENDO
+    `as_of` - para dashboards de tendencia (Fase I). A diferencia de
+    `get_recent_readiness_levels` (usado por guardrails, que excluye
+    el día actual a propósito porque ese aún se está calculando en el
+    momento de la consulta), aquí sí interesa el dato de hoy si ya existe.
+    """
+    fecha_inicio = as_of - timedelta(days=days)
+    stmt = (
+        select(ReadinessLog)
+        .where(ReadinessLog.user_id == user_id)
+        .where(ReadinessLog.fecha >= fecha_inicio)
+        .where(ReadinessLog.fecha <= as_of)
+        .order_by(ReadinessLog.fecha.asc(), ReadinessLog.id.asc())
+    )
+    return list(session.execute(stmt).scalars().all())
