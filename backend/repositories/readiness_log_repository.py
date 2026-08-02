@@ -1,0 +1,31 @@
+"""Repositorio de historial de readiness — usado por engine.guardrails
+para detectar rachas de RED sostenido (ver should_pause_calorie_deficit
+en 00-research/06-periodizacion-ciencia-deportiva.md)."""
+from __future__ import annotations
+
+from datetime import date, timedelta
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from engine.periodization import ReadinessLevel
+from models.schema import ReadinessLog
+
+
+def get_recent_readiness_levels(
+    session: Session, user_id: int, as_of: date, n: int
+) -> list[ReadinessLevel]:
+    """Últimos `n` resultados de readiness ANTERIORES a `as_of` (no
+    incluye el día actual, que aún no se ha calculado en el momento en
+    que se consulta este historial), en orden cronológico ascendente -
+    el formato que espera engine.guardrails.should_pause_calorie_deficit."""
+    fecha_inicio = as_of - timedelta(days=n)
+    stmt = (
+        select(ReadinessLog.resultado)
+        .where(ReadinessLog.user_id == user_id)
+        .where(ReadinessLog.fecha >= fecha_inicio)
+        .where(ReadinessLog.fecha < as_of)
+        .order_by(ReadinessLog.fecha.asc())
+    )
+    filas = session.execute(stmt).scalars().all()
+    return [ReadinessLevel(valor) for valor in filas]
