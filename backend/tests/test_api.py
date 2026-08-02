@@ -284,6 +284,116 @@ class TestReadinessManualCheckin:
         assert resp.status_code == 422
 
 
+class TestTrainingBlocks:
+    def test_crea_bloque_con_weekly_schedule(self, client):
+        usuario = _crear_usuario(client)
+        resp = client.post(
+            f"/users/{usuario['id']}/training-blocks",
+            json={
+                "fecha_inicio": "2026-08-01",
+                "fecha_fin": "2026-09-12",
+                "objetivo_prioritario": "strength",
+                "objetivos_mantenimiento": ["running"],
+                "weekly_schedule": {"mon": "strength_heavy", "wed": "endurance_intervals"},
+            },
+        )
+        assert resp.status_code == 201
+        assert resp.json()["objetivo_prioritario"] == "strength"
+
+    def test_usuario_inexistente_da_404(self, client):
+        resp = client.post(
+            "/users/9999/training-blocks",
+            json={
+                "fecha_inicio": "2026-08-01",
+                "fecha_fin": "2026-09-12",
+                "objetivo_prioritario": "strength",
+            },
+        )
+        assert resp.status_code == 404
+
+    def test_dia_semana_invalido_da_422(self, client):
+        usuario = _crear_usuario(client)
+        resp = client.post(
+            f"/users/{usuario['id']}/training-blocks",
+            json={
+                "fecha_inicio": "2026-08-01",
+                "fecha_fin": "2026-09-12",
+                "objetivo_prioritario": "strength",
+                "weekly_schedule": {"lunes": "strength_heavy"},
+            },
+        )
+        assert resp.status_code == 422
+
+    def test_flujo_completo_plan_semanal_auto_deriva_sesion_del_dia(self, client):
+        # End-to-end: crear bloque -> check-in -> sesión SIN planned_session
+        # explícito -> se deriva automáticamente del plan semanal (Fase F).
+        usuario = _crear_usuario(client)
+        client.post(
+            f"/users/{usuario['id']}/training-blocks",
+            json={
+                "fecha_inicio": "2026-08-01",
+                "fecha_fin": "2026-09-12",
+                "objetivo_prioritario": "strength",
+                "weekly_schedule": {"mon": "strength_heavy"},
+            },
+        )
+        client.post(
+            f"/users/{usuario['id']}/readiness/manual-checkin",
+            json={
+                "target_date": "2026-08-03",  # lunes
+                "hrv_today": 65.0,
+                "hrv_baseline_28d": 65.0,
+                "hrv_trend_7d": 0.0,
+                "body_battery_am": 80,
+                "training_readiness": "high",
+                "sleep_score": 85,
+                "acwr": 1.0,
+                "joint_pain_flag": False,
+            },
+        )
+        resp = client.post(
+            f"/users/{usuario['id']}/session/daily",
+            json={"target_date": "2026-08-03"},  # sin planned_session
+        )
+        assert resp.status_code == 200
+        assert resp.json()["session_type"] == "strength_heavy"
+
+    def test_bloques_solapados_da_400_no_500(self, client):
+        # Regresión del hallazgo de code-review: bloques solapados deben
+        # dar un error de dominio claro (400), nunca un 500 opaco por
+        # una excepción cruda de SQLAlchemy sin mapear.
+        usuario = _crear_usuario(client)
+        for _ in range(2):
+            client.post(
+                f"/users/{usuario['id']}/training-blocks",
+                json={
+                    "fecha_inicio": "2026-08-01",
+                    "fecha_fin": "2026-09-12",
+                    "objetivo_prioritario": "strength",
+                    "weekly_schedule": {"mon": "strength_heavy"},
+                },
+            )
+        client.post(
+            f"/users/{usuario['id']}/readiness/manual-checkin",
+            json={
+                "target_date": "2026-08-03",
+                "hrv_today": 65.0,
+                "hrv_baseline_28d": 65.0,
+                "hrv_trend_7d": 0.0,
+                "body_battery_am": 80,
+                "training_readiness": "high",
+                "sleep_score": 85,
+                "acwr": 1.0,
+                "joint_pain_flag": False,
+            },
+        )
+        resp = client.post(
+            f"/users/{usuario['id']}/session/daily",
+            json={"target_date": "2026-08-03"},
+        )
+        assert resp.status_code == 400
+
+
 class TestDailySession:
     def test_flujo_completo_readiness_luego_sesion(self, client):
         usuario = _crear_usuario(client)

@@ -39,7 +39,7 @@ def get_daily_session(
         db,
         user_id=user_id,
         target_date=payload.target_date,
-        planned_session=SessionType(payload.planned_session),
+        planned_session=SessionType(payload.planned_session) if payload.planned_session else None,
         acwr_history=payload.acwr_history,
         days_to_competition=payload.days_to_competition,
     )
