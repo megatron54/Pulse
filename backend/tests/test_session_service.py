@@ -1,14 +1,10 @@
 """Tests para services.session_service — TDD.
 
 Conecta: ReadinessLog (ya persistido por services.readiness_service) ->
-engine.periodization.decide_session (Capa 1) + engine.guardrails
-(deload forzado por ACWR sostenido, descanso forzado pre-competición) ->
-AuditLog.
-
-Alcance deliberadamente acotado: `planned_session` (qué tocaría hoy según
-el plan semanal) se recibe como parámetro explícito - el subsistema de
-"plan semanal por día" (TrainingBlock -> sesión de cada día) es una
-pieza futura no construida aún, no se improvisa aquí.
+repositories.training_block_repository (deriva planned_session del plan
+semanal activo si no se pasa explícito) -> engine.periodization.decide_session
+(Capa 1) + engine.guardrails (deload forzado por ACWR sostenido,
+descanso forzado pre-competición) -> AuditLog.
 """
 from datetime import date
 
@@ -17,7 +13,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from engine.periodization import SessionType
-from models.schema import AuditLog, Base, ReadinessLog, UserProfile
+from models.schema import AuditLog, Base, ReadinessLog, TrainingBlock, UserProfile, WeeklySchedule
 from services.session_service import compute_daily_session
 
 
@@ -40,6 +36,67 @@ def usuario(session):
 def _sembrar_readiness(session, user_id, fecha, resultado):
     session.add(ReadinessLog(user_id=user_id, fecha=fecha, resultado=resultado))
     session.commit()
+
+
+def _crear_bloque_con_schedule(session, user_id, fecha_inicio, fecha_fin, schedule: dict):
+    bloque = TrainingBlock(
+        user_id=user_id,
+        fecha_inicio=fecha_inicio,
+        fecha_fin=fecha_fin,
+        objetivo_prioritario="strength",
+    )
+    session.add(bloque)
+    session.commit()
+    for dia, tipo in schedule.items():
+        session.add(WeeklySchedule(training_block_id=bloque.id, dia_semana=dia, session_type=tipo))
+    session.commit()
+    return bloque
+
+
+class TestComputeDailySessionAutoDerivedPlan:
+    """planned_session=None debe derivarse del TrainingBlock/WeeklySchedule
+    activo (Fase F) en vez de exigir que el caller lo calcule a mano."""
+
+    def test_deriva_planned_session_del_plan_semanal_activo(self, session, usuario):
+        hoy = date(2026, 8, 3)  # lunes
+        _sembrar_readiness(session, usuario.id, hoy, "green")
+        _crear_bloque_con_schedule(
+            session, usuario.id, date(2026, 8, 1), date(2026, 9, 12), {"mon": "strength_heavy"}
+        )
+        resultado = compute_daily_session(session, usuario.id, target_date=hoy)
+        assert resultado.session_type == SessionType.STRENGTH_HEAVY
+        assert resultado.volume_pct == 100
+
+    def test_planned_session_explicito_tiene_prioridad_sobre_el_plan_semanal(
+        self, session, usuario
+    ):
+        # Override manual: aunque el plan diga strength_heavy, si se pasa
+        # planned_session explícito, ese gana (permite excepciones puntuales
+        # sin tocar el bloque persistido).
+        hoy = date(2026, 8, 3)
+        _sembrar_readiness(session, usuario.id, hoy, "green")
+        _crear_bloque_con_schedule(
+            session, usuario.id, date(2026, 8, 1), date(2026, 9, 12), {"mon": "strength_heavy"}
+        )
+        resultado = compute_daily_session(
+            session, usuario.id, target_date=hoy, planned_session=SessionType.REST
+        )
+        assert resultado.session_type == SessionType.REST
+
+    def test_sin_planned_session_ni_plan_semanal_activo_lanza_valueerror(self, session, usuario):
+        hoy = date(2026, 8, 3)
+        _sembrar_readiness(session, usuario.id, hoy, "green")
+        with pytest.raises(ValueError):
+            compute_daily_session(session, usuario.id, target_date=hoy)
+
+    def test_dia_sin_entrada_en_el_schedule_lanza_valueerror(self, session, usuario):
+        hoy = date(2026, 8, 4)  # martes, sin entrada en el schedule de abajo
+        _sembrar_readiness(session, usuario.id, hoy, "green")
+        _crear_bloque_con_schedule(
+            session, usuario.id, date(2026, 8, 1), date(2026, 9, 12), {"mon": "strength_heavy"}
+        )
+        with pytest.raises(ValueError):
+            compute_daily_session(session, usuario.id, target_date=hoy)
 
 
 class TestComputeDailySession:
