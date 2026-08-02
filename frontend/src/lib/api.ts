@@ -125,7 +125,7 @@ export type SessionTypeValue = (typeof SESSION_TYPES)[number];
 
 export type DailySessionInput = {
   target_date: string;
-  planned_session: SessionTypeValue;
+  planned_session?: SessionTypeValue;
   acwr_history?: number[];
   days_to_competition?: number;
 };
@@ -136,6 +136,26 @@ export type DailySessionResult = {
   intensity_rpe_cap: number | null;
   narrative_text: string;
   narrative_source: "llm" | "template";
+};
+
+export const DAYS_OF_WEEK = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+export type DayOfWeek = (typeof DAYS_OF_WEEK)[number];
+
+export type TrainingBlockInput = {
+  fecha_inicio: string;
+  fecha_fin: string;
+  objetivo_prioritario: string;
+  objetivos_mantenimiento?: string[];
+  weekly_schedule?: Partial<Record<DayOfWeek, SessionTypeValue>>;
+};
+
+export type TrainingBlock = {
+  id: number;
+  fecha_inicio: string;
+  fecha_fin: string;
+  objetivo_prioritario: string;
+  semana_actual: number;
+  es_deload: boolean;
 };
 
 export const api = {
@@ -163,6 +183,12 @@ export const api = {
 
   getDailySession: (userId: number, data: DailySessionInput) =>
     request<DailySessionResult>(`/users/${userId}/session/daily`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  createTrainingBlock: (userId: number, data: TrainingBlockInput) =>
+    request<TrainingBlock>(`/users/${userId}/training-blocks`, {
       method: "POST",
       body: JSON.stringify(data),
     }),
