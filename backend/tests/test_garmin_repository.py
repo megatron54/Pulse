@@ -1,0 +1,137 @@
+"""Tests para repositories.garmin_repository — TDD.
+
+Cubre las dos señales derivadas de historial que engine.periodization
+necesita y que Garmin no da "ya calculadas": la línea base de HRV de 28
+días y la tendencia de 7 días (ver 00-research/06-periodizacion-
+ciencia-deportiva.md: "usar tendencia de 3-7 días vs baseline de 4-6
+semanas, nunca el dato de un solo día").
+"""
+from datetime import date, timedelta
+
+import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+
+from models.schema import Base, GarminDailyMetrics, UserProfile
+from repositories.garmin_repository import (
+    get_hrv_baseline_28d,
+    get_hrv_trend_7d,
+    save_daily_metrics,
+)
+
+
+@pytest.fixture()
+def session():
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine) as s:
+        yield s
+
+
+@pytest.fixture()
+def usuario(session):
+    u = UserProfile(
+        nombre="Test", altura_cm=180.0, fecha_nacimiento=date(1995, 1, 1), sexo="M"
+    )
+    session.add(u)
+    session.commit()
+    return u
+
+
+def _sembrar_hrv(session, user_id, hoy, valores_por_dias_atras: dict[int, float]):
+    """valores_por_dias_atras: {dias_atras: hrv_value}"""
+    for dias_atras, valor in valores_por_dias_atras.items():
+        session.add(
+            GarminDailyMetrics(
+                user_id=user_id, fecha=hoy - timedelta(days=dias_atras), hrv_value=valor
+            )
+        )
+    session.commit()
+
+
+class TestSaveDailyMetrics:
+    def test_persiste_los_campos_normalizados_del_raw(self, session, usuario):
+        raw = {
+            "hrv_today": 65.0,
+            "training_readiness": "high",
+            "body_battery_am": 80,
+            "sleep_score": 85,
+            "raw_json": {"hrv": {}, "sleep": {}},
+        }
+        fila = save_daily_metrics(session, usuario.id, date(2026, 8, 2), raw)
+        assert fila.id is not None
+        assert fila.hrv_value == 65.0
+        assert fila.training_readiness == "high"
+        assert fila.body_battery_am == 80
+        assert fila.sleep_score == 85
+
+    def test_es_append_only_no_sobreescribe_sincronizaciones_previas(self, session, usuario):
+        fecha = date(2026, 8, 2)
+        save_daily_metrics(session, usuario.id, fecha, {"hrv_today": 60})
+        save_daily_metrics(session, usuario.id, fecha, {"hrv_today": 62})
+        filas = (
+            session.query(GarminDailyMetrics)
+            .filter_by(user_id=usuario.id, fecha=fecha)
+            .all()
+        )
+        assert len(filas) == 2
+
+
+class TestHrvBaseline28d:
+    def test_calcula_media_de_los_ultimos_28_dias_excluyendo_hoy(self, session, usuario):
+        hoy = date(2026, 8, 29)
+        # 28 días con HRV=60, más un dato de hace 40 días (fuera de rango)
+        # con un valor muy distinto que NO debe contaminar la media.
+        valores = {i: 60.0 for i in range(1, 29)}
+        valores[40] = 200.0
+        _sembrar_hrv(session, usuario.id, hoy, valores)
+
+        baseline = get_hrv_baseline_28d(session, usuario.id, hoy)
+        assert baseline == pytest.approx(60.0, abs=0.01)
+
+    def test_ignora_filas_sin_valor_de_hrv(self, session, usuario):
+        hoy = date(2026, 8, 10)
+        session.add(GarminDailyMetrics(user_id=usuario.id, fecha=hoy - timedelta(days=1), hrv_value=None))
+        session.add(GarminDailyMetrics(user_id=usuario.id, fecha=hoy - timedelta(days=2), hrv_value=70.0))
+        session.commit()
+        baseline = get_hrv_baseline_28d(session, usuario.id, hoy)
+        assert baseline == pytest.approx(70.0, abs=0.01)
+
+    def test_devuelve_none_si_no_hay_historial_suficiente(self, session, usuario):
+        assert get_hrv_baseline_28d(session, usuario.id, date(2026, 8, 10)) is None
+
+
+class TestHrvTrend7d:
+    def test_tendencia_positiva_si_hrv_sube_en_los_ultimos_7_dias(self, session, usuario):
+        hoy = date(2026, 8, 10)
+        valores = {7: 50.0, 6: 52.0, 5: 54.0, 4: 56.0, 3: 58.0, 2: 60.0, 1: 62.0}
+        _sembrar_hrv(session, usuario.id, hoy, valores)
+        trend = get_hrv_trend_7d(session, usuario.id, hoy)
+        assert trend > 0
+
+    def test_tendencia_negativa_si_hrv_baja_en_los_ultimos_7_dias(self, session, usuario):
+        hoy = date(2026, 8, 10)
+        valores = {7: 70.0, 6: 68.0, 5: 66.0, 4: 64.0, 3: 62.0, 2: 60.0, 1: 55.0}
+        _sembrar_hrv(session, usuario.id, hoy, valores)
+        trend = get_hrv_trend_7d(session, usuario.id, hoy)
+        assert trend < 0
+
+    def test_devuelve_none_si_no_hay_suficiente_historial(self, session, usuario):
+        assert get_hrv_trend_7d(session, usuario.id, date(2026, 8, 10)) is None
+
+    def test_devuelve_none_con_un_unico_valor_en_la_ventana(self, session, usuario):
+        hoy = date(2026, 8, 10)
+        _sembrar_hrv(session, usuario.id, hoy, {3: 60.0})
+        assert get_hrv_trend_7d(session, usuario.id, hoy) is None
+
+    def test_border_exacto_28_dias_dentro_29_fuera(self, session, usuario):
+        hoy = date(2026, 8, 29)
+        valores = {i: 60.0 for i in range(1, 29)}  # día 28: dentro
+        _sembrar_hrv(session, usuario.id, hoy, valores)
+        # Un valor claramente distinto justo en el borde de exclusión (29)
+        session.add(
+            GarminDailyMetrics(user_id=usuario.id, fecha=hoy - timedelta(days=29), hrv_value=999.0)
+        )
+        session.commit()
+        baseline = get_hrv_baseline_28d(session, usuario.id, hoy)
+        assert baseline == pytest.approx(60.0, abs=0.01)
