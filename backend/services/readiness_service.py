@@ -19,15 +19,16 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from engine.periodization import RecoveryContext, compute_readiness
+from engine.periodization import ReadinessLevel, RecoveryContext, compute_readiness
 from garmin_sync.client import GarminClient
 from garmin_sync.mapper import map_garmin_raw_to_recovery_context
-from models.schema import AuditLog, ReadinessLog
+from models.schema import AuditLog, ReadinessLog, UserProfile
 from repositories.garmin_repository import (
     get_hrv_baseline_28d,
     get_hrv_trend_7d,
     save_daily_metrics,
 )
+from services.errors import EntityNotFoundError
 
 
 def sync_and_compute_readiness(
@@ -92,6 +93,36 @@ def sync_and_compute_readiness(
     )
 
     readiness = compute_readiness(ctx)
+    return _persist_readiness_result(session, user_id, target_date, ctx, readiness)
+
+
+def record_manual_readiness(
+    session: Session, user_id: int, target_date: date, ctx: RecoveryContext
+) -> ReadinessLog:
+    """Igual que `sync_and_compute_readiness`, pero sin depender de
+    Garmin: recibe un `RecoveryContext` ya construido a mano (check-in
+    manual desde la API/frontend). Útil mientras la sincronización real
+    con Garmin siga bloqueada por falta de credenciales (ver Fase H del
+    plan autónomo, docs/02-roadmap/02-plan-autonomo.md) - el resto del
+    sistema (motor de reglas, persistencia, auditoría) es exactamente
+    el mismo camino, solo cambia el origen del dato de entrada.
+
+    Lanza EntityNotFoundError si `user_id` no existe (mismo patrón de
+    validación que nutrition_service/body_composition_service/session_service).
+    """
+    if session.get(UserProfile, user_id) is None:
+        raise EntityNotFoundError(f"No existe UserProfile con id={user_id}")
+    readiness = compute_readiness(ctx)
+    return _persist_readiness_result(session, user_id, target_date, ctx, readiness)
+
+
+def _persist_readiness_result(
+    session: Session,
+    user_id: int,
+    target_date: date,
+    ctx: RecoveryContext,
+    readiness: ReadinessLevel,
+) -> ReadinessLog:
     hrv_delta_pct = (ctx.hrv_today - ctx.hrv_baseline_28d) / ctx.hrv_baseline_28d
 
     log = ReadinessLog(

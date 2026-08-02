@@ -22,6 +22,7 @@ from engine.nutrition import MacroTargets, UserBiometrics, WeightPhase, calculat
 from models.schema import AuditLog, UserProfile
 from repositories.body_measurements_repository import get_latest_weight_kg
 from repositories.readiness_log_repository import get_recent_readiness_levels
+from services.errors import EntityNotFoundError
 
 _DIAS_HISTORIAL_GUARDRAIL_CUT = 3
 
@@ -43,7 +44,7 @@ def compute_daily_nutrition_target(
     """
     usuario = session.get(UserProfile, user_id)
     if usuario is None:
-        raise ValueError(f"No existe UserProfile con id={user_id}")
+        raise EntityNotFoundError(f"No existe UserProfile con id={user_id}")
 
     peso_kg = get_latest_weight_kg(session, user_id)
     if peso_kg is None:
