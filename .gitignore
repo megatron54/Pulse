@@ -21,3 +21,8 @@ __pycache__/
 Thumbs.db
 .vscode/
 .idea/
+
+# Logs de arranque de docker compose en background
+infra/*.log
+infra/*.err.log
+
