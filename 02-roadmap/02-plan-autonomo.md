@@ -1,0 +1,104 @@
+# Plan de trabajo autónomo (front + back, funcionalidad completa)
+
+> Sustituye/complementa a `01-fases-desarrollo.md`. Este documento es el
+> plan operativo real para seguir construyendo sin depender de que el
+> usuario esté presente. Cada fase tiene entregable, definición de
+> "hecho", y qué decisiones tomo yo mismo si surge ambigüedad (con el
+> criterio ya usado en esta sesión: decidir, documentar, seguir).
+
+## Principios de ejecución autónoma
+
+1. **No pregunto si puedo decidir con criterio de ingeniería razonable.**
+   Registro la decisión en el commit/PR y en este documento si es
+   arquitectónica. Solo me detengo ante bloqueos reales: credenciales
+   que no tengo (Garmin real, claves de Gemini), o acciones destructivas
+   irreversibles fuera del repo.
+2. **TDD + code-review en cada pieza**, como en toda la sesión anterior.
+3. **Cada fase termina con la app *más* funcional que al empezar**,
+   verificable (tests, o una llamada HTTP real que se pueda mostrar).
+4. **Un cambio de stack ya decidido en esta fase:** en vez de forkear la
+   app Flutter de wger de entrada (bloqueado por necesitar el SDK de
+   Flutter y un emulador/dispositivo, que no puedo verificar aquí de
+   forma autónoma), el frontend v1 será una **app web (Next.js)** sobre
+   la misma API REST. Es ejecutable, testeable e iterable sin ningún
+   toolchain nativo. Se empaqueta luego como PWA/Capacitor para móvil
+   sin rehacer el frontend. Si el usuario prefiere Flutter nativo más
+   adelante, se retoma sin perder el trabajo del backend/API.
+
+## Mapa de fases
+
+| Fase | Entregable | Bloqueada por |
+|---|---|---|
+| A | API REST (FastAPI) sobre los servicios ya construidos | Nada — empiezo aquí |
+| B | Frontend web (Next.js) consumiendo la API | Fase A |
+| C | Scheduler diario (cron real, APScheduler) | Fase A |
+| D | Auth mínima (single-user, API key/JWT) | Fase A |
+| E | Integración wger (proxy de ejercicios/sets vía su API REST) | Fase A |
+| F | Motor de plan semanal (TrainingBlock → sesión de cada día) | Fase A, engine ya existente |
+| G | Ingesta de fotos + composición corporal en el navegador (MediaPipe.js) | Fase B |
+| H | Sincronización Garmin real | **Bloqueada de verdad**: necesito credenciales reales del usuario en algún momento. Todo lo demás no depende de esto. |
+| I | Dashboards de tendencia (HRV, peso, volumen) | Fase B |
+| J | Empaquetado (Docker Compose único para todo el stack Pulse) | Fases A-C |
+
+## Fase A — API REST (FastAPI)
+
+**Por qué primero:** sin esto no hay frontend posible. Es la pieza que más desbloquea.
+
+Entregables:
+- `backend/api/main.py` — app FastAPI.
+- Routers por dominio: `/readiness`, `/nutrition`, `/session`, `/body-composition`, `/users`.
+- Cada endpoint es un adaptador fino sobre los `services/*` ya existentes y probados — **cero lógica nueva de negocio aquí**, solo serialización HTTP (Pydantic schemas de request/response).
+- Manejo de errores: `ValueError` de los servicios → HTTP 400/404 según corresponda; `InsufficientDataError` → 422 con detalle.
+- Tests con `TestClient` (httpx), sin necesidad de servidor real corriendo.
+- Documentación automática (`/docs`, OpenAPI) gratis por usar FastAPI.
+
+Definición de "hecho": se puede hacer `curl` o Postman contra `http://localhost:8000` y obtener/crear datos reales en el Postgres de Pulse.
+
+## Fase B — Frontend web (Next.js)
+
+Entregables:
+- Scaffold Next.js (App Router, TypeScript) en `frontend/`.
+- Páginas: dashboard del día (readiness + sesión + macros), registro de peso/medidas, chat con el coach.
+- Cliente API tipado (fetch contra la API de Fase A).
+- Sin diseño elaborado en v1: funcional primero, pulido después (coherente con "no rushear" pero priorizando que *funcione* antes que *se vea bien*).
+
+## Fase C — Scheduler diario
+
+- APScheduler o cron nativo del SO ejecutando `sync_and_compute_readiness` + `compute_daily_nutrition_target` cada madrugada.
+- Si Garmin real falla (sin credenciales aún), debe degradar con gracia (log de error, no crash del proceso).
+
+## Fase D — Auth mínima
+
+- Al ser mono-usuario, una API key simple en header (`X-API-Key`) basta para v1 — evita la complejidad de un sistema de login completo antes de que haga falta.
+
+## Fase E — Integración wger
+
+- Decisión pendiente de esta sesión, resuelta ahora: usar la **API REST de wger** (ya expuesta por el contenedor `web` en `localhost`) desde nuestro backend como cliente HTTP, en vez de tocar su base de datos directamente. Mantiene la separación de esquemas ya decidida en la Fase 0.
+- `backend/wger_client/` — cliente fino con el mismo patrón de inyección de dependencias que `garmin_sync.client`.
+
+## Fase F — Plan semanal automático
+
+- Extiende `TrainingBlock` con una tabla nueva `weekly_schedule` (día de la semana → `SessionType` planificado), y una función que, dado el bloque activo, determina `planned_session` para `session_service.compute_daily_session` sin que haya que pasarlo a mano.
+
+## Fase G — Fotos + composición corporal en navegador
+
+- `@mediapipe/tasks-vision` (JS) en el frontend: pose + segmentación corrida en el propio navegador del usuario (mismo principio de privacidad ya documentado: la imagen no sale del dispositivo).
+- El frontend calcula las medidas y llama al endpoint de Fase A con los números, nunca con la imagen.
+
+## Fase H — Garmin real (bloqueada)
+
+- Todo el código ya existe y está probado con dobles. Cuando el usuario aporte credenciales/token, se ejecuta una prueba end-to-end real y se ajustan los `_extraer_*` de `garmin_sync/client.py` contra la forma real de los payloads (ya anotado como deuda técnica desde el PR original).
+
+## Fase I — Dashboards
+
+- Gráficas de tendencia (Recharts/Chart.js) sobre los endpoints de historial ya existentes en los repositorios.
+
+## Fase J — Empaquetado único
+
+- Un `docker-compose.yml` en la raíz del repo (no en `infra/`) que levante: Postgres de Pulse, backend FastAPI, frontend Next.js — para que todo el stack propio (no wger, que sigue aparte) se levante con un solo comando.
+
+## Registro de decisiones tomadas en este documento
+
+- **Frontend v1 = Next.js web, no Flutter nativo** (ver principios arriba). Reevaluable más adelante sin coste de backend.
+- **wger se integra vía su API REST**, no vía acceso directo a su base de datos.
+- **Auth v1 = API key simple**, no OAuth/JWT completo (mono-usuario).
