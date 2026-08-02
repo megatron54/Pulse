@@ -24,4 +24,4 @@ pytest
 - ✅ `engine/progression.py` — estimación de 1RM (Epley), doble progresión de series, autorregulación de carga vía RIR (APRE).
 - ✅ `engine/periodization.py` — semáforo de readiness diario (RED/YELLOW/GREEN) a partir de HRV/Body Battery/Training Readiness/ACWR/sueño/dolor, y decisión de sesión del día.
 - ✅ `engine/guardrails.py` — guardrails transversales: deload forzado por ACWR sostenido, pausa de déficit calórico por RED sostenido en corte, descanso forzado pre-competición, validación de no apilar sesiones de alta demanda.
-- ⬜ `garmin_sync/client.py` — pendiente (siguiente paso).
+- ✅ `garmin_sync/client.py` + `garmin_sync/mapper.py` — sincronización con Garmin Connect (login de un solo intento, sin reintento agresivo; aislamiento de fallos por campo; mapeo a RecoveryContext con principio "unknown is not zero"). Testeado sin red real (api_factory inyectable). **Pendiente:** verificar la forma real de los payloads `_extraer_*` contra una cuenta Garmin viva en la primera sincronización end-to-end.
