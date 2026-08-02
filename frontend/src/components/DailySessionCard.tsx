@@ -15,6 +15,7 @@ const LABELS: Record<SessionTypeValue, string> = {
 };
 
 export function DailySessionCard({ userId }: { userId: number }) {
+  const [modoAutomatico, setModoAutomatico] = useState(true);
   const [plannedSession, setPlannedSession] = useState<SessionTypeValue>("strength_heavy");
   const [resultado, setResultado] = useState<DailySessionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -28,14 +29,16 @@ export function DailySessionCard({ userId }: { userId: number }) {
     try {
       const r = await api.getDailySession(userId, {
         target_date: todayLocalDate(),
-        planned_session: plannedSession,
+        ...(modoAutomatico ? {} : { planned_session: plannedSession }),
       });
       setResultado(r);
     } catch (err) {
       setError(
         err instanceof ApiError
           ? err.status === 400
-            ? "Necesitas hacer el check-in de recuperación de hoy primero."
+            ? modoAutomatico
+              ? "No hay readiness de hoy o no tienes un plan semanal activo. Haz el check-in y/o activa un plan semanal abajo (o elige manualmente)."
+              : "Necesitas hacer el check-in de recuperación de hoy primero."
             : err.message
           : String(err)
       );
@@ -48,20 +51,30 @@ export function DailySessionCard({ userId }: { userId: number }) {
     <div className="border rounded-lg p-6">
       <h2 className="text-lg font-semibold mb-4">Sesión de hoy</h2>
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1">
-          ¿Qué tocaba hoy según tu plan?
-          <select
-            className="border rounded px-2 py-1"
-            value={plannedSession}
-            onChange={(e) => setPlannedSession(e.target.value as SessionTypeValue)}
-          >
-            {SESSION_TYPES.map((tipo) => (
-              <option key={tipo} value={tipo}>
-                {LABELS[tipo]}
-              </option>
-            ))}
-          </select>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={modoAutomatico}
+            onChange={(e) => setModoAutomatico(e.target.checked)}
+          />
+          Derivar automáticamente de mi plan semanal
         </label>
+        {!modoAutomatico && (
+          <label className="flex flex-col gap-1">
+            ¿Qué tocaba hoy según tu plan?
+            <select
+              className="border rounded px-2 py-1"
+              value={plannedSession}
+              onChange={(e) => setPlannedSession(e.target.value as SessionTypeValue)}
+            >
+              {SESSION_TYPES.map((tipo) => (
+                <option key={tipo} value={tipo}>
+                  {LABELS[tipo]}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         {error && <p className="text-red-600 text-sm">{error}</p>}
         <button
           type="submit"
