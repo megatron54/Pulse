@@ -12,6 +12,28 @@ from engine.periodization import ReadinessLevel
 from models.schema import ReadinessLog
 
 
+def get_latest_readiness_level(
+    session: Session, user_id: int, target_date: date
+) -> ReadinessLevel | None:
+    """El resultado de readiness más reciente para `user_id` en
+    `target_date` (append-only: puede haber varias filas si se
+    re-ejecutó el check-in ese día - se usa siempre la última, mismo
+    criterio que `services.session_service` y `services.readiness_service`).
+    Devuelve None si no hay ningún ReadinessLog para ese día.
+
+    Centraliza esta consulta para que tanto `services.session_service`
+    como la capa HTTP (api/routers/session.py) usen exactamente la misma
+    lógica, evitando que dos queries independientes puedan divergir.
+    """
+    log = (
+        session.query(ReadinessLog)
+        .filter_by(user_id=user_id, fecha=target_date)
+        .order_by(ReadinessLog.created_at.desc(), ReadinessLog.id.desc())
+        .first()
+    )
+    return ReadinessLevel(log.resultado) if log is not None else None
+
+
 def get_recent_readiness_levels(
     session: Session, user_id: int, as_of: date, n: int
 ) -> list[ReadinessLevel]:

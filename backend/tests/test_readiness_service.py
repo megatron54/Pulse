@@ -16,11 +16,11 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from engine.periodization import ReadinessLevel
+from engine.periodization import ReadinessLevel, RecoveryContext
 from garmin_sync.client import GarminClient
 from garmin_sync.mapper import InsufficientDataError
 from models.schema import AuditLog, Base, GarminDailyMetrics, ReadinessLog, UserProfile
-from services.readiness_service import sync_and_compute_readiness
+from services.readiness_service import record_manual_readiness, sync_and_compute_readiness
 
 
 @pytest.fixture()
@@ -183,3 +183,58 @@ class TestSyncAndComputeReadiness:
         # pierde el dato de Garmin solo porque falte HRV ese día).
         filas = session.query(GarminDailyMetrics).filter_by(user_id=usuario.id).all()
         assert len(filas) == 1
+
+
+class TestRecordManualReadiness:
+    """Check-in manual: mismo motor de reglas y persistencia que
+    sync_and_compute_readiness, pero sin depender de Garmin - útil
+    mientras la sincronización real siga bloqueada (Fase H)."""
+
+    def test_persiste_readiness_log_igual_que_la_via_garmin(self, session, usuario):
+        ctx = RecoveryContext(
+            hrv_today=65.0,
+            hrv_baseline_28d=65.0,
+            hrv_trend_7d=0.0,
+            body_battery_am=80,
+            training_readiness="high",
+            sleep_score=85,
+            acwr=1.0,
+            joint_pain_flag=False,
+        )
+        log = record_manual_readiness(session, usuario.id, date(2026, 8, 2), ctx)
+        assert log.resultado == ReadinessLevel.GREEN.value
+
+        fila = session.query(ReadinessLog).filter_by(user_id=usuario.id).one()
+        assert fila.id == log.id
+
+    def test_no_toca_garmin_daily_metrics(self, session, usuario):
+        # A diferencia de la vía Garmin, el check-in manual no sincroniza
+        # ni persiste nada en GarminDailyMetrics.
+        ctx = RecoveryContext(
+            hrv_today=65.0,
+            hrv_baseline_28d=65.0,
+            hrv_trend_7d=0.0,
+            body_battery_am=80,
+            training_readiness="high",
+            sleep_score=85,
+            acwr=1.0,
+            joint_pain_flag=False,
+        )
+        record_manual_readiness(session, usuario.id, date(2026, 8, 2), ctx)
+        assert session.query(GarminDailyMetrics).filter_by(user_id=usuario.id).count() == 0
+
+    def test_registra_auditoria(self, session, usuario):
+        ctx = RecoveryContext(
+            hrv_today=50.0,
+            hrv_baseline_28d=65.0,
+            hrv_trend_7d=0.0,
+            body_battery_am=80,
+            training_readiness="high",
+            sleep_score=85,
+            acwr=1.0,
+            joint_pain_flag=False,
+        )
+        log = record_manual_readiness(session, usuario.id, date(2026, 8, 2), ctx)
+        assert log.resultado == ReadinessLevel.RED.value
+        auditoria = session.query(AuditLog).filter_by(user_id=usuario.id).one()
+        assert auditoria.output == ReadinessLevel.RED.value
