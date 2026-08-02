@@ -7,7 +7,10 @@ solo serialización (Pydantic) y mapeo de errores a códigos HTTP.
 """
 from __future__ import annotations
 
+import os
+
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from api.routers import body_composition, nutrition, readiness, session, users
@@ -18,6 +21,20 @@ app = FastAPI(
     title="Pulse API",
     description="Entrenador personal con IA - motor de reglas determinista + coach conversacional.",
     version="0.1.0",
+)
+
+# CORS: necesario para que el frontend (Fase B, Next.js en otro puerto/
+# origen) pueda llamar a esta API desde el navegador. En dev, el origen
+# se toma de PULSE_FRONTEND_ORIGIN (por defecto localhost:3000, el
+# puerto estándar de `next dev`); en producción se debe fijar al dominio
+# real del frontend desplegado.
+_frontend_origin = os.environ.get("PULSE_FRONTEND_ORIGIN", "http://localhost:3000")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[_frontend_origin],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
