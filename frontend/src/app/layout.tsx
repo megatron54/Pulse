@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Inter, Oswald } from "next/font/google";
+import { AppShell } from "@/components/AppShell";
 import "./globals.css";
 
 // Sustitutas libres de Proxima Nova (texto) y DINPro (números) - las
@@ -26,6 +27,13 @@ export const metadata: Metadata = {
   description: "Entrenador personal con IA - recovery, strain y nutrición en un solo lugar.",
 };
 
+// viewportFit: "cover" habilita env(safe-area-inset-*) en CSS (code-review
+// M1) - sin esto, la barra de pestañas móvil invadiría el área del
+// home indicator en iPhones con notch.
+export const viewport: Viewport = {
+  viewportFit: "cover",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -36,7 +44,9 @@ export default function RootLayout({
       lang="es"
       className={`${inter.variable} ${oswald.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="h-full flex flex-col">
+        <AppShell>{children}</AppShell>
+      </body>
     </html>
   );
 }
