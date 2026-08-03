@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pulse
+          POSTGRES_PASSWORD: pulse_dev_password
+          POSTGRES_DB: pulse
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U pulse"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        working-directory: backend
+        run: pip install -r requirements.txt
+
+      - name: Run tests with coverage
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+psycopg2://pulse:pulse_dev_password@localhost:5433/pulse
+        run: |
+          pytest --cov=engine --cov=services --cov=repositories --cov=coach \
+                 --cov=api --cov=models --cov=garmin_sync \
+                 --cov-report=term-missing --cov-fail-under=85
+
+      - name: Verify schema against real Postgres (create/drop/create)
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+psycopg2://pulse:pulse_dev_password@localhost:5433/pulse
+        run: |
+          python -c "
+          from models.database import create_pulse_engine
+          from models.schema import Base
+          engine = create_pulse_engine()
+          Base.metadata.create_all(engine)
+          Base.metadata.drop_all(engine)
+          Base.metadata.create_all(engine)
+          print('OK: schema verified against real Postgres')
+          "
+
+      - name: Start API and check /health against real Postgres
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+psycopg2://pulse:pulse_dev_password@localhost:5433/pulse
+        run: |
+          uvicorn api.main:app --host 127.0.0.1 --port 8000 &
+          sleep 3
+          curl -sf http://127.0.0.1:8000/health
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Build (type-check + production build)
+        working-directory: frontend
+        run: npm run build
