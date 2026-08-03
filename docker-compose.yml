@@ -55,6 +55,8 @@ services:
       - backend
     ports:
       - "3000:3000"
+    # Healthcheck ya definido en frontend/Dockerfile (HEALTHCHECK), no se
+    # duplica aquí - `docker compose up --wait` lo respeta igual.
     restart: unless-stopped
 
 volumes:
