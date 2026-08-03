@@ -113,3 +113,4 @@ Entregables:
 - **Frontend v1 = Next.js web, no Flutter nativo** (ver principios arriba). Reevaluable más adelante sin coste de backend.
 - **wger se integra vía su API REST**, no vía acceso directo a su base de datos.
 - **Auth v1 = API key simple**, no OAuth/JWT completo (mono-usuario).
+- **Rediseño visual estilo WHOOP** (a petición explícita del usuario): tema oscuro, colores de marca exactos de la guía oficial de WHOOP (recovery verde/amarillo/rojo, strain, teal, sleep), tipografía Inter+Oswald como sustitutas libres de Proxima Nova/DINPro, librería `motion` para animaciones. Decisión de honestidad de datos: el motor de reglas de Pulse es categórico (verde/amarillo/rojo), no un score continuo 0-100 como el de WHOOP - el anillo de recovery (`RecoveryRing`) tiene un modo categórico explícito que muestra la palabra de la zona en vez de fabricar un número, para no aparentar una precisión que no existe en el dominio.

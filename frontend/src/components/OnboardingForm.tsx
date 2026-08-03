@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import type { User, UserCreateInput } from "@/lib/api";
+import { Card, CardTitle } from "./ui/Card";
+
+const inputClass =
+  "border border-white/10 bg-black/30 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal";
 
 export function OnboardingForm({
   onCreate,
@@ -35,58 +39,60 @@ export function OnboardingForm({
   }
 
   return (
-    <div className="max-w-md mx-auto p-6 border rounded-lg">
-      <h2 className="text-lg font-semibold mb-4">Configura tu perfil</h2>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1">
-          Nombre
-          <input
-            className="border rounded px-2 py-1"
-            value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
-            required
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          Altura (cm)
-          <input
-            type="number"
-            className="border rounded px-2 py-1"
-            value={alturaCm}
-            onChange={(e) => setAlturaCm(Number(e.target.value))}
-            required
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          Fecha de nacimiento
-          <input
-            type="date"
-            className="border rounded px-2 py-1"
-            value={fechaNacimiento}
-            onChange={(e) => setFechaNacimiento(e.target.value)}
-            required
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          Sexo
-          <select
-            className="border rounded px-2 py-1"
-            value={sexo}
-            onChange={(e) => setSexo(e.target.value as "M" | "F")}
+    <div className="max-w-md mx-auto">
+      <Card>
+        <CardTitle>Configura tu perfil</CardTitle>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <label className="flex flex-col gap-1 text-sm text-gray-300">
+            Nombre
+            <input
+              className={inputClass}
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              required
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm text-gray-300">
+            Altura (cm)
+            <input
+              type="number"
+              className={inputClass}
+              value={alturaCm}
+              onChange={(e) => setAlturaCm(Number(e.target.value))}
+              required
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm text-gray-300">
+            Fecha de nacimiento
+            <input
+              type="date"
+              className={inputClass}
+              value={fechaNacimiento}
+              onChange={(e) => setFechaNacimiento(e.target.value)}
+              required
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm text-gray-300">
+            Sexo
+            <select
+              className={inputClass}
+              value={sexo}
+              onChange={(e) => setSexo(e.target.value as "M" | "F")}
+            >
+              <option value="M">Masculino</option>
+              <option value="F">Femenino</option>
+            </select>
+          </label>
+          {error && <p className="text-red-400 text-sm">{error}</p>}
+          <button
+            type="submit"
+            disabled={submitting}
+            className="bg-teal text-black font-semibold rounded-lg px-4 py-2.5 disabled:bg-surface disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:scale-100 transition-transform hover:scale-[1.02] active:scale-[0.98]"
           >
-            <option value="M">Masculino</option>
-            <option value="F">Femenino</option>
-          </select>
-        </label>
-        {error && <p className="text-red-600 text-sm">{error}</p>}
-        <button
-          type="submit"
-          disabled={submitting}
-          className="bg-black text-white rounded px-4 py-2 disabled:opacity-50"
-        >
-          {submitting ? "Creando..." : "Crear perfil"}
-        </button>
-      </form>
+            {submitting ? "Creando..." : "Crear perfil"}
+          </button>
+        </form>
+      </Card>
     </div>
   );
 }

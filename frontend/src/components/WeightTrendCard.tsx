@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api, ApiError, type BodyMeasurement } from "@/lib/api";
 import { dedupeUltimaPorDia } from "@/lib/dedupe";
 import { Sparkline } from "./Sparkline";
+import { Card, CardTitle } from "./ui/Card";
 
 /**
  * Dashboard de tendencia de peso (Fase I del plan autónomo) sobre
@@ -46,9 +47,9 @@ export function WeightTrendCard({
   const ultimo = diario.at(-1);
 
   return (
-    <div className="border rounded-lg p-6">
-      <h2 className="text-lg font-semibold mb-4">Tendencia de peso (90 días)</h2>
-      {error && <p className="text-red-600 text-sm">{error}</p>}
+    <Card>
+      <CardTitle>Tendencia de peso (90 días)</CardTitle>
+      {error && <p className="text-red-400 text-sm">{error}</p>}
       {!error && mediciones !== null && diario.length === 0 && (
         <p className="text-sm text-gray-400 italic">
           Todavía no hay mediciones registradas.
@@ -60,12 +61,15 @@ export function WeightTrendCard({
             values={diario.map((m) => m.peso_kg)}
             label={`Tendencia de peso, ${diario.length} días, último registro ${ultimo?.peso_kg.toFixed(1)} kg`}
           />
-          <p className="text-sm text-gray-500 mt-2">
-            Último registro: {ultimo?.peso_kg.toFixed(1)} kg ({diario.length} días con
-            dato)
+          <p className="text-sm text-gray-400 mt-2">
+            Último registro:{" "}
+            <span className="font-display text-base text-white">
+              {ultimo?.peso_kg.toFixed(1)} kg
+            </span>{" "}
+            ({diario.length} días con dato)
           </p>
         </>
       )}
-    </div>
+    </Card>
   );
 }

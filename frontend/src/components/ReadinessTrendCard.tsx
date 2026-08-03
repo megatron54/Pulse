@@ -3,11 +3,17 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, type ReadinessResult } from "@/lib/api";
 import { dedupeUltimaPorDia } from "@/lib/dedupe";
+import { Card, CardTitle } from "./ui/Card";
 
+// Colores exactos de la guía de marca de WHOOP para zonas de recovery
+// ("WHOOP - Brand & Design Guidelines"), vía los tokens de tema
+// definidos una sola vez en globals.css (--color-recovery-*) - no
+// arbitrary values `bg-[#hex]` duplicados por componente (code-review
+// M1: evita que el mismo hex viva repetido en N archivos).
 const COLOR_POR_RESULTADO: Record<string, string> = {
-  green: "bg-green-500",
-  yellow: "bg-yellow-500",
-  red: "bg-red-500",
+  green: "bg-recovery-high",
+  yellow: "bg-recovery-medium",
+  red: "bg-recovery-low",
 };
 
 // Etiqueta legible independiente del color, para que el significado no
@@ -61,15 +67,15 @@ export function ReadinessTrendCard({
   const diario = historial ? dedupeUltimaPorDia(historial) : [];
 
   return (
-    <div className="border rounded-lg p-6">
-      <h2 className="text-lg font-semibold mb-4">Tendencia de readiness (30 días)</h2>
-      {error && <p className="text-red-600 text-sm">{error}</p>}
+    <Card>
+      <CardTitle>Tendencia de readiness (30 días)</CardTitle>
+      {error && <p className="text-red-400 text-sm">{error}</p>}
       {!error && historial !== null && diario.length === 0 && (
         <p className="text-sm text-gray-400 italic">Todavía no hay check-ins registrados.</p>
       )}
       {!error && diario.length > 0 && (
         <div
-          className="flex flex-wrap gap-1"
+          className="flex flex-wrap gap-1.5"
           role="list"
           aria-label="Historial de readiness por día"
         >
@@ -80,11 +86,11 @@ export function ReadinessTrendCard({
               data-testid="readiness-dia"
               aria-label={`${dia.fecha}: ${ETIQUETA_POR_RESULTADO[dia.resultado] ?? dia.resultado}`}
               title={`${dia.fecha}: ${dia.resultado}`}
-              className={`w-4 h-4 rounded-sm ${COLOR_POR_RESULTADO[dia.resultado] ?? "bg-gray-300"}`}
+              className={`w-4 h-4 rounded-full transition-transform hover:scale-125 ${COLOR_POR_RESULTADO[dia.resultado] ?? "bg-gray-600"}`}
             />
           ))}
         </div>
       )}
-    </div>
+    </Card>
   );
 }
