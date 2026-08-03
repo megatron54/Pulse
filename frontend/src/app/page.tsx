@@ -7,6 +7,8 @@ import { ReadinessCheckinForm } from "@/components/ReadinessCheckinForm";
 import { DailySessionCard } from "@/components/DailySessionCard";
 import { NutritionTargetCard } from "@/components/NutritionTargetCard";
 import { WeeklyScheduleForm } from "@/components/WeeklyScheduleForm";
+import { WeightTrendCard } from "@/components/WeightTrendCard";
+import { ReadinessTrendCard } from "@/components/ReadinessTrendCard";
 
 export default function Home() {
   const { user, loading, error, createUser } = useCurrentUser();
@@ -31,9 +33,11 @@ export default function Home() {
       <p className="text-gray-500 mb-8">Hola, {user.nombre}.</p>
       <div className="flex flex-col gap-6">
         <ReadinessCheckinForm userId={user.id} />
+        <ReadinessTrendCard userId={user.id} />
         <DailySessionCard userId={user.id} />
         <WeeklyScheduleForm userId={user.id} />
         <BodyMeasurementForm userId={user.id} />
+        <WeightTrendCard userId={user.id} />
         <NutritionTargetCard userId={user.id} />
       </div>
     </main>

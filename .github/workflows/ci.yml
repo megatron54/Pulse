@@ -43,7 +43,8 @@ jobs:
           DATABASE_URL: postgresql+psycopg2://pulse:pulse_dev_password@localhost:5433/pulse
         run: |
           pytest --cov=engine --cov=services --cov=repositories --cov=coach \
-                 --cov=api --cov=models --cov=garmin_sync \
+                 --cov=api --cov=models --cov=garmin_sync --cov=scheduler \
+                 --cov=wger_client \
                  --cov-report=term-missing --cov-fail-under=85
 
       - name: Verify schema against real Postgres (create/drop/create)
@@ -89,6 +90,10 @@ jobs:
       - name: Lint
         working-directory: frontend
         run: npm run lint
+
+      - name: Unit tests
+        working-directory: frontend
+        run: npm test
 
       - name: Build (type-check + production build)
         working-directory: frontend
