@@ -24,6 +24,7 @@ from models.schema import (
     BodyMeasurements,
     CoachConversation,
     GarminActivity,
+    GarminCredentials,
     GarminDailyMetrics,
     NutritionLog,
     ProgressPhoto,
@@ -360,6 +361,28 @@ class TestTrainingBlockYCoachConversation:
         session.add(mensaje)
         session.commit()
         assert mensaje.decision_tipada_asociada is None
+
+
+class TestGarminCredentials:
+    def test_crea_referencia_al_token_store_activa_por_defecto(self, session):
+        usuario = _crear_usuario(session)
+        cred = GarminCredentials(user_id=usuario.id, token_store_dir="/secrets/garmin/1")
+        session.add(cred)
+        session.commit()
+        assert cred.activo is True
+
+    def test_no_tiene_ningun_campo_de_contrasena(self, session):
+        columnas = set(GarminCredentials.__table__.columns.keys())
+        assert "password" not in columnas
+        assert "contrasena" not in columnas
+
+    def test_rechaza_segundo_registro_para_el_mismo_usuario(self, session):
+        usuario = _crear_usuario(session)
+        session.add(GarminCredentials(user_id=usuario.id, token_store_dir="/a"))
+        session.commit()
+        session.add(GarminCredentials(user_id=usuario.id, token_store_dir="/b"))
+        with pytest.raises(Exception):
+            session.commit()
 
 
 class TestGarminActivityYProgressPhoto:

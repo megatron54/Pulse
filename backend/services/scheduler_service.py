@@ -1,0 +1,119 @@
+"""Orquesta la sincronización diaria masiva de Garmin para TODOS los
+usuarios con `GarminCredentials` activas (Fase C del plan autónomo,
+docs/02-roadmap/02-plan-autonomo.md).
+
+Este módulo es el punto de entrada que usará el scheduler (APScheduler,
+ver `scheduler/app.py`) para ejecutar el job nocturno. Sin credenciales
+reales todavía (Fase H sigue bloqueada por falta de una cuenta Garmin de
+prueba), pero la infraestructura queda lista: en cuanto exista al menos
+una fila en `GarminCredentials`, el job empieza a sincronizar de verdad
+sin cambios de código.
+
+Limitación conocida y documentada: `acwr` y `joint_pain_flag` no pueden
+calcularse/obtenerse de forma automática todavía (ver docstring de
+`services.readiness_service.sync_and_compute_readiness`) - joint_pain_flag
+es inherentemente una entrada manual, y ACWR no tiene motor de cálculo
+dedicado aún. El job nocturno usa por tanto los valores neutrales
+documentados (acwr=1.0, joint_pain_flag=False) en vez de bloquear la
+sincronización automática; esto NUNCA debe inventar una señal de dolor
+articular o de carga de entrenamiento que no existe. Cuando el usuario
+quiera declarar dolor articular real, debe seguir usando el check-in
+manual (`services.readiness_service.record_manual_readiness`), que
+sobreescribe/complementa este resultado automático vía el mismo patrón
+append-only de `ReadinessLog`.
+
+Principio de aislamiento: un fallo sincronizando UN usuario nunca debe
+impedir sincronizar a los demás - mismo principio que
+`garmin_sync.client._llamada_segura` aplica campo a campo, aquí aplicado
+usuario a usuario.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import date
+from typing import Any, Callable
+
+from sqlalchemy.orm import Session
+
+from garmin_sync.client import GarminClient
+from models.schema import AuditLog, GarminCredentials
+from services.readiness_service import sync_and_compute_readiness
+
+_ACWR_NEUTRAL_POR_DEFECTO = 1.0
+_JOINT_PAIN_FLAG_POR_DEFECTO = False
+
+
+@dataclass(frozen=True)
+class SyncBatchResult:
+    """Resumen del resultado de una pasada de sincronización masiva."""
+
+    exitosos: int
+    fallidos: int
+    omitidos: int
+
+
+def run_daily_sync_for_all_users(
+    session: Session,
+    target_date: date,
+    api_factory: Callable[..., Any] | None = None,
+) -> SyncBatchResult:
+    """Sincroniza `target_date` para cada usuario con `GarminCredentials`
+    activas, registrando en `AuditLog` (modulo="scheduler") tanto los
+    fallos individuales como - implícitamente vía `ReadinessLog` - los
+    éxitos, para no perder trazabilidad de qué corrió cada noche.
+
+    Nunca lanza excepción por un fallo individual: acumula el conteo y
+    continúa con el siguiente usuario. Si `session.commit()` en sí mismo
+    fallara (p.ej. la base de datos caída), esa excepción sí se propaga,
+    porque en ese caso ningún usuario podría sincronizarse igualmente.
+    """
+    credenciales_activas = (
+        session.query(GarminCredentials).filter_by(activo=True).all()
+    )
+
+    exitosos = 0
+    fallidos = 0
+    omitidos = (
+        session.query(GarminCredentials).filter_by(activo=False).count()
+    )
+
+    for cred in credenciales_activas:
+        try:
+            garmin_client = GarminClient(
+                token_store_dir=cred.token_store_dir,
+                api_factory=api_factory,
+            )
+            garmin_client.login()
+            sync_and_compute_readiness(
+                session,
+                user_id=cred.user_id,
+                garmin_client=garmin_client,
+                target_date=target_date,
+                acwr=_ACWR_NEUTRAL_POR_DEFECTO,
+                joint_pain_flag=_JOINT_PAIN_FLAG_POR_DEFECTO,
+            )
+            exitosos += 1
+        except Exception as exc:  # noqa: BLE001 - aislamiento intencional por usuario
+            session.rollback()
+            try:
+                session.add(
+                    AuditLog(
+                        user_id=cred.user_id,
+                        modulo="scheduler",
+                        inputs_json={"target_date": target_date.isoformat()},
+                        regla_disparada="sync_diario_fallido",
+                        output="error",
+                        decision_final=str(exc)[:200],
+                    )
+                )
+                session.commit()
+            except Exception:  # noqa: BLE001 - la auditoría del fallo NUNCA
+                # debe poder tumbar el resto del batch (p.ej. FK inválida si
+                # el usuario fue borrado entre la lectura de credenciales y
+                # este punto). Se descarta el intento de auditoría y se
+                # sigue con el resto de usuarios; el conteo en `fallidos`
+                # ya refleja que este usuario no se sincronizó.
+                session.rollback()
+            fallidos += 1
+
+    return SyncBatchResult(exitosos=exitosos, fallidos=fallidos, omitidos=omitidos)

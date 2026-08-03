@@ -62,10 +62,13 @@ Entregables:
 - Cliente API tipado (fetch contra la API de Fase A).
 - Sin diseño elaborado en v1: funcional primero, pulido después (coherente con "no rushear" pero priorizando que *funcione* antes que *se vea bien*).
 
-## Fase C — Scheduler diario
+## Fase C — Scheduler diario ✅
 
-- APScheduler o cron nativo del SO ejecutando `sync_and_compute_readiness` + `compute_daily_nutrition_target` cada madrugada.
-- Si Garmin real falla (sin credenciales aún), debe degradar con gracia (log de error, no crash del proceso).
+- `backend/scheduler/app.py`: entrypoint APScheduler (`BlockingScheduler`, cron configurable vía `PULSE_SCHEDULER_HORA`/`_MINUTO`, por defecto 04:00), ejecuta `services.scheduler_service.run_daily_sync_for_all_users` cada madrugada para todos los usuarios con `GarminCredentials` activas (nueva tabla, solo referencia a `token_store_dir` - nunca contraseñas).
+- Aislamiento por usuario: un fallo sincronizando a uno (rate-limit, token caducado, `InsufficientDataError`) nunca impide sincronizar al resto ni aborta el batch (incluida la escritura de la propia auditoría del fallo).
+- Job envuelto en try/except propio: un error inesperado no documentado no debe poder tumbar el proceso de larga duración.
+- Sin credenciales reales todavía (Fase H bloqueada): cada pasada sincroniza 0 usuarios y termina en <1s, pero el código no necesita cambios cuando existan.
+- `acwr`/`joint_pain_flag` usan valores neutrales documentados (1.0 / False) porque no hay forma automática de obtenerlos aún; el check-in manual sigue disponible para declarar dolor articular real.
 
 ## Fase D — Auth mínima
 
