@@ -9,13 +9,15 @@
  * hay tendencia que trazar, así que se muestra un mensaje explícito en
  * vez de una línea plana o un SVG vacío que parezca un bug.
  */
+import { PALETA } from "@/lib/theme";
+
 const ANCHO = 300;
 const ALTO = 80;
 const PADDING_VERTICAL = 8;
 
 export function Sparkline({
   values,
-  strokeColor = "#2563eb",
+  strokeColor = PALETA.teal,
   label = "Gráfica de tendencia",
 }: {
   values: number[];

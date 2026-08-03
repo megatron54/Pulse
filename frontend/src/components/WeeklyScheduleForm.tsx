@@ -11,6 +11,10 @@ import {
   type SessionTypeValue,
   type TrainingBlock,
 } from "@/lib/api";
+import { Card, CardTitle } from "./ui/Card";
+
+const inputClass =
+  "border border-white/10 bg-black/30 rounded-lg px-3 py-2 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-teal";
 
 const DAY_LABELS: Record<DayOfWeek, string> = {
   mon: "Lunes",
@@ -90,37 +94,37 @@ export function WeeklyScheduleForm({
   }
 
   return (
-    <div className="border rounded-lg p-6">
-      <h2 className="text-lg font-semibold mb-1">Plan semanal (6 semanas)</h2>
-      <p className="text-sm text-gray-500 mb-4">
+    <Card>
+      <CardTitle>Plan semanal (6 semanas)</CardTitle>
+      <p className="text-sm text-gray-400 mb-4 -mt-2">
         Una vez creado, la app decide sola qué toca cada día combinándolo con tu recuperación -
         ya no hace falta elegirlo a mano en &quot;Sesión de hoy&quot;.
       </p>
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1">
+        <label className="flex flex-col gap-1 text-sm text-gray-300">
           Objetivo prioritario del bloque
           <input
-            className="border rounded px-2 py-1"
+            className={inputClass}
             value={objetivo}
             onChange={(e) => setObjetivo(e.target.value)}
             placeholder="ej. strength, hypertrophy, running, bjj"
           />
         </label>
-        <label className="flex flex-col gap-1">
+        <label className="flex flex-col gap-1 text-sm text-gray-300">
           Fecha de inicio
           <input
             type="date"
-            className="border rounded px-2 py-1"
+            className={inputClass}
             value={fechaInicio}
             onChange={(e) => setFechaInicio(e.target.value)}
           />
         </label>
         <div className="grid grid-cols-1 gap-2">
           {DAYS_OF_WEEK.map((day) => (
-            <label key={day} className="flex items-center gap-2">
-              <span className="w-24 text-sm">{DAY_LABELS[day]}</span>
+            <label key={day} className="flex items-center gap-2 text-sm text-gray-300">
+              <span className="w-24">{DAY_LABELS[day]}</span>
               <select
-                className="border rounded px-2 py-1 flex-1"
+                className={`${inputClass} flex-1`}
                 value={schedule[day] ?? ""}
                 onChange={(e) => updateDay(day, e.target.value)}
               >
@@ -134,16 +138,18 @@ export function WeeklyScheduleForm({
             </label>
           ))}
         </div>
-        {error && <p className="text-red-600 text-sm">{error}</p>}
+        {error && <p className="text-red-400 text-sm">{error}</p>}
         <button
           type="submit"
           disabled={submitting}
-          className="bg-black text-white rounded px-4 py-2 disabled:opacity-50 self-start"
+          className="bg-teal text-black font-semibold rounded-lg px-4 py-2.5 disabled:bg-surface disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:scale-100 self-start transition-transform hover:scale-[1.02] active:scale-[0.98]"
         >
           {submitting ? "Creando..." : "Activar plan semanal"}
         </button>
       </form>
-      {created && <p className="mt-3 text-green-700 text-sm">Plan semanal activado.</p>}
-    </div>
+      {created && (
+        <p className="mt-3 text-[#16EC06] text-sm font-medium">Plan semanal activado.</p>
+      )}
+    </Card>
   );
 }
