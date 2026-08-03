@@ -94,9 +94,12 @@ Entregables:
 
 - Todo el código ya existe y está probado con dobles. Cuando el usuario aporte credenciales/token, se ejecuta una prueba end-to-end real y se ajustan los `_extraer_*` de `garmin_sync/client.py` contra la forma real de los payloads (ya anotado como deuda técnica desde el PR original).
 
-## Fase I — Dashboards
+## Fase I — Dashboards ✅ (parcial)
 
-- Gráficas de tendencia (Recharts/Chart.js) sobre los endpoints de historial ya existentes en los repositorios.
+- `frontend/src/components/Sparkline.tsx`: gráfica de línea en SVG puro, sin dependencia externa (Recharts/Chart.js descartados a propósito para no aumentar la superficie de auditoría del frontend por una gráfica simple - coherente con la decisión de "0 vulnerabilidades" del PR #26).
+- `WeightTrendCard` (línea continua sobre `/body-measurements/history`, deduplicado a última fila por día) y `ReadinessTrendCard` (bloques de color rojo/amarillo/verde sobre `/readiness/history` - categórico, una línea continua sería engañosa) sobre los endpoints de historial ya existentes.
+- Se añadió Vitest + Testing Library al frontend (no existía ningún runner de tests unitarios todavía) — 11 tests, TDD real, cableado en CI (`npm test`).
+- Pendiente: gráficas de macros/nutrición y de volumen de entrenamiento (Fase F) todavía no tienen dashboard propio.
 
 ## Fase J — Empaquetado único
 
