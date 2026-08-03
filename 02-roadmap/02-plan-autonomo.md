@@ -101,9 +101,12 @@ Entregables:
 - Se añadió Vitest + Testing Library al frontend (no existía ningún runner de tests unitarios todavía) — 11 tests, TDD real, cableado en CI (`npm test`).
 - Pendiente: gráficas de macros/nutrición y de volumen de entrenamiento (Fase F) todavía no tienen dashboard propio.
 
-## Fase J — Empaquetado único
+## Fase J — Empaquetado único ✅
 
-- Un `docker-compose.yml` en la raíz del repo (no en `infra/`) que levante: Postgres de Pulse, backend FastAPI, frontend Next.js — para que todo el stack propio (no wger, que sigue aparte) se levante con un solo comando.
+- `docker-compose.yml` en la raíz (Postgres de Pulse + backend FastAPI + frontend Next.js) — verificado de extremo a extremo en esta sesión: `docker compose up -d --build` desde un volumen de Postgres nuevo, los 3 servicios quedan `healthy`, se creó un usuario real a través de la API corriendo en Docker.
+- **Hallazgo real corregido:** un Postgres recién creado quedaba sin tablas (nada ejecutaba `create_all()` fuera de tests/CI) - el primer request fallaba con `UndefinedTable`. Corregido con `backend/scripts/ensure_schema.py` (idempotente, se ejecuta antes de `uvicorn` en el `CMD` del Dockerfile), sin acoplar esto a un lifespan de FastAPI que interferiría con los tests de integración.
+- Añadido un job `docker-compose-smoke-test` en CI que reproduce este smoke test completo en cada push/PR, como regresión permanente de este hallazgo.
+- Imagen del frontend: se reconstruyó y funcionó sin problemas en esta sesión (el cuelgue de `npm ci` visto anteriormente no se reprodujo).
 
 ## Registro de decisiones tomadas en este documento
 
