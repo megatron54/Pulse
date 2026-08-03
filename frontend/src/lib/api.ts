@@ -192,4 +192,12 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+
+  getBodyMeasurementHistory: (userId: number, days = 90) =>
+    request<BodyMeasurement[]>(
+      `/users/${userId}/body-measurements/history?days=${days}`
+    ),
+
+  getReadinessHistory: (userId: number, days = 30) =>
+    request<ReadinessResult[]>(`/users/${userId}/readiness/history?days=${days}`),
 };
