@@ -98,3 +98,48 @@ jobs:
       - name: Build (type-check + production build)
         working-directory: frontend
         run: npm run build
+
+  docker-compose-smoke-test:
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-build]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Levantar el stack completo (Postgres+backend+frontend) desde cero
+        run: |
+          cp .env.example .env
+          sed -i 's/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=ci-smoke-test-only/' .env
+          # --wait usa los HEALTHCHECK nativos de cada servicio (Postgres,
+          # backend y frontend los tienen) en vez de un loop manual frágil
+          # y dependiente de la forma exacta del JSON de `compose ps`.
+          docker compose up -d --build --wait --wait-timeout 120
+          docker compose ps
+
+      - name: Regresión - crear un usuario real contra el stack recién levantado
+        # Regresión del hallazgo real de Fase J: un Postgres NUEVO (volumen
+        # recién creado) se quedaba sin tablas y este request fallaba con
+        # UndefinedTable (ver backend/scripts/ensure_schema.py). Se imprime
+        # el body de la respuesta en caso de fallo para distinguir esa
+        # regresión de un 422 por un cambio de contrato de la API.
+        run: |
+          curl -sf http://localhost:8000/health
+          respuesta=$(curl -s -o /tmp/resp.json -w "%{http_code}" -X POST http://localhost:8000/users \
+            -H "Content-Type: application/json" \
+            -d '{"nombre":"CISmokeTest","altura_cm":180,"fecha_nacimiento":"1995-01-01","sexo":"M","fase_peso_actual":"maintenance"}')
+          echo "HTTP $respuesta"
+          cat /tmp/resp.json
+          [ "$respuesta" = "201" ]
+
+      - name: Frontend responde 200
+        run: |
+          codigo=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000)
+          echo "HTTP $codigo"
+          [ "$codigo" = "200" ]
+
+      - name: Logs (siempre, para depurar si algo falla)
+        if: always()
+        run: docker compose logs
+
+      - name: Apagar el stack
+        if: always()
+        run: docker compose down -v

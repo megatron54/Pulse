@@ -45,9 +45,10 @@ docker compose ps   # todos los servicios "healthy"
 
 ## Estado de verificación de esta pieza (honestidad de progreso)
 
-- ✅ Imagen Docker del **backend**: construida y verificada en esta sesión (854MB, healthcheck incluido).
-- ⬜ Imagen Docker del **frontend**: el Dockerfile existe y sigue el patrón estándar de build multi-stage de Next.js, pero **no se verificó construyéndola en esta sesión** (el build se quedó colgado en `npm ci` dentro del contenedor por más de 5 minutos sin causa identificada - posible problema de red/DNS del contenedor en este entorno concreto, no necesariamente un problema del Dockerfile). El frontend SÍ está verificado funcionando fuera de Docker (build local + pruebas end-to-end en navegador real contra el backend real, ver PRs de Fase B/F). **Pendiente:** depurar el build de la imagen Docker del frontend en un entorno con red de contenedores fiable.
-- ⬜ `docker-compose.yml` raíz completo (los 3 servicios juntos): no probado de extremo a extremo por el mismo bloqueo del frontend.
+- ✅ Imagen Docker del **backend**: construida y verificada.
+- ✅ Imagen Docker del **frontend**: construida y verificada en esta sesión (el bloqueo de `npm ci` visto anteriormente no se reprodujo - probablemente fue un problema transitorio de red/DNS del contenedor, no del Dockerfile).
+- ✅ `docker-compose.yml` raíz completo (los 3 servicios juntos): probado de extremo a extremo desde cero (volumen de Postgres nuevo, sin ningún paso manual) - los 3 contenedores quedan `healthy`, `/health` responde y se pudo crear un usuario real a través de la API que corre en Docker.
+- **Hallazgo real corregido en esta sesión:** al levantar el stack sobre un Postgres recién creado, la base de datos quedaba sin tablas - nada ejecutaba `Base.metadata.create_all()` fuera de los tests/CI. El primer request real fallaba con `UndefinedTable`. Corregido con `backend/scripts/ensure_schema.py` (idempotente, se ejecuta antes de `uvicorn` en el `CMD` del Dockerfile del backend) en vez de un evento `lifespan` de FastAPI, para no acoplar los tests de integración de la API (que usan su propio engine SQLite) al `DATABASE_URL` real.
 
 ## CI (GitHub Actions)
 
@@ -55,4 +56,4 @@ docker compose ps   # todos los servicios "healthy"
 1. Tests del backend con cobertura (umbral mínimo 85%, cobertura real ~97%).
 2. Verificación del esquema contra un Postgres real (create/drop/create).
 3. Arranque real de la API contra ese Postgres y chequeo de `/health`.
-4. Lint + build del frontend.
+4. Lint + tests unitarios (Vitest) + build del frontend.
