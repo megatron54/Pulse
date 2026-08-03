@@ -123,11 +123,12 @@ jobs:
         # regresión de un 422 por un cambio de contrato de la API.
         run: |
           curl -sf http://localhost:8000/health
-          curl -sf -X POST http://localhost:8000/users \
+          respuesta=$(curl -s -o /tmp/resp.json -w "%{http_code}" -X POST http://localhost:8000/users \
             -H "Content-Type: application/json" \
-            -d '{"nombre":"CISmokeTest","altura_cm":180,"fecha_nacimiento":"1995-01-01","sexo":"M","fase_peso_actual":"maintenance"}' \
-            -w "\nHTTP %{http_code}\n" \
-            --fail-with-body
+            -d '{"nombre":"CISmokeTest","altura_cm":180,"fecha_nacimiento":"1995-01-01","sexo":"M","fase_peso_actual":"maintenance"}')
+          echo "HTTP $respuesta"
+          cat /tmp/resp.json
+          [ "$respuesta" = "201" ]
 
       - name: Frontend responde 200
         run: |
