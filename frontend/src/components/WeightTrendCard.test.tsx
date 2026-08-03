@@ -100,4 +100,18 @@ describe("WeightTrendCard", () => {
 
     expect(api.getBodyMeasurementHistory).toHaveBeenCalledTimes(2);
   });
+
+  it("vuelve a pedir el historial cuando cambia refreshKey (tras guardar una medición nueva)", async () => {
+    // Regresión de un hallazgo real de pruebas manuales con Playwright:
+    // tras guardar una medición en BodyMeasurementForm, esta tarjeta
+    // seguía mostrando "todavía no hay mediciones" hasta recargar la
+    // página entera - no había forma de decirle "hay datos nuevos".
+    vi.mocked(api.getBodyMeasurementHistory).mockResolvedValue([]);
+
+    const { rerender } = render(<WeightTrendCard userId={1} refreshKey={0} />);
+    await waitFor(() => expect(api.getBodyMeasurementHistory).toHaveBeenCalledTimes(1));
+
+    rerender(<WeightTrendCard userId={1} refreshKey={1} />);
+    await waitFor(() => expect(api.getBodyMeasurementHistory).toHaveBeenCalledTimes(2));
+  });
 });

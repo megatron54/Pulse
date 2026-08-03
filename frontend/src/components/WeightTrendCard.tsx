@@ -11,7 +11,18 @@ import { Sparkline } from "./Sparkline";
  * cada día sin agregar (append-only). Se agrega aquí con
  * `dedupeUltimaPorDia` - ver ese módulo para el criterio exacto.
  */
-export function WeightTrendCard({ userId }: { userId: number }) {
+export function WeightTrendCard({
+  userId,
+  refreshKey = 0,
+}: {
+  userId: number;
+  /** Al cambiar (p.ej. tras guardar una medición nueva en un formulario
+   * hermano), fuerza a recargar el historial. Ver docstring de
+   * `ReadinessTrendCard` para el mismo patrón - las tarjetas de
+   * tendencia no saben por sí solas cuándo hay datos nuevos, así que el
+   * padre (`page.tsx`) se lo comunica incrementando este valor. */
+  refreshKey?: number;
+}) {
   const [mediciones, setMediciones] = useState<BodyMeasurement[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,7 +40,7 @@ export function WeightTrendCard({ userId }: { userId: number }) {
     return () => {
       cancelado = true;
     };
-  }, [userId]);
+  }, [userId, refreshKey]);
 
   const diario = mediciones ? dedupeUltimaPorDia(mediciones) : [];
   const ultimo = diario.at(-1);

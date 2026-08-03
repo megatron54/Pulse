@@ -67,4 +67,14 @@ describe("ReadinessTrendCard", () => {
       expect(screen.getByText(/todavía no hay check-ins/i)).toBeInTheDocument()
     );
   });
+
+  it("vuelve a pedir el historial cuando cambia refreshKey (tras un check-in nuevo)", async () => {
+    vi.mocked(api.getReadinessHistory).mockResolvedValue([]);
+
+    const { rerender } = render(<ReadinessTrendCard userId={1} refreshKey={0} />);
+    await waitFor(() => expect(api.getReadinessHistory).toHaveBeenCalledTimes(1));
+
+    rerender(<ReadinessTrendCard userId={1} refreshKey={1} />);
+    await waitFor(() => expect(api.getReadinessHistory).toHaveBeenCalledTimes(2));
+  });
 });
