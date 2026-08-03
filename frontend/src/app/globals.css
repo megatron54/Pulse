@@ -1,26 +1,87 @@
 @import "tailwindcss";
 
+/*
+ * Paleta y tokens visuales de Pulse (rediseño estilo WHOOP, a petición
+ * del usuario). Colores tomados de la guía oficial de marca de WHOOP
+ * ("WHOOP - Brand & Design Guidelines"):
+ * - Recovery High/Medium/Low: los 3 colores exactos de zona de recovery.
+ * - Strain (#0093E7) y Sleep (#7BA1BB): colores de métrica dedicados.
+ * - Teal (#00F19F): call-to-action / highlights / valores positivos.
+ * - Fondo: degradado oscuro #101518 → #283339 (branding real de WHOOP),
+ *   no un negro plano - da profundidad sin salirse de la identidad.
+ * Tipografía: WHOOP usa Proxima Nova (texto) + DINPro (números), ambas
+ * de pago. Sustitutas libres elegidas por parecido real:
+ * - Inter para texto/UI (misma familia geométrica humanista).
+ * - Oswald para números grandes y titulares en mayúsculas (heredera
+ *   directa de la familia DIN/Alternate Gothic que WHOOP usa para cifras).
+ */
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  --color-recovery-high: #16ec06;
+  --color-recovery-medium: #ffde00;
+  --color-recovery-low: #ff0026;
+  --color-strain: #0093e7;
+  --color-sleep: #7ba1bb;
+  --color-teal: #00f19f;
+  --color-recovery-blue: #67aee6;
+  --color-bg-gradient-from: #101518;
+  --color-bg-gradient-to: #283339;
+  --color-surface: #1a1f23;
+  --color-surface-border: #2c3338;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-oswald);
   --font-mono: var(--font-geist-mono);
+
+  --color-recovery-high: var(--color-recovery-high);
+  --color-recovery-medium: var(--color-recovery-medium);
+  --color-recovery-low: var(--color-recovery-low);
+  --color-strain: var(--color-strain);
+  --color-sleep: var(--color-sleep);
+  --color-teal: var(--color-teal);
+  --color-recovery-blue: var(--color-recovery-blue);
+  --color-surface: var(--color-surface);
+  --color-surface-border: var(--color-surface-border);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Pulse es dark-mode-first (coherente con el estilo WHOOP), sin
+ * depender de prefers-color-scheme - la app siempre usa el tema oscuro. */
+:root {
+  --background: #101518;
+  --foreground: #f2f4f5;
 }
 
 body {
-  background: var(--background);
+  background: linear-gradient(
+    180deg,
+    var(--color-bg-gradient-from) 0%,
+    var(--color-bg-gradient-to) 100%
+  );
+  background-attachment: fixed;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), Arial, Helvetica, sans-serif;
 }
+
+.font-display {
+  font-family: var(--font-oswald), Arial, Helvetica, sans-serif;
+}
+
+/* Respeta prefers-reduced-motion (WCAG 2.3.3): neutraliza las
+ * transiciones CSS de barras/botones para usuarios con sensibilidad
+ * vestibular. Las animaciones de `motion` (FadeIn, RecoveryRing) se
+ * gestionan aparte con `useReducedMotion()` en cada componente. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+

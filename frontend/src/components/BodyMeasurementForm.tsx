@@ -2,8 +2,18 @@
 
 import { useState } from "react";
 import { api, ApiError, todayLocalDate, type BodyMeasurement } from "@/lib/api";
+import { Card, CardTitle } from "./ui/Card";
 
-export function BodyMeasurementForm({ userId }: { userId: number }) {
+const inputClass =
+  "border border-white/10 bg-black/30 rounded-lg px-3 py-2 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-teal";
+
+export function BodyMeasurementForm({
+  userId,
+  onSaved,
+}: {
+  userId: number;
+  onSaved?: (m: BodyMeasurement) => void;
+}) {
   const [pesoKg, setPesoKg] = useState(80);
   const [cuelloCm, setCuelloCm] = useState<string>("");
   const [cinturaCm, setCinturaCm] = useState<string>("");
@@ -26,6 +36,7 @@ export function BodyMeasurementForm({ userId }: { userId: number }) {
         cadera_cm: caderaCm ? Number(caderaCm) : undefined,
       });
       setResultado(medicion);
+      onSaved?.(medicion);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : String(err));
     } finally {
@@ -34,21 +45,21 @@ export function BodyMeasurementForm({ userId }: { userId: number }) {
   }
 
   return (
-    <div className="border rounded-lg p-6">
-      <h2 className="text-lg font-semibold mb-4">Registrar peso / medidas</h2>
+    <Card>
+      <CardTitle>Registrar peso / medidas</CardTitle>
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1">
+        <label className="flex flex-col gap-1 text-sm text-gray-300">
           Peso (kg)
           <input
             type="number"
             step="0.1"
-            className="border rounded px-2 py-1"
+            className={inputClass}
             value={pesoKg}
             onChange={(e) => setPesoKg(Number(e.target.value))}
             required
           />
         </label>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-gray-400">
           Opcional: añade cuello/cintura(/cadera) para estimar % de grasa (fórmula Navy, siempre
           como rango, nunca un número exacto).
         </p>
@@ -56,45 +67,46 @@ export function BodyMeasurementForm({ userId }: { userId: number }) {
           <input
             type="number"
             placeholder="Cuello cm"
-            className="border rounded px-2 py-1"
+            className={inputClass}
             value={cuelloCm}
             onChange={(e) => setCuelloCm(e.target.value)}
           />
           <input
             type="number"
             placeholder="Cintura cm"
-            className="border rounded px-2 py-1"
+            className={inputClass}
             value={cinturaCm}
             onChange={(e) => setCinturaCm(e.target.value)}
           />
           <input
             type="number"
             placeholder="Cadera cm (mujer)"
-            className="border rounded px-2 py-1"
+            className={inputClass}
             value={caderaCm}
             onChange={(e) => setCaderaCm(e.target.value)}
           />
         </div>
-        {error && <p className="text-red-600 text-sm">{error}</p>}
+        {error && <p className="text-red-400 text-sm">{error}</p>}
         <button
           type="submit"
           disabled={submitting}
-          className="bg-black text-white rounded px-4 py-2 disabled:opacity-50 self-start"
+          className="bg-teal text-black font-semibold rounded-lg px-4 py-2.5 disabled:bg-surface disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:scale-100 self-start transition-transform hover:scale-[1.02] active:scale-[0.98]"
         >
           {submitting ? "Guardando..." : "Guardar"}
         </button>
       </form>
       {resultado && (
-        <div className="mt-4 p-3 bg-gray-50 rounded text-sm">
+        <div className="mt-4 p-3 bg-black/30 rounded-lg text-sm text-gray-300">
           <p>Método: {resultado.metodo}</p>
           {resultado.bodyfat_pct_rango_min !== null && (
-            <p>
-              % grasa estimado: {resultado.bodyfat_pct_rango_min.toFixed(1)}% -{" "}
-              {resultado.bodyfat_pct_rango_max?.toFixed(1)}%
+            <p className="font-display text-lg text-white mt-1">
+              {resultado.bodyfat_pct_rango_min.toFixed(1)}% -{" "}
+              {resultado.bodyfat_pct_rango_max?.toFixed(1)}%{" "}
+              <span className="text-sm text-gray-400 font-sans">grasa estimada</span>
             </p>
           )}
         </div>
       )}
-    </div>
+    </Card>
   );
 }

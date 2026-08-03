@@ -2,12 +2,30 @@
 
 import { useState } from "react";
 import { api, ApiError, todayLocalDate, type ReadinessResult } from "@/lib/api";
+import { Card, CardTitle } from "./ui/Card";
+import { RecoveryRing } from "./RecoveryRing";
 
-const READINESS_COLORS: Record<string, string> = {
-  green: "bg-green-100 text-green-800",
-  yellow: "bg-yellow-100 text-yellow-800",
-  red: "bg-red-100 text-red-800",
+const ZONA_POR_RESULTADO: Record<string, "green" | "yellow" | "red"> = {
+  green: "green",
+  yellow: "yellow",
+  red: "red",
 };
+
+// Etiqueta categórica mostrada DENTRO del anillo - el motor de reglas
+// de Pulse (Capa 1) es categórico (verde/amarillo/rojo), nunca emite un
+// score continuo 0-100 como el de WHOOP. Mostrar un número fabricado
+// en un anillo idéntico al de WHOOP induciría a pensar que es una
+// medición real (hallazgo CRÍTICO de code-review) - por eso
+// `RecoveryRing` se usa aquí en su modo categórico (`categoryLabel`),
+// que muestra esta palabra en vez de un "%".
+const ETIQUETA_ZONA: Record<string, string> = {
+  green: "óptimo",
+  yellow: "precaución",
+  red: "alerta",
+};
+
+const inputClass =
+  "border border-white/10 bg-black/30 rounded-lg px-3 py-2 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-teal";
 
 export function ReadinessCheckinForm({
   userId,
@@ -56,58 +74,58 @@ export function ReadinessCheckinForm({
   }
 
   return (
-    <div className="border rounded-lg p-6">
-      <h2 className="text-lg font-semibold mb-1">Check-in de recuperación</h2>
-      <p className="text-sm text-gray-500 mb-4">
+    <Card>
+      <CardTitle>Check-in de recuperación</CardTitle>
+      <p className="text-sm text-gray-400 mb-4 -mt-2">
         Manual mientras la sincronización con Garmin real siga pendiente (Fase H).
       </p>
       <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-3">
-        <label className="flex flex-col gap-1">
+        <label className="flex flex-col gap-1 text-sm text-gray-300">
           HRV hoy (ms)
           <input
             type="number"
             min={1}
-            className="border rounded px-2 py-1"
+            className={inputClass}
             value={hrvToday}
             onChange={(e) => setHrvToday(Number(e.target.value))}
           />
         </label>
-        <label className="flex flex-col gap-1">
+        <label className="flex flex-col gap-1 text-sm text-gray-300">
           HRV baseline 28d (ms)
           <input
             type="number"
             min={1}
-            className="border rounded px-2 py-1"
+            className={inputClass}
             value={hrvBaseline}
             onChange={(e) => setHrvBaseline(Number(e.target.value))}
           />
         </label>
-        <label className="flex flex-col gap-1">
+        <label className="flex flex-col gap-1 text-sm text-gray-300">
           Body Battery (0-100)
           <input
             type="number"
             min={0}
             max={100}
-            className="border rounded px-2 py-1"
+            className={inputClass}
             value={bodyBattery}
             onChange={(e) => setBodyBattery(Number(e.target.value))}
           />
         </label>
-        <label className="flex flex-col gap-1">
+        <label className="flex flex-col gap-1 text-sm text-gray-300">
           Sueño (0-100)
           <input
             type="number"
             min={0}
             max={100}
-            className="border rounded px-2 py-1"
+            className={inputClass}
             value={sleepScore}
             onChange={(e) => setSleepScore(Number(e.target.value))}
           />
         </label>
-        <label className="flex flex-col gap-1">
+        <label className="flex flex-col gap-1 text-sm text-gray-300">
           Training Readiness
           <select
-            className="border rounded px-2 py-1"
+            className={inputClass}
             value={trainingReadiness}
             onChange={(e) =>
               setTrainingReadiness(e.target.value as typeof trainingReadiness)
@@ -119,41 +137,44 @@ export function ReadinessCheckinForm({
             <option value="very_low">Muy bajo</option>
           </select>
         </label>
-        <label className="flex flex-col gap-1">
+        <label className="flex flex-col gap-1 text-sm text-gray-300">
           ACWR
           <input
             type="number"
             step="0.1"
             min={0}
-            className="border rounded px-2 py-1"
+            className={inputClass}
             value={acwr}
             onChange={(e) => setAcwr(Number(e.target.value))}
           />
         </label>
-        <label className="flex items-center gap-2 col-span-2">
+        <label className="flex items-center gap-2 col-span-2 text-sm text-gray-300">
           <input
             type="checkbox"
             checked={jointPain}
             onChange={(e) => setJointPain(e.target.checked)}
+            className="h-4 w-4 accent-teal"
           />
           Dolor articular hoy
         </label>
-        {error && <p className="text-red-600 text-sm col-span-2">{error}</p>}
+        {error && <p className="text-red-400 text-sm col-span-2">{error}</p>}
         <button
           type="submit"
           disabled={submitting}
-          className="bg-black text-white rounded px-4 py-2 disabled:opacity-50 col-span-2"
+          className="bg-teal text-black font-semibold rounded-lg px-4 py-2.5 disabled:bg-surface disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:scale-100 col-span-2 transition-transform hover:scale-[1.01] active:scale-[0.99]"
         >
           {submitting ? "Calculando..." : "Registrar check-in"}
         </button>
       </form>
       {resultado && (
-        <div
-          className={`mt-4 p-3 rounded text-sm font-medium ${READINESS_COLORS[resultado.resultado]}`}
-        >
-          Readiness de hoy: {resultado.resultado.toUpperCase()}
+        <div className="mt-6 flex items-center justify-center">
+          <RecoveryRing
+            zone={ZONA_POR_RESULTADO[resultado.resultado]}
+            categoryLabel={ETIQUETA_ZONA[resultado.resultado]}
+            label="Recovery"
+          />
         </div>
       )}
-    </div>
+    </Card>
   );
 }
