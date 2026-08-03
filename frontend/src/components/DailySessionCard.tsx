@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { api, ApiError, SESSION_TYPES, todayLocalDate, type DailySessionResult, type SessionTypeValue } from "@/lib/api";
+import { Card, CardTitle } from "./ui/Card";
 
 const LABELS: Record<SessionTypeValue, string> = {
   rest: "Descanso",
@@ -13,6 +14,9 @@ const LABELS: Record<SessionTypeValue, string> = {
   martial_arts_technical: "Artes marciales (técnica)",
   martial_arts_sparring: "Artes marciales (sparring)",
 };
+
+const inputClass =
+  "border border-white/10 bg-black/30 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-strain";
 
 export function DailySessionCard({ userId }: { userId: number }) {
   const [modoAutomatico, setModoAutomatico] = useState(true);
@@ -48,22 +52,23 @@ export function DailySessionCard({ userId }: { userId: number }) {
   }
 
   return (
-    <div className="border rounded-lg p-6">
-      <h2 className="text-lg font-semibold mb-4">Sesión de hoy</h2>
+    <Card>
+      <CardTitle>Sesión de hoy</CardTitle>
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-sm text-gray-300">
           <input
             type="checkbox"
             checked={modoAutomatico}
             onChange={(e) => setModoAutomatico(e.target.checked)}
+            className="h-4 w-4 accent-strain"
           />
           Derivar automáticamente de mi plan semanal
         </label>
         {!modoAutomatico && (
-          <label className="flex flex-col gap-1">
+          <label className="flex flex-col gap-1 text-sm text-gray-300">
             ¿Qué tocaba hoy según tu plan?
             <select
-              className="border rounded px-2 py-1"
+              className={inputClass}
               value={plannedSession}
               onChange={(e) => setPlannedSession(e.target.value as SessionTypeValue)}
             >
@@ -75,28 +80,40 @@ export function DailySessionCard({ userId }: { userId: number }) {
             </select>
           </label>
         )}
-        {error && <p className="text-red-600 text-sm">{error}</p>}
+        {error && <p className="text-red-400 text-sm">{error}</p>}
         <button
           type="submit"
           disabled={submitting}
-          className="bg-black text-white rounded px-4 py-2 disabled:opacity-50 self-start"
+          className="bg-strain text-white font-semibold rounded-lg px-4 py-2.5 disabled:bg-surface disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:scale-100 self-start transition-transform hover:scale-[1.02] active:scale-[0.98]"
         >
           {submitting ? "Consultando..." : "Ver decisión del coach"}
         </button>
       </form>
       {resultado && (
-        <div className="mt-4 p-4 bg-gray-50 rounded">
-          <p className="font-semibold">
-            {LABELS[resultado.session_type as SessionTypeValue] ?? resultado.session_type} al{" "}
-            {resultado.volume_pct}%
-            {resultado.intensity_rpe_cap !== null && ` (RPE máx ${resultado.intensity_rpe_cap})`}
-          </p>
-          <p className="text-sm text-gray-700 mt-2">{resultado.narrative_text}</p>
-          <p className="text-xs text-gray-400 mt-1">
+        <div className="mt-5 p-5 rounded-xl bg-black/30 border border-strain/20">
+          <div className="flex items-baseline gap-3 flex-wrap">
+            <span className="font-display text-4xl font-bold text-strain">
+              {resultado.volume_pct}%
+            </span>
+            <span className="text-lg font-semibold text-white">
+              {LABELS[resultado.session_type as SessionTypeValue] ?? resultado.session_type}
+            </span>
+            {resultado.intensity_rpe_cap !== null && (
+              <span className="text-sm text-gray-400">RPE máx {resultado.intensity_rpe_cap}</span>
+            )}
+          </div>
+          <div className="mt-3 h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-strain transition-all duration-700 ease-out"
+              style={{ width: `${Math.min(100, Math.max(0, resultado.volume_pct))}%` }}
+            />
+          </div>
+          <p className="text-sm text-gray-300 mt-4">{resultado.narrative_text}</p>
+          <p className="text-xs text-gray-400 mt-2 uppercase tracking-wide">
             Explicación generada por: {resultado.narrative_source === "llm" ? "IA (Gemini)" : "plantilla"}
           </p>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

@@ -31,7 +31,7 @@ describe("ReadinessTrendCard", () => {
     await waitFor(() => expect(screen.getAllByTestId("readiness-dia")).toHaveLength(3));
     const dias = screen.getAllByTestId("readiness-dia");
     expect(dias[0]).toHaveAttribute("title", expect.stringContaining("2026-08-01"));
-    expect(dias[2]).toHaveClass("bg-red-500");
+    expect(dias[2]).toHaveClass("bg-recovery-low");
   });
 
   it("expone el significado por texto (aria-label), no solo por color (WCAG 1.4.1)", async () => {
@@ -55,7 +55,7 @@ describe("ReadinessTrendCard", () => {
     render(<ReadinessTrendCard userId={1} />);
 
     await waitFor(() => expect(screen.getAllByTestId("readiness-dia")).toHaveLength(1));
-    expect(screen.getByTestId("readiness-dia")).toHaveClass("bg-green-500");
+    expect(screen.getByTestId("readiness-dia")).toHaveClass("bg-recovery-high");
   });
 
   it("muestra un mensaje cuando no hay check-ins todavía", async () => {
@@ -66,5 +66,15 @@ describe("ReadinessTrendCard", () => {
     await waitFor(() =>
       expect(screen.getByText(/todavía no hay check-ins/i)).toBeInTheDocument()
     );
+  });
+
+  it("vuelve a pedir el historial cuando cambia refreshKey (tras un check-in nuevo)", async () => {
+    vi.mocked(api.getReadinessHistory).mockResolvedValue([]);
+
+    const { rerender } = render(<ReadinessTrendCard userId={1} refreshKey={0} />);
+    await waitFor(() => expect(api.getReadinessHistory).toHaveBeenCalledTimes(1));
+
+    rerender(<ReadinessTrendCard userId={1} refreshKey={1} />);
+    await waitFor(() => expect(api.getReadinessHistory).toHaveBeenCalledTimes(2));
   });
 });
