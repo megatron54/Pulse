@@ -37,6 +37,12 @@ export function useCurrentUser() {
   }, []);
 
   useEffect(() => {
+    // Patrón estándar de "cargar datos al montar" (sincronizar con el
+    // sistema externo localStorage+API): `load` es async y solo llama a
+    // setState dentro de su propio cuerpo tras el await, no de forma
+    // síncrona en el efecto. La regla react-hooks/set-state-in-effect
+    // marca esto como falso positivo para este caso legítimo.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
 
