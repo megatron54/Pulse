@@ -74,10 +74,12 @@ Entregables:
 
 - Al ser mono-usuario, una API key simple en header (`X-API-Key`) basta para v1 — evita la complejidad de un sistema de login completo antes de que haga falta.
 
-## Fase E — Integración wger
+## Fase E — Integración wger ✅ (parcial)
 
-- Decisión pendiente de esta sesión, resuelta ahora: usar la **API REST de wger** (ya expuesta por el contenedor `web` en `localhost`) desde nuestro backend como cliente HTTP, en vez de tocar su base de datos directamente. Mantiene la separación de esquemas ya decidida en la Fase 0.
-- `backend/wger_client/` — cliente fino con el mismo patrón de inyección de dependencias que `garmin_sync.client`.
+- `backend/wger_client/client.py`: cliente de solo lectura del catálogo público de ejercicios de wger (categorías, equipamiento, búsqueda de ejercicios por categoría/idioma) vía su API REST (`/api/v2/`), verificado a mano contra la instancia real corriendo en `localhost` — nunca toca la base de datos de wger directamente, manteniendo la separación de esquemas de la Fase 0.
+- Payload de wger (profundamente anidado, con traducciones por idioma) se aplana a los campos que Pulse necesita, con aislamiento por-item: un ejercicio malformado se omite en vez de tumbar toda la búsqueda.
+- Alcance deliberado de esta primera versión: solo lectura del catálogo público (sin token). Los endpoints por-usuario de wger (peso, planes de nutrición) devuelven 403 sin autenticación y quedan fuera — se añadirán cuando Pulse necesite escribir en wger, no solo leer su catálogo de ejercicios.
+- Pendiente/documentado como deuda menor: solo se lee la primera página de resultados (sin seguir `next`); aceptable mientras el catálogo de wger quepa en el límite de página configurado.
 
 ## Fase F — Plan semanal automático
 
