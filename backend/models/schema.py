@@ -95,6 +95,33 @@ class UserProfile(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
+class GarminCredentials(Base):
+    """Referencia al almacén de tokens de Garmin de un usuario - NUNCA
+    guarda contraseñas. `token_store_dir` apunta al directorio donde
+    `python-garminconnect` cachea el token OAuth ya autenticado (ver
+    docs/00-research/03-garmin-integracion.md: "reutilizar SIEMPRE el
+    token cacheado, nunca relogin agresivo"). El login inicial (que sí
+    requiere contraseña) se hace una vez fuera de banda (script manual
+    del usuario, no vía la API/web de Pulse), dejando el token cacheado
+    en ese directorio para que el scheduler lo reutilice indefinidamente
+    sin que la app llegue a ver ni almacenar la contraseña.
+
+    Habilita `services.scheduler_service` (Fase C del plan
+    autónomo) - la infraestructura de sincronización diaria queda lista
+    para cuando haya credenciales reales (Fase H sigue bloqueada por
+    falta de una cuenta Garmin de prueba)."""
+
+    __tablename__ = "garmin_credentials"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("user_profile.id"), unique=True, index=True
+    )
+    token_store_dir: Mapped[str] = mapped_column(String(500))
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 class GarminDailyMetrics(Base):
     """Append-only: sin UNIQUE(user_id, fecha) a propósito - permite
     múltiples sincronizaciones del mismo día sin perder histórico."""
