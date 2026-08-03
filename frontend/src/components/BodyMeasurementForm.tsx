@@ -3,7 +3,13 @@
 import { useState } from "react";
 import { api, ApiError, todayLocalDate, type BodyMeasurement } from "@/lib/api";
 
-export function BodyMeasurementForm({ userId }: { userId: number }) {
+export function BodyMeasurementForm({
+  userId,
+  onSaved,
+}: {
+  userId: number;
+  onSaved?: (m: BodyMeasurement) => void;
+}) {
   const [pesoKg, setPesoKg] = useState(80);
   const [cuelloCm, setCuelloCm] = useState<string>("");
   const [cinturaCm, setCinturaCm] = useState<string>("");
@@ -26,6 +32,7 @@ export function BodyMeasurementForm({ userId }: { userId: number }) {
         cadera_cm: caderaCm ? Number(caderaCm) : undefined,
       });
       setResultado(medicion);
+      onSaved?.(medicion);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : String(err));
     } finally {

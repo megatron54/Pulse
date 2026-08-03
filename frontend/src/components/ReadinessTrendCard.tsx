@@ -29,7 +29,14 @@ const ETIQUETA_POR_RESULTADO: Record<string, string> = {
  * se representa como una fila de bloques de color, un día = un bloque,
  * mismo patrón visual que un "commit heatmap".
  */
-export function ReadinessTrendCard({ userId }: { userId: number }) {
+export function ReadinessTrendCard({
+  userId,
+  refreshKey = 0,
+}: {
+  userId: number;
+  /** Ver docstring del mismo parámetro en `WeightTrendCard`. */
+  refreshKey?: number;
+}) {
   const [historial, setHistorial] = useState<ReadinessResult[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,7 +56,7 @@ export function ReadinessTrendCard({ userId }: { userId: number }) {
     return () => {
       cancelado = true;
     };
-  }, [userId]);
+  }, [userId, refreshKey]);
 
   const diario = historial ? dedupeUltimaPorDia(historial) : [];
 
