@@ -205,3 +205,37 @@ class DailyFoodLogOut(BaseModel):
     entradas_omitidas: int
 
     model_config = {"from_attributes": True}
+
+
+Habito = Literal[
+    "alcohol",
+    "cafeina_tarde",
+    "comida_tardia",
+    "estres_alto",
+    "siesta",
+    "ayuno_intermitente",
+    "doble_sesion",
+    "viaje",
+]
+"""Catálogo cerrado de hábitos - debe coincidir exactamente con
+`_HABITO_VALORES` en `models.schema`. Exportado (sin prefijo `_`, a
+diferencia de los demás Literal de este módulo) porque
+`api.routers.habits.get_habit_correlation` también lo usa para validar
+el query param `habito` (hallazgo HIGH de code-review: sin este tipo,
+un valor fuera de catálogo devolvía 200 con datos vacíos en vez de
+422)."""
+
+
+class SetHabitsRequest(BaseModel):
+    habitos: list[Habito]
+
+
+class HabitCorrelationOut(BaseModel):
+    habito: str
+    dias_con_habito_con_dato: int
+    dias_sin_habito_con_dato: int
+    pct_red_con_habito: float | None
+    pct_red_sin_habito: float | None
+    datos_suficientes: bool
+
+    model_config = {"from_attributes": True}
