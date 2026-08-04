@@ -47,7 +47,7 @@ Backlog priorizado (ver detalle completo en el research; resumen aquí):
 1. Carga de entrenamiento numérica (ratio agudo:crónico) - hoy solo existe el semáforo categórico. Con datos ya existentes, sin integración nueva. **✅ Hecho** - ver Épica 3.
 2. Vista de detalle por sesión (series/reps o ritmo/HR por intervalo, notas).
 3. Diario de hábitos tipo "WHOOP Journal" (sueño, cafeína, alcohol, estrés) correlacionado con recovery en el tiempo. Backend nuevo, sin integración externa.
-4. Resumen periódico (semanal/mensual) de tendencias - agregación sobre datos ya existentes.
+4. Resumen periódico (semanal/mensual) de tendencias - agregación sobre datos ya existentes. **✅ Hecho** - ver Épica 8.
 5. **Activar Garmin real** - el desbloqueo de mayor apalancamiento, del que dependen varios SHOULD-HAVE.
 6. Tracking de adherencia al plan (¿hiciste lo que tocaba?).
 7. Predicción de rendimiento/cuenta atrás a evento, condicional a si hay usuarios de resistencia.
@@ -105,6 +105,9 @@ Al construir la Épica 7, code-review encontró un CRITICAL que vale la pena doc
 ### 9. Ingestión de actividades Garmin (PR #38) — nombres de campo reales confirmados contra el código fuente
 Al construir la Épica 2 se confirmaron (leyendo `garminconnect/typed.py` en `recursos/repos/python-garminconnect/`, no solo inferidos) los nombres de campo reales de `get_activities_by_date`: `activityId`, `startTimeLocal` (formato `"YYYY-MM-DD HH:MM:SS"`, hora local, sin TZ), `activityType.typeKey`, `duration`/`averageHR`/`maxHR` (todos **float**, no int - hay que redondear, `int()` trunca y sesga sistemáticamente a la baja), `distance` (metros), `aerobicTrainingEffect`, y para fuerza `totalSets`/`totalReps`/`totalVolume` (sin usar todavía - candidatos para una futura vista de detalle por sesión, Épica MUST-HAVE #2). La idempotencia de la ingesta (`(user_id, activity_id)` como clave real de deduplicación) se protegió con un `UniqueConstraint` en el modelo, no solo con una comprobación en código - mismo criterio que motivó `HabitCheckin` en el punto 8: cualquier invariante de "no duplicar"/"no repetir" debe estar respaldada por la base de datos, un `if` en Python nunca es suficiente si existe la más mínima posibilidad de concurrencia futura.
 
+### 10. Resumen periódico (PR #40) — los repositorios de historial NO comparten el mismo criterio de ventana entre sí
+Al agregar tres repositorios distintos (`get_readiness_history`, `get_weight_history`, `get_activity_history`) en un mismo servicio, code-review encontró que **no todos usan la misma convención de límites**: los dos primeros devuelven `days+1` días (`as_of - timedelta(days=days)` con límites inclusivos por ambos lados - el mismo off-by-one que ya se había corregido una vez en `get_volumen_pct_history`, pero que sigue sin corregirse en estos otros dos), mientras que `get_activity_history` ya usa el criterio correcto (`days` exactos, `as_of - timedelta(days=days-1)`). Se resolvió filtrando explícitamente la ventana en la capa de servicio (`periodic_summary_service.py`) en vez de tocar los repositorios compartidos (para no arriesgar otros consumidores que puedan depender implícitamente del comportamiento actual). **Deuda técnica pendiente, explícita**: `get_readiness_history` y `get_weight_history` deberían corregirse igual que se corrigió `get_volumen_pct_history`, y sus consumidores existentes (`ReadinessTrendCard`/`WeightTrendCard` u otros) deberían auditarse para confirmar que no dependen del `+1` día de más. **Regla general para el futuro**: al construir cualquier función que agregue sobre múltiples repositorios de historial con parámetro `days`, verificar explícitamente que todos usan el mismo criterio de ventana antes de asumirlo - no dar por sentado que "días" significa lo mismo en cada repositorio del proyecto.
+
 ## Épicas de trabajo (orden sugerido, no todas bloquean entre sí)
 
 | # | Épica | Estado | Depende de |
@@ -116,7 +119,7 @@ Al construir la Épica 2 se confirmaron (leyendo `garminconnect/typed.py` en `re
 | 5 | Frontend: página Garmin con datos reales (una vez haya Fase H o al menos ingestión de actividades) | 🟡 Parcial (PR #38) - `GarminActivitiesCard` ya lee y muestra el historial real de `GET /garmin/activities`, honesto cuando viene vacío; falta el resto (HRV/Body Battery/training readiness en la misma página) | Épica 2 (hecha) |
 | 6 | Backend + frontend: explorador del catálogo de ejercicios de wger (`GET /exercises/categories`, `/equipment`, `/search`, proxy 502 si wger falla) + `ExercisePicker` en la página Entrenamiento | ✅ Hecho (solo lectura/exploración - añadir ejercicios concretos a una sesión sigue pendiente, requiere decidir el modelo de "sesión con ejercicios") | - |
 | 7 | Diario de hábitos (journal) + correlación con recovery | ✅ Hecho (PR #37) | Ninguna |
-| 8 | Resumen periódico / informe exportable | ⬜ Pendiente | Ninguna |
+| 8 | Resumen periódico / informe exportable | 🟡 Parcial (PR #40) - `GET /users/{id}/summary` + `PeriodicSummaryCard` en Hoy (readiness/peso/carga/actividades de la ventana); falta la parte "exportable" (PDF/informe descargable, SHOULD-HAVE) | Ninguna |
 | 9 | Fotos de progreso: captura de landmarks + tendencia de silueta (SIN %grasa desde foto) | ⬜ Pendiente (Fase G) | Ninguna |
 | 10 | Gráficas de volumen por deporte (fuerza/hipertrofia vs. resistencia) | ⬜ Pendiente | Épicas 2 y 3 (3 ya lista) |
 | 11 | Recetas (modelo de datos nuevo sobre `mealitem` de wger) | ⬜ Pendiente | Épica 4 |
