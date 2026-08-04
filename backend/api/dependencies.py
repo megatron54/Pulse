@@ -45,7 +45,6 @@ def get_wger_client() -> WgerClient:
         _wger_client = WgerClient(base_url=base_url)
     return _wger_client
 
-
 def verify_api_key(x_api_key: str | None = Header(default=None)) -> None:
     """Fail-closed: fuera de `PULSE_ENV=dev` (o si no se define, se
     asume dev para no romper el flujo local), exigir `PULSE_API_KEY`
