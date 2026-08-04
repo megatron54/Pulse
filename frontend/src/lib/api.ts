@@ -158,6 +158,15 @@ export type TrainingBlock = {
   es_deload: boolean;
 };
 
+export type TrainingLoad = {
+  acute_avg_7d: number | null;
+  chronic_avg_28d: number | null;
+  acwr: number | null;
+  dias_con_dato_agudo: number;
+  dias_con_dato_cronico: number;
+  datos_suficientes: boolean;
+};
+
 export const api = {
   createUser: (data: UserCreateInput) =>
     request<User>("/users", { method: "POST", body: JSON.stringify(data) }),
@@ -192,6 +201,9 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+
+  getTrainingLoad: (userId: number, asOf = todayLocalDate()) =>
+    request<TrainingLoad>(`/users/${userId}/session/training-load?as_of=${asOf}`),
 
   getBodyMeasurementHistory: (userId: number, days = 90) =>
     request<BodyMeasurement[]>(
