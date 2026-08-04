@@ -167,6 +167,18 @@ export type TrainingLoad = {
   datos_suficientes: boolean;
 };
 
+export type ExerciseCategory = {
+  id: number;
+  name: string;
+};
+
+export type Exercise = {
+  id: number;
+  nombre: string;
+  categoria: string;
+  equipamiento: string[];
+};
+
 export const api = {
   createUser: (data: UserCreateInput) =>
     request<User>("/users", { method: "POST", body: JSON.stringify(data) }),
@@ -204,6 +216,13 @@ export const api = {
 
   getTrainingLoad: (userId: number, asOf = todayLocalDate()) =>
     request<TrainingLoad>(`/users/${userId}/session/training-load?as_of=${asOf}`),
+
+  getExerciseCategories: () => request<ExerciseCategory[]>("/exercises/categories"),
+
+  searchExercises: (categoryId: number, language = 2, limit = 50) =>
+    request<Exercise[]>(
+      `/exercises/search?category_id=${categoryId}&language=${language}&limit=${limit}`
+    ),
 
   getBodyMeasurementHistory: (userId: number, days = 90) =>
     request<BodyMeasurement[]>(

@@ -1,6 +1,6 @@
-"""Dependencias de FastAPI: sesión de BD por request y verificación de
+"""Dependencias de FastAPI: sesión de BD por request, verificación de
 API key (auth v1 mínima para mono-usuario, ver docs/02-roadmap/
-02-plan-autonomo.md, Fase D)."""
+02-plan-autonomo.md, Fase D), y cliente de wger."""
 from __future__ import annotations
 
 import os
@@ -12,8 +12,10 @@ from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
 from models.database import create_pulse_engine
+from wger_client.client import WgerClient
 
 _engine: Engine | None = None
+_wger_client: WgerClient | None = None
 
 
 def get_engine() -> Engine:
@@ -28,6 +30,20 @@ def get_engine() -> Engine:
 def get_db() -> Generator[Session, None, None]:
     with Session(get_engine()) as session:
         yield session
+
+
+def get_wger_client() -> WgerClient:
+    """Cliente único reutilizado entre requests (mismo patrón que
+    `get_engine`: `httpx.Client` gestiona su propio pool de conexiones,
+    no tiene sentido crear uno nuevo por petición). `WGER_BASE_URL` por
+    defecto apunta al wger local de desarrollo (`docker-compose.yml`
+    raíz, contenedor nginx en el puerto 80) - en producción debe
+    apuntar a la instancia real de wger configurada."""
+    global _wger_client
+    if _wger_client is None:
+        base_url = os.environ.get("WGER_BASE_URL", "http://localhost")
+        _wger_client = WgerClient(base_url=base_url)
+    return _wger_client
 
 
 def verify_api_key(x_api_key: str | None = Header(default=None)) -> None:
