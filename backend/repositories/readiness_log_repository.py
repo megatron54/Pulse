@@ -71,3 +71,73 @@ def get_readiness_history(
         .order_by(ReadinessLog.fecha.asc(), ReadinessLog.id.asc())
     )
     return list(session.execute(stmt).scalars().all())
+
+
+def set_volumen_pct_ajustado(
+    session: Session, user_id: int, target_date: date, volumen_pct: int
+) -> None:
+    """Adjunta el `volume_pct` finalmente decidido por
+    `services.session_service.compute_daily_session` a la fila de
+    `ReadinessLog` de ese día - cierra el hueco real encontrado en la
+    Fase de carga de entrenamiento numérica (docs/02-roadmap/
+    03-vision-produccion.md): el campo `volumen_pct_ajustado` existía
+    en el schema desde el principio pero ningún código lo escribía
+    nunca, así que no había historial real de carga con el que calcular
+    un ACWR de verdad (el ACWR de hoy es un número que el usuario
+    escribe a mano en el check-in, no una medida).
+
+    Si hay varias filas ese día (append-only, re-check-ins), actualiza
+    la más reciente - mismo criterio de "la última gana" que
+    `get_latest_readiness_level`. Si no hay NINGUNA fila ese día (se
+    pidió una sesión sin haber hecho check-in de recuperación), no hay
+    nada a lo que adjuntar el volumen - no falla, simplemente no hace
+    nada, para no romper el flujo de `compute_daily_session` por un
+    dato que no es indispensable en el momento en que se calcula."""
+    log = (
+        session.query(ReadinessLog)
+        .filter_by(user_id=user_id, fecha=target_date)
+        .order_by(ReadinessLog.created_at.desc(), ReadinessLog.id.desc())
+        .first()
+    )
+    if log is None:
+        return
+    log.volumen_pct_ajustado = volumen_pct
+    session.commit()
+
+
+def get_volumen_pct_history(
+    session: Session, user_id: int, as_of: date, days: int
+) -> list[tuple[date, int]]:
+    """Historial de `(fecha, volumen_pct_ajustado)` de los últimos
+    `days` días EXACTOS (incluyendo `as_of`, ventana `[as_of-days+1,
+    as_of]` - mismo criterio que usa `services.training_load_service`
+    para la ventana aguda, corregido aquí para la crónica tras un
+    hallazgo real de code-review: la ventana anterior usaba
+    `as_of - timedelta(days=days)` con límites inclusivos por ambos
+    lados, lo que daba `days+1` días reales en vez de `days` - un
+    ACWR "de 28 días" que en realidad promediaba 29).
+
+    Se queda con la fila más reciente **que tenga volumen asignado**
+    si hubo varias ese día (no simplemente la fila más reciente a
+    secas: una fila nueva sin volumen todavía - p.ej. un re-check-in de
+    recuperación posterior en el mismo día antes de que
+    `session_service` calcule la sesión - no debe borrar el volumen ya
+    registrado por una fila anterior ese mismo día). OMITE los días sin
+    ningún volumen asignado todavía (principio "unknown is not zero":
+    no rellenar con 0, que se leería como "no entrenaste" en vez de "no
+    hay dato"). Base para `services.training_load_service.
+    compute_training_load` (medias móviles 7d/28d, ACWR real)."""
+    fecha_inicio = as_of - timedelta(days=days - 1)
+    stmt = (
+        select(ReadinessLog)
+        .where(ReadinessLog.user_id == user_id)
+        .where(ReadinessLog.fecha >= fecha_inicio)
+        .where(ReadinessLog.fecha <= as_of)
+        .order_by(ReadinessLog.fecha.asc(), ReadinessLog.id.asc())
+    )
+    filas = session.execute(stmt).scalars().all()
+    por_fecha: dict[date, int] = {}
+    for fila in filas:
+        if fila.volumen_pct_ajustado is not None:
+            por_fecha[fila.fecha] = fila.volumen_pct_ajustado
+    return sorted(por_fecha.items())
