@@ -105,7 +105,7 @@ Esto no es "una llamada más a Gemini" - es un motor de decisión con implicacio
 | 1 | Arquitectura de información: navegación multi-página responsive | ✅ Hecho | - |
 | 2 | Backend: ingestión de actividades Garmin (carrera/ciclismo/fuerza) | ⬜ Pendiente | Fase H (credenciales reales) para probar de verdad; el código se puede construir y testear con dobles antes |
 | 3 | Backend: carga de entrenamiento numérica (acute:chronic ratio) | ✅ Hecho | - |
-| 4 | Backend + frontend: food log real vía wger (nutritionplan/meal/nutritiondiary) | ⬜ Pendiente | Verificar parche del CVE-2026-27839 en la instancia de wger usada |
+| 4 | Backend + frontend: food log real vía wger (`nutritiondiary`/ingredientes, token permanente del usuario) | ✅ Hecho | Nota de seguridad: token guardado en texto plano por ahora (documentado explícitamente como deuda, ver `models.schema.WgerCredentials`) - cifrar antes de cualquier despliegue en red |
 | 5 | Frontend: página Garmin con datos reales (una vez haya Fase H o al menos ingestión de actividades) | ⬜ Pendiente | Épica 2 |
 | 6 | Backend + frontend: explorador del catálogo de ejercicios de wger (`GET /exercises/categories`, `/equipment`, `/search`, proxy 502 si wger falla) + `ExercisePicker` en la página Entrenamiento | ✅ Hecho (solo lectura/exploración - añadir ejercicios concretos a una sesión sigue pendiente, requiere decidir el modelo de "sesión con ejercicios") | - |
 | 7 | Diario de hábitos (journal) + correlación con recovery | ⬜ Pendiente | Ninguna |
