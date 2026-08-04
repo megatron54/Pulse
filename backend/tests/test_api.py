@@ -550,3 +550,44 @@ class TestDailySession:
             json={"target_date": "2026-08-02", "planned_session": "no_existe"},
         )
         assert resp.status_code == 422
+
+
+class TestTrainingLoad:
+    def test_sin_historial_devuelve_datos_insuficientes(self, client):
+        usuario = _crear_usuario(client)
+        resp = client.get(f"/users/{usuario['id']}/session/training-load")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["datos_suficientes"] is False
+        assert body["acwr"] is None
+
+    def test_tras_calcular_una_sesion_el_volumen_queda_en_el_historial(self, client):
+        # Regresión end-to-end: crear readiness -> pedir sesión (que
+        # ahora persiste volume_pct) -> el endpoint de carga ya ve ese día.
+        usuario = _crear_usuario(client)
+        client.post(
+            f"/users/{usuario['id']}/readiness/manual-checkin",
+            json={
+                "target_date": "2026-08-02",
+                "hrv_today": 65.0,
+                "hrv_baseline_28d": 65.0,
+                "hrv_trend_7d": 0.0,
+                "body_battery_am": 80,
+                "training_readiness": "high",
+                "sleep_score": 85,
+                "acwr": 1.0,
+                "joint_pain_flag": False,
+            },
+        )
+        client.post(
+            f"/users/{usuario['id']}/session/daily",
+            json={"target_date": "2026-08-02", "planned_session": "strength_heavy"},
+        )
+        resp = client.get(
+            f"/users/{usuario['id']}/session/training-load", params={"as_of": "2026-08-02"}
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["acute_avg_7d"] == 100.0
+        assert body["chronic_avg_28d"] == 100.0
+        assert body["acwr"] == 1.0
