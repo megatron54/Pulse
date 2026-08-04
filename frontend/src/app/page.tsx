@@ -6,6 +6,7 @@ import { ReadinessCheckinForm } from "@/components/ReadinessCheckinForm";
 import { DailySessionCard } from "@/components/DailySessionCard";
 import { ReadinessTrendCard } from "@/components/ReadinessTrendCard";
 import { HabitJournalCard } from "@/components/HabitJournalCard";
+import { PeriodicSummaryCard } from "@/components/PeriodicSummaryCard";
 import { FadeIn } from "@/components/ui/FadeIn";
 
 /**
@@ -35,6 +36,7 @@ export default function HoyPage() {
     />,
     <DailySessionCard key="session" userId={user.id} />,
     <HabitJournalCard key="habits" userId={user.id} />,
+    <PeriodicSummaryCard key="periodic-summary" userId={user.id} />,
   ];
 
   return (
