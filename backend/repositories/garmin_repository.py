@@ -11,12 +11,14 @@ from datetime import date, timedelta
 from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from models.schema import GarminDailyMetrics
+from models.schema import GarminActivity, GarminDailyMetrics
 
 _DIAS_BASELINE = 28
 _DIAS_TENDENCIA = 7
+_DIAS_HISTORIAL_ACTIVIDADES_POR_DEFECTO = 90
 
 
 def save_daily_metrics(
@@ -94,3 +96,54 @@ def _valores_hrv_en_rango(
     )
     filas = session.execute(stmt).all()
     return [hrv for _fecha, hrv in filas]
+
+
+def save_activity_if_new(session: Session, user_id: int, actividad: dict[str, Any]) -> bool:
+    """Persiste una actividad de `garmin_sync.activity_mapper.
+    map_raw_activity` si no existe ya una fila para (user_id,
+    activity_id) - idempotente por diseño: resincronizar el mismo rango
+    de fechas (p.ej. tras un fallo parcial de red a mitad de sync, ver
+    docstring de `services.garmin_activity_service.sync_activities`)
+    nunca debe duplicar actividades. Devuelve True si se insertó una
+    fila nueva, False si ya existía (para que la capa de servicio pueda
+    reportar cuántas eran realmente nuevas).
+
+    El check-then-insert de abajo es solo una optimización para el caso
+    común (evita el roundtrip de un INSERT fallido en el 99% de los
+    casos donde de verdad es nueva); la garantía real de no-duplicado la
+    da el `UniqueConstraint(user_id, activity_id)` del modelo - si dos
+    sincronizaciones corrieran en paralelo y ambas pasaran el check
+    (carrera), el `IntegrityError` del segundo INSERT se captura aquí y
+    se trata igual que "ya existía", nunca se propaga como un 500."""
+    ya_existe = (
+        session.query(GarminActivity)
+        .filter_by(user_id=user_id, activity_id=actividad["activity_id"])
+        .first()
+        is not None
+    )
+    if ya_existe:
+        return False
+
+    session.add(GarminActivity(user_id=user_id, **actividad))
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        return False
+    return True
+
+
+def get_activity_history(
+    session: Session, user_id: int, as_of: date, days: int = _DIAS_HISTORIAL_ACTIVIDADES_POR_DEFECTO
+) -> list[GarminActivity]:
+    """Actividades del usuario en `[as_of-days+1, as_of]`, más recientes
+    primero - para el listado de la página Garmin del frontend."""
+    fecha_inicio = as_of - timedelta(days=days - 1)
+    stmt = (
+        select(GarminActivity)
+        .where(GarminActivity.user_id == user_id)
+        .where(GarminActivity.fecha >= fecha_inicio)
+        .where(GarminActivity.fecha <= as_of)
+        .order_by(GarminActivity.fecha.desc())
+    )
+    return list(session.execute(stmt).scalars().all())

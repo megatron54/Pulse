@@ -162,3 +162,60 @@ class TestGetDailyRecoveryRaw:
             client.get_daily_recovery_raw("no-es-una-fecha")
         # No debe haber llegado a llamar a la API con una fecha inválida.
         fake_api.get_hrv_data.assert_not_called()
+
+
+class TestGetActivitiesRaw:
+    """`get_activities_by_date` de python-garminconnect (ver
+    00-research/03-garmin-integracion.md) - a diferencia de
+    get_daily_recovery_raw (4 llamadas independientes de un solo día),
+    esta es UNA sola llamada que devuelve la lista cruda de actividades
+    en el rango - se devuelve tal cual, sin normalizar aquí (eso es
+    responsabilidad de garmin_sync.activity_mapper, para mantener el
+    cliente como un wrapper fino sobre la API externa)."""
+
+    def _client_logueado(self, fake_api):
+        client = GarminClient(
+            token_store_dir="C:/fake/.garminconnect",
+            api_factory=_fake_api_factory(fake_api),
+        )
+        client.login()
+        return client
+
+    def test_devuelve_la_lista_cruda_de_actividades_del_rango(self):
+        fake_api = MagicMock()
+        fake_api.get_activities_by_date.return_value = [
+            {"activityId": 111, "activityType": {"typeKey": "running"}}
+        ]
+        client = self._client_logueado(fake_api)
+
+        actividades = client.get_activities_raw("2026-08-01", "2026-08-04")
+
+        assert actividades == [{"activityId": 111, "activityType": {"typeKey": "running"}}]
+        fake_api.get_activities_by_date.assert_called_once_with("2026-08-01", "2026-08-04")
+
+    def test_payload_none_devuelve_lista_vacia_en_vez_de_lanzar(self):
+        # "unknown is not zero" en su variante de colección: sin
+        # actividades ese día no es un error, es una lista vacía.
+        fake_api = MagicMock()
+        fake_api.get_activities_by_date.return_value = None
+        client = self._client_logueado(fake_api)
+
+        assert client.get_activities_raw("2026-08-01", "2026-08-04") == []
+
+    def test_operar_sin_login_previo_lanza_runtime_error(self):
+        fake_api = MagicMock()
+        client = GarminClient(
+            token_store_dir="C:/fake/.garminconnect",
+            api_factory=_fake_api_factory(fake_api),
+        )
+        with pytest.raises(RuntimeError):
+            client.get_activities_raw("2026-08-01", "2026-08-04")
+
+    def test_rechaza_fechas_con_formato_invalido(self):
+        fake_api = MagicMock()
+        client = self._client_logueado(fake_api)
+        with pytest.raises(ValueError):
+            client.get_activities_raw("01-08-2026", "2026-08-04")
+        with pytest.raises(ValueError):
+            client.get_activities_raw("2026-08-01", "no-es-una-fecha")
+        fake_api.get_activities_by_date.assert_not_called()

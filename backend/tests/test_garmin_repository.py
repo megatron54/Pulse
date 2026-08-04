@@ -12,10 +12,12 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from models.schema import Base, GarminDailyMetrics, UserProfile
+from models.schema import Base, GarminActivity, GarminDailyMetrics, UserProfile
 from repositories.garmin_repository import (
+    get_activity_history,
     get_hrv_baseline_28d,
     get_hrv_trend_7d,
+    save_activity_if_new,
     save_daily_metrics,
 )
 
@@ -135,3 +137,91 @@ class TestHrvTrend7d:
         session.commit()
         baseline = get_hrv_baseline_28d(session, usuario.id, hoy)
         assert baseline == pytest.approx(60.0, abs=0.01)
+
+
+class TestSaveActivityIfNew:
+    def _actividad(self, **overrides):
+        base = {
+            "activity_id": "111",
+            "fecha": date(2026, 8, 1),
+            "tipo": "running",
+            "duracion_seg": 1800,
+            "distancia_m": 5000.0,
+            "hr_avg": 150,
+            "hr_max": 172,
+            "training_effect": 3.2,
+            "raw_json": {"activityId": 111},
+        }
+        base.update(overrides)
+        return base
+
+    def test_inserta_una_actividad_nueva_y_devuelve_true(self, session, usuario):
+        insertada = save_activity_if_new(session, usuario.id, self._actividad())
+        assert insertada is True
+        filas = session.query(GarminActivity).filter_by(user_id=usuario.id).all()
+        assert len(filas) == 1
+        assert filas[0].activity_id == "111"
+
+    def test_reintentar_la_misma_actividad_no_duplica_ni_lanza(self, session, usuario):
+        # Idempotencia: reprocesar el mismo rango de sincronización (p.ej.
+        # tras un fallo parcial de red) nunca debe duplicar filas.
+        save_activity_if_new(session, usuario.id, self._actividad())
+        insertada_de_nuevo = save_activity_if_new(session, usuario.id, self._actividad())
+
+        assert insertada_de_nuevo is False
+        assert session.query(GarminActivity).filter_by(user_id=usuario.id).count() == 1
+
+    def test_el_mismo_activity_id_en_dos_usuarios_distintos_no_choca(self, session, usuario):
+        # Garmin no garantiza que activity_id sea único entre cuentas
+        # distintas de la app - la unicidad real es (user_id, activity_id).
+        otro = UserProfile(
+            nombre="Otro", altura_cm=170.0, fecha_nacimiento=date(1990, 1, 1), sexo="F"
+        )
+        session.add(otro)
+        session.commit()
+
+        save_activity_if_new(session, usuario.id, self._actividad())
+        insertada = save_activity_if_new(session, otro.id, self._actividad())
+
+        assert insertada is True
+        assert session.query(GarminActivity).count() == 2
+
+
+class TestGetActivityHistory:
+    def test_devuelve_las_actividades_del_usuario_en_la_ventana_ordenadas(self, session, usuario):
+        save_activity_if_new(session, usuario.id, self._actividad_de(session, usuario))
+        historial = get_activity_history(session, usuario.id, as_of=date(2026, 8, 10), days=30)
+        assert len(historial) == 1
+        assert historial[0].activity_id == "111"
+
+    def _actividad_de(self, session, usuario):
+        return {
+            "activity_id": "111",
+            "fecha": date(2026, 8, 1),
+            "tipo": "running",
+            "duracion_seg": 1800,
+            "distancia_m": 5000.0,
+            "hr_avg": 150,
+            "hr_max": 172,
+            "training_effect": 3.2,
+            "raw_json": {"activityId": 111},
+        }
+
+    def test_no_incluye_actividades_fuera_de_la_ventana(self, session, usuario):
+        save_activity_if_new(
+            session,
+            usuario.id,
+            {
+                "activity_id": "222",
+                "fecha": date(2026, 1, 1),
+                "tipo": "cycling",
+                "duracion_seg": 1200,
+                "distancia_m": None,
+                "hr_avg": None,
+                "hr_max": None,
+                "training_effect": None,
+                "raw_json": {},
+            },
+        )
+        historial = get_activity_history(session, usuario.id, as_of=date(2026, 8, 10), days=30)
+        assert historial == []

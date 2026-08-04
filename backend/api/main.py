@@ -17,6 +17,7 @@ from api.routers import (
     body_composition,
     exercises,
     food_log,
+    garmin,
     habits,
     nutrition,
     readiness,
@@ -83,6 +84,7 @@ app.include_router(training_blocks.router)
 app.include_router(exercises.router)
 app.include_router(food_log.router)
 app.include_router(habits.router)
+app.include_router(garmin.router)
 
 
 @app.get("/health", tags=["health"])

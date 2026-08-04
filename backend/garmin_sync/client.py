@@ -192,3 +192,30 @@ class GarminClient:
             return metodo(date_str)
         except Exception:
             return None
+
+    def get_activities_raw(self, start_date_str: str, end_date_str: str) -> list[dict[str, Any]]:
+        """Lista cruda de actividades (carrera/ciclismo/fuerza/...) en el
+        rango `[start_date_str, end_date_str]`, tal cual las entrega
+        `get_activities_by_date` de python-garminconnect - sin normalizar
+        (eso es responsabilidad de `garmin_sync.activity_mapper`, para
+        mantener este cliente como un wrapper fino sobre la API externa,
+        igual que `get_daily_recovery_raw`).
+
+        A diferencia de la recuperación diaria (4 llamadas independientes
+        que se degradan campo a campo), aquí solo hay una llamada: si
+        falla, se propaga tal cual - no hay nada parcial que rescatar.
+        Un payload `None`/ausente se normaliza a lista vacía (`unknown is
+        not zero` en su variante de colección: sin actividades ese rango
+        no es un error)."""
+        if self._api is None:
+            raise RuntimeError("login() debe llamarse antes de sincronizar datos")
+        for date_str in (start_date_str, end_date_str):
+            try:
+                date.fromisoformat(date_str)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"las fechas deben tener formato ISO YYYY-MM-DD, recibido: {date_str!r}"
+                ) from exc
+
+        actividades = self._api.get_activities_by_date(start_date_str, end_date_str)
+        return actividades or []

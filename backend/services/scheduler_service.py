@@ -30,17 +30,19 @@ usuario a usuario.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from typing import Any, Callable
 
 from sqlalchemy.orm import Session
 
 from garmin_sync.client import GarminClient
 from models.schema import AuditLog, GarminCredentials
+from services.garmin_activity_service import sync_activities
 from services.readiness_service import sync_and_compute_readiness
 
 _ACWR_NEUTRAL_POR_DEFECTO = 1.0
 _JOINT_PAIN_FLAG_POR_DEFECTO = False
+_VENTANA_ACTIVIDADES_DIAS_POR_DEFECTO = 3
 
 
 @dataclass(frozen=True)
@@ -113,6 +115,69 @@ def run_daily_sync_for_all_users(
                 # este punto). Se descarta el intento de auditoría y se
                 # sigue con el resto de usuarios; el conteo en `fallidos`
                 # ya refleja que este usuario no se sincronizó.
+                session.rollback()
+            fallidos += 1
+
+    return SyncBatchResult(exitosos=exitosos, fallidos=fallidos, omitidos=omitidos)
+
+
+def run_daily_activity_sync_for_all_users(
+    session: Session,
+    end_date: date,
+    api_factory: Callable[..., Any] | None = None,
+    ventana_dias: int = _VENTANA_ACTIVIDADES_DIAS_POR_DEFECTO,
+) -> SyncBatchResult:
+    """Ingiere actividades (carrera/ciclismo/fuerza) para cada usuario
+    con `GarminCredentials` activas, en la ventana
+    `[end_date-ventana_dias+1, end_date]`.
+
+    Función SEPARADA de `run_daily_sync_for_all_users` (recovery)
+    aunque comparten el mismo login/aislamiento por usuario - son dos
+    preocupaciones independientes con cadencias razonables distintas:
+    recovery necesita el día exacto de ayer, actividades puede mirar
+    una ventana de varios días para no perder actividades que Garmin
+    tarda en consolidar o que el job nocturno anterior no vio todavía
+    (idempotente vía `save_activity_if_new`, así que revisitar días ya
+    sincronizados nunca duplica).
+
+    Mismo principio de aislamiento por usuario que
+    `run_daily_sync_for_all_users`: un fallo (login, rate-limit)
+    sincronizando un usuario nunca debe impedir sincronizar a los
+    demás."""
+    credenciales_activas = session.query(GarminCredentials).filter_by(activo=True).all()
+
+    exitosos = 0
+    fallidos = 0
+    omitidos = session.query(GarminCredentials).filter_by(activo=False).count()
+    start_date = end_date - timedelta(days=ventana_dias - 1)
+
+    for cred in credenciales_activas:
+        try:
+            garmin_client = GarminClient(
+                token_store_dir=cred.token_store_dir,
+                api_factory=api_factory,
+            )
+            garmin_client.login()
+            sync_activities(session, cred.user_id, garmin_client, start_date, end_date)
+            exitosos += 1
+        except Exception as exc:  # noqa: BLE001 - aislamiento intencional por usuario
+            session.rollback()
+            try:
+                session.add(
+                    AuditLog(
+                        user_id=cred.user_id,
+                        modulo="scheduler_activities",
+                        inputs_json={
+                            "start_date": start_date.isoformat(),
+                            "end_date": end_date.isoformat(),
+                        },
+                        regla_disparada="sync_actividades_fallido",
+                        output="error",
+                        decision_final=str(exc)[:200],
+                    )
+                )
+                session.commit()
+            except Exception:  # noqa: BLE001 - misma salvaguarda que la auditoría de recovery
                 session.rollback()
             fallidos += 1
 
