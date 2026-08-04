@@ -99,6 +99,9 @@ Esto no es "una llamada más a Gemini" - es un motor de decisión con implicacio
 
 **Este documento NO promete fecha para esta capa de IA** - es, con diferencia, la pieza de mayor riesgo y mayor esfuerzo de todo el roadmap, y requiere su propia sesión de investigación dedicada antes de estimarla con seriedad.
 
+### 8. Diario de hábitos (PR #37) — hallazgo de diseño: la ausencia de fila no basta como "grupo de control" estadístico
+Al construir la Épica 7, code-review encontró un CRITICAL que vale la pena documentar para no repetirlo en features futuras con la misma forma: `HabitLog` usa "presencia de fila = ocurrió, ausencia = no ocurrió" (append-only). Eso es correcto para saber SI un hábito ocurrió un día concreto, pero **no basta** para construir el grupo de comparación "días en los que NO ocurrió" de un análisis de correlación - un día sin fila es indistinguible de "el usuario nunca hizo check-in ese día" y de "confirmó explícitamente que no pasó nada". Se resolvió añadiendo una tabla separada `HabitCheckin(user_id, fecha)` que registra SIEMPRE que hubo check-in (se marcara algo o no); el grupo de control se restringe a esas fechas, nunca al calendario completo. **Regla general para el futuro**: cualquier tabla con semántica "ausencia = señal negativa" que además vaya a usarse para comparar contra un grupo de control necesita una tabla/columna adicional que registre "hubo intento de registro" - la sola ausencia de una fila de evento nunca es suficiente evidencia de un evento negativo confirmado.
+
 ## Épicas de trabajo (orden sugerido, no todas bloquean entre sí)
 
 | # | Épica | Estado | Depende de |
@@ -109,7 +112,7 @@ Esto no es "una llamada más a Gemini" - es un motor de decisión con implicacio
 | 4 | Backend + frontend: food log real vía wger (`nutritiondiary`/ingredientes, token permanente del usuario) | ✅ Hecho | Nota de seguridad: token guardado en texto plano por ahora (documentado explícitamente como deuda, ver `models.schema.WgerCredentials`) - cifrar antes de cualquier despliegue en red |
 | 5 | Frontend: página Garmin con datos reales (una vez haya Fase H o al menos ingestión de actividades) | ⬜ Pendiente | Épica 2 |
 | 6 | Backend + frontend: explorador del catálogo de ejercicios de wger (`GET /exercises/categories`, `/equipment`, `/search`, proxy 502 si wger falla) + `ExercisePicker` en la página Entrenamiento | ✅ Hecho (solo lectura/exploración - añadir ejercicios concretos a una sesión sigue pendiente, requiere decidir el modelo de "sesión con ejercicios") | - |
-| 7 | Diario de hábitos (journal) + correlación con recovery | ⬜ Pendiente | Ninguna |
+| 7 | Diario de hábitos (journal) + correlación con recovery | ✅ Hecho (PR #37) | Ninguna |
 | 8 | Resumen periódico / informe exportable | ⬜ Pendiente | Ninguna |
 | 9 | Fotos de progreso: captura de landmarks + tendencia de silueta (SIN %grasa desde foto) | ⬜ Pendiente (Fase G) | Ninguna |
 | 10 | Gráficas de volumen por deporte (fuerza/hipertrofia vs. resistencia) | ⬜ Pendiente | Épicas 2 y 3 (3 ya lista) |
