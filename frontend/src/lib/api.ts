@@ -207,6 +207,31 @@ export type DailyFoodLog = {
   entradas_omitidas: number;
 };
 
+// Catálogo cerrado - debe coincidir exactamente con `_HABITO_VALORES` en
+// backend/models/schema.py (ver docstring de HabitLog para el porqué de
+// un catálogo cerrado en vez de texto libre).
+export const HABITOS = [
+  "alcohol",
+  "cafeina_tarde",
+  "comida_tardia",
+  "estres_alto",
+  "siesta",
+  "ayuno_intermitente",
+  "doble_sesion",
+  "viaje",
+] as const;
+
+export type Habito = (typeof HABITOS)[number];
+
+export type HabitCorrelation = {
+  habito: string;
+  dias_con_habito_con_dato: number;
+  dias_sin_habito_con_dato: number;
+  pct_red_con_habito: number | null;
+  pct_red_sin_habito: number | null;
+  datos_suficientes: boolean;
+};
+
 export const api = {
   createUser: (data: UserCreateInput) =>
     request<User>("/users", { method: "POST", body: JSON.stringify(data) }),
@@ -279,4 +304,15 @@ export const api = {
 
   getReadinessHistory: (userId: number, days = 30) =>
     request<ReadinessResult[]>(`/users/${userId}/readiness/history?days=${days}`),
+
+  setHabits: (userId: number, habitos: Habito[], targetDate = todayLocalDate()) =>
+    request<void>(`/users/${userId}/habits?date=${targetDate}`, {
+      method: "POST",
+      body: JSON.stringify({ habitos }),
+    }),
+
+  getHabitCorrelation: (userId: number, habito: Habito, asOf = todayLocalDate()) =>
+    request<HabitCorrelation>(
+      `/users/${userId}/habits/correlation?habito=${habito}&as_of=${asOf}`
+    ),
 };

@@ -56,6 +56,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -73,6 +74,21 @@ _READINESS_VALORES = ("red", "yellow", "green")
 _ROL_CONVERSACION_VALORES = ("user", "coach")
 _FUENTE_NUTRICION_VALORES = ("manual", "foto_ia", "barcode_off")
 _COMIDA_VALORES = ("desayuno", "comida", "cena", "snack")
+# Catálogo FIJO de hábitos (no texto libre) - mismo catálogo acotado
+# que usa el "Journal" de WHOOP (ver 02-roadmap/03-vision-produccion.md,
+# MUST-HAVE #3 de la auditoría de competidores). Un enum cerrado hace
+# que la correlación (services/habit_correlation_service.py) sea una
+# consulta simple por valor exacto, sin normalizar texto libre.
+_HABITO_VALORES = (
+    "alcohol",
+    "cafeina_tarde",
+    "comida_tardia",
+    "estres_alto",
+    "siesta",
+    "ayuno_intermitente",
+    "doble_sesion",
+    "viaje",
+)
 
 
 class UserProfile(Base):
@@ -307,6 +323,69 @@ class ReadinessLog(Base):
     resultado: Mapped[str] = mapped_column(Enum(*_READINESS_VALORES, name="readiness_enum", create_constraint=True))
     sesion_recomendada: Mapped[str | None] = mapped_column(String(50), default=None)
     volumen_pct_ajustado: Mapped[int | None] = mapped_column(default=None)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class HabitLog(Base):
+    """Diario de hábitos (Épica MUST-HAVE #3 de 02-roadmap/
+    03-vision-produccion.md, análogo al "Journal" de WHOOP): una fila
+    por (usuario, fecha, hábito) - la PRESENCIA de la fila significa
+    "ese hábito ocurrió ese día", su ausencia significa "no ocurrió"
+    (nunca se guarda una fila con `presente=False`, para no tener que
+    distinguir "no se registró" de "se registró que no pasó" - mismo
+    principio "unknown is not zero" que el resto del proyecto, aquí
+    aplicado al revés: la ausencia de dato SÍ es una señal válida,
+    "no pasó", porque el usuario activamente decide qué marcar en el
+    check-in del día).
+
+    Catálogo cerrado (`_HABITO_VALORES`), no texto libre - permite que
+    `services.habit_correlation_service` compare directamente por
+    valor exacto, sin necesitar NLP ni normalización."""
+
+    __tablename__ = "habit_log"
+    __table_args__ = (
+        # Orden (user_id, habito, fecha): la query caliente
+        # (get_dates_with_habit) filtra por user_id + habito exactos y
+        # luego acota por rango de fecha - ese orden deja el rango como
+        # última columna del índice, que es el uso óptimo de un
+        # índice compuesto en Postgres/SQLite.
+        Index("ix_habit_log_user_habito_fecha", "user_id", "habito", "fecha"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user_profile.id"), index=True)
+    fecha: Mapped[date] = mapped_column(Date, index=True)
+    habito: Mapped[str] = mapped_column(Enum(*_HABITO_VALORES, name="habito_enum", create_constraint=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class HabitCheckin(Base):
+    """Marca que el usuario completó el check-in de hábitos de ese día
+    -  UNA fila por (usuario, fecha), independientemente de si marcó
+    algún hábito o ninguno.
+
+    Existe para resolver un problema de fondo de `HabitLog`: con la
+    semántica "ausencia de fila = no ocurrió", un día en el que el
+    usuario confirma explícitamente "hoy no pasó nada" no deja ninguna
+    fila en `habit_log` - es indistinguible de un día en el que el
+    usuario simplemente nunca abrió la app. Sin esta tabla, el grupo de
+    "control" de `habit_correlation_service` (días sin el hábito)
+    quedaría contaminado con días sin ningún dato real, violando
+    "unknown is not zero" (hallazgo CRITICAL de code-review, fase de
+    diario de hábitos: ver 02-roadmap/03-vision-produccion.md).
+
+    `set_habits_for_date` escribe siempre una fila aquí (se haya
+    marcado algo o no); `get_dates_without_habit_in_window` restringe
+    el grupo de control a estas fechas, nunca al calendario completo."""
+
+    __tablename__ = "habit_checkin"
+    __table_args__ = (
+        UniqueConstraint("user_id", "fecha", name="uq_habit_checkin_user_fecha"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user_profile.id"), index=True)
+    fecha: Mapped[date] = mapped_column(Date, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 

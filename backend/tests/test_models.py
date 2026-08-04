@@ -26,6 +26,7 @@ from models.schema import (
     GarminActivity,
     GarminCredentials,
     GarminDailyMetrics,
+    HabitLog,
     NutritionLog,
     ProgressPhoto,
     ReadinessLog,
@@ -471,3 +472,36 @@ class TestGarminActivityYProgressPhoto:
             )
             session.add(foto)
             session.commit()
+
+
+class TestHabitLog:
+    def test_la_presencia_de_la_fila_significa_que_el_habito_ocurrio(self, session):
+        # Patrón append-only "unknown is not zero": no existe un campo
+        # `presente: bool` - la fila SOLO se crea si el hábito ocurrió.
+        # Aserto sobre el ESQUEMA: no debe poder representarse
+        # "ocurrió=False" en la propia fila.
+        columnas = set(HabitLog.__table__.columns.keys())
+        assert "presente" not in columnas
+        assert "ocurrio" not in columnas
+
+        usuario = _crear_usuario(session)
+        registro = HabitLog(user_id=usuario.id, fecha=date(2026, 8, 4), habito="alcohol")
+        session.add(registro)
+        session.commit()
+        assert registro.habito == "alcohol"
+
+    def test_rechaza_un_habito_fuera_del_catalogo_cerrado(self, session):
+        usuario = _crear_usuario(session)
+        with pytest.raises(Exception):
+            registro = HabitLog(user_id=usuario.id, fecha=date(2026, 8, 4), habito="no_existe")
+            session.add(registro)
+            session.commit()
+
+    def test_permite_varios_habitos_distintos_el_mismo_dia(self, session):
+        usuario = _crear_usuario(session)
+        fecha = date(2026, 8, 4)
+        session.add(HabitLog(user_id=usuario.id, fecha=fecha, habito="alcohol"))
+        session.add(HabitLog(user_id=usuario.id, fecha=fecha, habito="siesta"))
+        session.commit()
+        filas = session.query(HabitLog).filter_by(user_id=usuario.id, fecha=fecha).all()
+        assert {f.habito for f in filas} == {"alcohol", "siesta"}
