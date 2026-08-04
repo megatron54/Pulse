@@ -193,7 +193,19 @@ class GarminDailyMetrics(Base):
 
 class GarminActivity(Base):
     __tablename__ = "garmin_activity"
-    __table_args__ = (Index("ix_garmin_activity_user_fecha", "user_id", "fecha"),)
+    __table_args__ = (
+        Index("ix_garmin_activity_user_fecha", "user_id", "fecha"),
+        # La unicidad real de una actividad es (user_id, activity_id) -
+        # sin esta constraint, la idempotencia de
+        # `repositories.garmin_repository.save_activity_if_new` (hallazgo
+        # HIGH de code-review) descansaría solo en un check-then-insert
+        # en código, con una carrera teórica si el sync corriera alguna
+        # vez en paralelo (dos jobs, o un futuro endpoint de sync
+        # manual).
+        UniqueConstraint(
+            "user_id", "activity_id", name="uq_garmin_activity_user_activity"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("user_profile.id"), index=True)

@@ -239,3 +239,16 @@ class HabitCorrelationOut(BaseModel):
     datos_suficientes: bool
 
     model_config = {"from_attributes": True}
+
+
+class GarminActivityOut(BaseModel):
+    activity_id: str
+    fecha: date
+    tipo: str
+    duracion_seg: int | None
+    distancia_m: float | None
+    hr_avg: int | None
+    hr_max: int | None
+    training_effect: float | None
+
+    model_config = {"from_attributes": True}

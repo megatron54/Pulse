@@ -232,6 +232,17 @@ export type HabitCorrelation = {
   datos_suficientes: boolean;
 };
 
+export type GarminActivity = {
+  activity_id: string;
+  fecha: string;
+  tipo: string;
+  duracion_seg: number | null;
+  distancia_m: number | null;
+  hr_avg: number | null;
+  hr_max: number | null;
+  training_effect: number | null;
+};
+
 export const api = {
   createUser: (data: UserCreateInput) =>
     request<User>("/users", { method: "POST", body: JSON.stringify(data) }),
@@ -314,5 +325,10 @@ export const api = {
   getHabitCorrelation: (userId: number, habito: Habito, asOf = todayLocalDate()) =>
     request<HabitCorrelation>(
       `/users/${userId}/habits/correlation?habito=${habito}&as_of=${asOf}`
+    ),
+
+  getGarminActivities: (userId: number, days = 90, asOf = todayLocalDate()) =>
+    request<GarminActivity[]>(
+      `/users/${userId}/garmin/activities?days=${days}&as_of=${asOf}`
     ),
 };
