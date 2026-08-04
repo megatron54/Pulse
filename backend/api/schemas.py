@@ -158,3 +158,50 @@ class ExerciseOut(BaseModel):
     nombre: str
     categoria: str
     equipamiento: list[str]
+
+
+class WgerTokenRequest(BaseModel):
+    token: str
+
+
+class IngredientOut(BaseModel):
+    id: int
+    nombre: str
+    kcal_100g: float
+    proteina_100g_g: float
+    carbohidratos_100g_g: float
+    grasa_100g_g: float
+
+
+class FoodLogEntryRequest(BaseModel):
+    ingredient_id: int
+    # gt=0: 0/negativo no tiene sentido para una cantidad de comida.
+    # le=9999: límite real del formato `decimal` que exige el schema de
+    # wger (`^-?\d{0,4}(?:\.\d{0,2})?$`, máx. 4 dígitos enteros) -
+    # hallazgo de code-review: sin este límite, un valor >9999g pasaba
+    # el 422 de Pulse y llegaba a wger como un 400 confuso convertido
+    # en un 502 opaco.
+    amount_grams: float = Field(gt=0, le=9999)
+
+
+class FoodLogEntryOut(BaseModel):
+    ingredient_id: int
+    nombre: str
+    amount_grams: float
+    kcal: float
+    proteina_g: float
+    carbohidratos_g: float
+    grasa_g: float
+
+    model_config = {"from_attributes": True}
+
+
+class DailyFoodLogOut(BaseModel):
+    entradas: list[FoodLogEntryOut]
+    kcal_total: float
+    proteina_g_total: float
+    carbohidratos_g_total: float
+    grasa_g_total: float
+    entradas_omitidas: int
+
+    model_config = {"from_attributes": True}

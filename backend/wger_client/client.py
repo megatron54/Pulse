@@ -187,3 +187,156 @@ class WgerClient:
             "categoria": categoria_nombre,
             "equipamiento": [e["name"] for e in ejercicio.get("equipment", [])],
         }
+
+    def search_ingredients(
+        self,
+        query: str,
+        language: int,
+        limit: int = _LIMITE_POR_DEFECTO,
+    ) -> list[dict[str, Any]]:
+        """Busca en el catálogo de ingredientes de wger (en realidad
+        Open Food Facts re-normalizado, ver `source_name` en el payload
+        real) - lectura pública, sin token. Aplanado a los campos que
+        Pulse necesita para el diario de comidas, con los macros por
+        100g ya convertidos a `float` (hallazgo real de investigación:
+        wger los sirve como STRINGS - `"protein": "6.100"` - sumar
+        strings sin castear concatena en vez de sumar).
+
+        Un ingrediente sin `energy`/`protein`/`carbohydrates`/`fat`
+        utilizables se OMITE (principio "unknown is not zero": OFF
+        tiene datos dispersos, nunca se fabrica un 0 que se confunda
+        con un alimento real sin calorías)."""
+        resultados = self._get_results(
+            "/ingredientinfo/", {"search": query, "language": language, "limit": limit}
+        )
+        ingredientes = []
+        for ingrediente in resultados:
+            aplanado = self._aplanar_ingrediente(ingrediente)
+            if aplanado is not None:
+                ingredientes.append(aplanado)
+        return ingredientes
+
+    @staticmethod
+    def _aplanar_ingrediente(ingrediente: dict[str, Any]) -> dict[str, Any] | None:
+        try:
+            return {
+                "id": ingrediente["id"],
+                "nombre": ingrediente["name"],
+                "kcal_100g": float(ingrediente["energy"]),
+                "proteina_100g_g": float(ingrediente["protein"]),
+                "carbohidratos_100g_g": float(ingrediente["carbohydrates"]),
+                "grasa_100g_g": float(ingrediente["fat"]),
+            }
+        except (KeyError, TypeError, ValueError):
+            return None
+
+    def get_ingredient(self, ingredient_id: int) -> dict[str, Any]:
+        """Detalle de un único ingrediente por id, aplanado igual que
+        `search_ingredients` - necesario para
+        `services.food_log_service` (una entrada del diario de wger
+        solo trae `ingredient` + `amount`, sin macros; hay que resolver
+        cada ingrediente para calcular el total del día).
+
+        A diferencia de `search_ingredients`, aquí un ingrediente con
+        macros incompletos SÍ es un error (`WgerRequestError`) en vez
+        de omitirse en silencio: el llamante pidió explícitamente ESE
+        id concreto para calcular un total, así que no hay un conjunto
+        de resultados del que simplemente descartar una fila mala."""
+        payload = self._get(f"/ingredientinfo/{ingredient_id}/", {})
+        aplanado = self._aplanar_ingrediente(payload)
+        if aplanado is None:
+            raise WgerRequestError(
+                f"El ingrediente {ingredient_id} de wger no tiene macros utilizables"
+            )
+        return aplanado
+
+    def _cabecera_auth(self, token: str) -> dict[str, str]:
+        return {"Authorization": f"Token {token}"}
+
+    def log_food_diary_entry(
+        self,
+        token: str,
+        ingredient_id: int,
+        amount_grams: float,
+        target_datetime: str | None = None,
+    ) -> dict[str, Any]:
+        """Registra una entrada en el diario de comidas real del
+        usuario (`POST /api/v2/nutritiondiary/`) usando SU PROPIO token
+        permanente de wger (ver `models.schema.WgerCredentials` - el
+        usuario lo genera él mismo desde la web de wger, Pulse nunca ve
+        su contraseña). `amount_grams` se envía como string sin
+        decimales sobrantes, mismo formato `decimal` que exige el
+        schema real de wger (`LogItemRequest.amount`).
+
+        `target_datetime` por defecto es `None` -> wger asume "ahora"
+        si el campo no se envía (es opcional en su schema); pásalo
+        explícito en formato ISO 8601 si se necesita registrar una
+        comida de otro momento."""
+        payload: dict[str, Any] = {
+            "ingredient": ingredient_id,
+            "amount": _formatear_decimal(amount_grams),
+        }
+        if target_datetime is not None:
+            payload["datetime"] = target_datetime
+
+        url = f"{self._base_url}/api/v2/nutritiondiary/"
+        try:
+            response = self._http.post(
+                url,
+                params={"format": "json"},
+                json=payload,
+                headers=self._cabecera_auth(token),
+            )
+        except httpx.HTTPError as exc:
+            raise WgerRequestError(f"Fallo de conexión con wger: {exc}") from exc
+
+        if response.status_code in (401, 403):
+            raise WgerAuthError(
+                f"wger rechazó el registro de comida (status {response.status_code}) - "
+                "revisa que el token siga siendo válido"
+            )
+        if response.status_code >= 400:
+            raise WgerRequestError(
+                f"wger devolvió un error registrando la comida (status {response.status_code})"
+            )
+        return response.json()
+
+    def get_food_diary(self, token: str, target_date: str) -> list[dict[str, Any]]:
+        """Diario de comidas real del usuario para `target_date`
+        (`YYYY-MM-DD`), filtrado en el propio wger vía `datetime__date`
+        (confirmado en el schema OpenAPI real de la instancia) - no se
+        trae todo el histórico para filtrar en Pulse."""
+        url = f"{self._base_url}/api/v2/nutritiondiary/"
+        try:
+            response = self._http.get(
+                url,
+                params={"format": "json", "datetime__date": target_date},
+                headers=self._cabecera_auth(token),
+            )
+        except httpx.HTTPError as exc:
+            raise WgerRequestError(f"Fallo de conexión con wger: {exc}") from exc
+
+        if response.status_code in (401, 403):
+            raise WgerAuthError(
+                f"wger rechazó la lectura del diario (status {response.status_code})"
+            )
+        if response.status_code >= 400:
+            raise WgerRequestError(
+                f"wger devolvió un error leyendo el diario (status {response.status_code})"
+            )
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise WgerRequestError(f"wger devolvió un cuerpo no-JSON: {exc}") from exc
+        if "results" not in payload:
+            raise WgerRequestError("Respuesta inesperada de wger: falta la clave 'results'")
+        return payload["results"]
+
+
+def _formatear_decimal(valor: float) -> str:
+    """Serializa un número al formato `decimal` que exige el schema de
+    wger (`^-?\\d{0,4}(?:\\.\\d{0,2})?$`) - sin notación científica ni
+    ceros decimales sobrantes tipo `150.0`."""
+    if valor == int(valor):
+        return str(int(valor))
+    return f"{valor:.2f}".rstrip("0").rstrip(".")
