@@ -3,16 +3,18 @@
 import { useUser } from "@/lib/UserContext";
 import { WeeklyScheduleForm } from "@/components/WeeklyScheduleForm";
 import { TrainingLoadCard } from "@/components/TrainingLoadCard";
+import { ExercisePicker } from "@/components/ExercisePicker";
 import { FadeIn } from "@/components/ui/FadeIn";
 
 /**
- * Gestión del plan de entrenamiento: bloque activo, calendario semanal
- * y carga de entrenamiento real (ACWR calculado de verdad a partir del
+ * Gestión del plan de entrenamiento: bloque activo, calendario semanal,
+ * carga de entrenamiento real (ACWR calculado de verdad a partir del
  * historial de volume_pct, ver services/training_load_service.py -
- * Épica 3 de 02-roadmap/03-vision-produccion.md). Pendiente: historial
- * de sesiones completadas y selector de ejercicios del catálogo de
- * wger - el cliente de wger ya existe (backend/wger_client/) pero
- * todavía no está conectado a ninguna pantalla.
+ * Épica 3 de 02-roadmap/03-vision-produccion.md) y explorador del
+ * catálogo de ejercicios de wger (Épica 6 - cliente construido hace
+ * tiempo, nunca conectado a una pantalla hasta ahora). Pendiente:
+ * historial de sesiones completadas, y añadir ejercicios concretos a
+ * una sesión (requiere decidir el modelo de "sesión con ejercicios").
  */
 export default function EntrenamientoPage() {
   const user = useUser();
@@ -31,6 +33,9 @@ export default function EntrenamientoPage() {
         </FadeIn>
         <FadeIn delay={0.05}>
           <WeeklyScheduleForm userId={user.id} />
+        </FadeIn>
+        <FadeIn delay={0.1}>
+          <ExercisePicker />
         </FadeIn>
       </div>
     </main>
