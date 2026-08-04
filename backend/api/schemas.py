@@ -110,6 +110,17 @@ class DailySessionOut(BaseModel):
     narrative_source: str
 
 
+class TrainingLoadOut(BaseModel):
+    acute_avg_7d: float | None
+    chronic_avg_28d: float | None
+    acwr: float | None
+    dias_con_dato_agudo: int
+    dias_con_dato_cronico: int
+    datos_suficientes: bool
+
+    model_config = {"from_attributes": True}
+
+
 _DiaSemana = Literal["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 
 

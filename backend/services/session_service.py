@@ -10,6 +10,7 @@ AuditLog.
 """
 from __future__ import annotations
 
+import logging
 from datetime import date
 
 from sqlalchemy.orm import Session
@@ -21,9 +22,11 @@ from engine.periodization import (
     decide_session,
 )
 from models.schema import AuditLog, UserProfile
-from repositories.readiness_log_repository import get_latest_readiness_level
+from repositories.readiness_log_repository import get_latest_readiness_level, set_volumen_pct_ajustado
 from repositories.training_block_repository import get_planned_session_for_date
 from services.errors import EntityNotFoundError
+
+logger = logging.getLogger(__name__)
 
 
 def compute_daily_session(
@@ -118,5 +121,31 @@ def compute_daily_session(
         )
     )
     session.commit()
+
+    # Persiste el volumen decidido en el ReadinessLog del día - cierra
+    # el hueco real de "no hay historial de carga con el que calcular
+    # un ACWR de verdad" (ver services.training_load_service). No debe
+    # poder tumbar la decisión ya calculada si por lo que sea falla
+    # (p.ej. el ReadinessLog fue borrado entre la lectura de arriba y
+    # este punto, caso extremo) - se seguiría devolviendo la
+    # recomendación igualmente. IMPORTANTE (hallazgo de code-review):
+    # nunca tragarse el error en silencio - un fallo aquí sin log sería
+    # exactamente el mismo tipo de bug que esta función existe para
+    # arreglar (volumen_pct_ajustado dejaría de escribirse otra vez,
+    # sin que nadie se enterase). El AuditLog de la línea de arriba ya
+    # quedó comprometido con su propio commit antes de este bloque, así
+    # que el rollback de aquí solo afecta al intento fallido de
+    # set_volumen_pct_ajustado, nunca a la decisión ya persistida.
+    try:
+        set_volumen_pct_ajustado(session, user_id, target_date, recomendacion.volume_pct)
+    except Exception:  # noqa: BLE001 - enriquecimiento best-effort, no crítico
+        session.rollback()
+        logger.warning(
+            "No se pudo persistir volumen_pct_ajustado para user_id=%s fecha=%s "
+            "(la decisión de sesión ya devuelta no se ve afectada)",
+            user_id,
+            target_date,
+            exc_info=True,
+        )
 
     return recomendacion

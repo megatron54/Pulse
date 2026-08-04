@@ -109,6 +109,47 @@ class TestComputeDailySession:
         assert resultado.session_type == SessionType.STRENGTH_HEAVY
         assert resultado.volume_pct == 100
 
+    def test_persiste_el_volume_pct_en_el_readiness_log_del_dia(self, session, usuario):
+        # Regresión del hallazgo real de la Fase "carga de entrenamiento
+        # numérica" (docs/02-roadmap/03-vision-produccion.md):
+        # ReadinessLog.volumen_pct_ajustado existía en el schema pero
+        # nada lo escribía nunca, así que no había historial real de
+        # carga con el que calcular un ACWR de verdad.
+        hoy = date(2026, 8, 2)
+        _sembrar_readiness(session, usuario.id, hoy, "green")
+        compute_daily_session(
+            session, usuario.id, target_date=hoy, planned_session=SessionType.STRENGTH_HEAVY
+        )
+        fila = session.query(ReadinessLog).filter_by(user_id=usuario.id, fecha=hoy).one()
+        assert fila.volumen_pct_ajustado == 100
+
+    def test_un_fallo_al_persistir_el_volumen_no_rompe_la_decision_de_sesion(
+        self, session, usuario, monkeypatch, caplog
+    ):
+        # H2 de code-review: el enriquecimiento best-effort debe ser
+        # resiliente Y observable - un fallo no debe tumbar la decisión
+        # ya calculada, pero tampoco debe tragarse en silencio (eso
+        # sería el mismo tipo de bug que esta épica existe para arreglar).
+        import services.session_service as session_service_module
+
+        def set_volumen_que_falla(*args, **kwargs):
+            raise RuntimeError("fallo simulado de base de datos")
+
+        monkeypatch.setattr(
+            session_service_module, "set_volumen_pct_ajustado", set_volumen_que_falla
+        )
+
+        hoy = date(2026, 8, 2)
+        _sembrar_readiness(session, usuario.id, hoy, "green")
+        with caplog.at_level("WARNING"):
+            resultado = compute_daily_session(
+                session, usuario.id, target_date=hoy, planned_session=SessionType.STRENGTH_HEAVY
+            )
+
+        assert resultado.session_type == SessionType.STRENGTH_HEAVY
+        assert resultado.volume_pct == 100
+        assert "volumen_pct_ajustado" in caplog.text
+
     def test_rechaza_si_no_hay_readiness_calculado_ese_dia(self, session, usuario):
         with pytest.raises(ValueError):
             compute_daily_session(
