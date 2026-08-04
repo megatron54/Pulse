@@ -243,6 +243,17 @@ export type GarminActivity = {
   training_effect: number | null;
 };
 
+export type PeriodicSummary = {
+  dias_con_checkin_readiness: number;
+  distribucion_readiness: { green: number; yellow: number; red: number };
+  training_load: TrainingLoad;
+  peso_inicio_kg: number | null;
+  peso_fin_kg: number | null;
+  peso_delta_kg: number | null;
+  actividades_totales: number;
+  duracion_actividades_total_seg: number;
+};
+
 export const api = {
   createUser: (data: UserCreateInput) =>
     request<User>("/users", { method: "POST", body: JSON.stringify(data) }),
@@ -330,5 +341,10 @@ export const api = {
   getGarminActivities: (userId: number, days = 90, asOf = todayLocalDate()) =>
     request<GarminActivity[]>(
       `/users/${userId}/garmin/activities?days=${days}&as_of=${asOf}`
+    ),
+
+  getPeriodicSummary: (userId: number, days = 7, asOf = todayLocalDate()) =>
+    request<PeriodicSummary>(
+      `/users/${userId}/summary?days=${days}&as_of=${asOf}`
     ),
 };

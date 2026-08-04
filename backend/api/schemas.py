@@ -252,3 +252,16 @@ class GarminActivityOut(BaseModel):
     training_effect: float | None
 
     model_config = {"from_attributes": True}
+
+
+class PeriodicSummaryOut(BaseModel):
+    dias_con_checkin_readiness: int
+    distribucion_readiness: dict[str, int]
+    training_load: TrainingLoadOut
+    peso_inicio_kg: float | None
+    peso_fin_kg: float | None
+    peso_delta_kg: float | None
+    actividades_totales: int
+    duracion_actividades_total_seg: int
+
+    model_config = {"from_attributes": True}
