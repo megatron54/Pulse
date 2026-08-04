@@ -13,7 +13,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from api.routers import body_composition, exercises, nutrition, readiness, session, training_blocks, users
+from api.routers import body_composition, exercises, food_log, nutrition, readiness, session, training_blocks, users
 from garmin_sync.mapper import InsufficientDataError
 from services.errors import EntityNotFoundError
 
@@ -71,6 +71,7 @@ app.include_router(readiness.router)
 app.include_router(session.router)
 app.include_router(training_blocks.router)
 app.include_router(exercises.router)
+app.include_router(food_log.router)
 
 
 @app.get("/health", tags=["health"])
