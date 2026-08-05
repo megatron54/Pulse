@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Watch } from "lucide-react";
 import { api, ApiError, type GarminActivity } from "@/lib/api";
 import { Card, CardTitle } from "./ui/Card";
+import { EmptyState } from "./ui/EmptyState";
+import { ErrorState } from "./ui/ErrorState";
+import { LoadingState } from "./ui/LoadingState";
 
 /**
  * Historial de actividades Garmin ya ingeridas (Épica 2 de
@@ -28,6 +32,7 @@ function formatDistancia(m: number | null): string {
 export function GarminActivitiesCard({ userId }: { userId: number }) {
   const [actividades, setActividades] = useState<GarminActivity[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [intentos, setIntentos] = useState(0);
 
   useEffect(() => {
     let cancelado = false;
@@ -43,28 +48,26 @@ export function GarminActivitiesCard({ userId }: { userId: number }) {
     return () => {
       cancelado = true;
     };
-  }, [userId]);
+  }, [userId, intentos]);
 
   return (
     <Card>
       <CardTitle>Actividades</CardTitle>
       {error && (
-        <p role="alert" className="text-red-400 text-sm">
-          {error}
-        </p>
+        <ErrorState
+          message={error}
+          onRetry={() => {
+            setError(null);
+            setIntentos((n) => n + 1);
+          }}
+        />
       )}
-      {!error && actividades === null && (
-        <p role="status" className="text-sm text-gray-400 italic">
-          Cargando...
-        </p>
-      )}
+      {!error && actividades === null && <LoadingState lines={2} />}
       {!error && actividades !== null && actividades.length === 0 && (
-        <p className="text-sm text-gray-400">
-          No hay actividades sincronizadas todavía. La infraestructura de
-          sincronización ya está construida y probada, pero necesita credenciales
-          reales de Garmin para empezar a traer actividades - no vamos a inventar
-          ninguna mientras tanto.
-        </p>
+        <EmptyState
+          icon={Watch}
+          message="No hay actividades sincronizadas todavía - necesita credenciales reales de Garmin, no vamos a inventar ninguna mientras tanto."
+        />
       )}
       {!error && actividades !== null && actividades.length > 0 && (
         <div className="flex flex-col gap-2">

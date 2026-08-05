@@ -20,21 +20,21 @@ export default function EntrenamientoPage() {
   const user = useUser();
 
   return (
-    <main className="p-6 md:p-8 max-w-2xl mx-auto w-full">
+    <main className="p-6 md:p-8 max-w-6xl mx-auto w-full">
       <header className="mb-8">
         <h1 className="font-display text-2xl font-bold tracking-wide text-white">
           Entrenamiento
         </h1>
         <p className="text-gray-400 mt-1">Tu plan semanal y bloque activo.</p>
       </header>
-      <div className="flex flex-col gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         <FadeIn>
           <TrainingLoadCard userId={user.id} />
         </FadeIn>
         <FadeIn delay={0.05}>
           <WeeklyScheduleForm userId={user.id} />
         </FadeIn>
-        <FadeIn delay={0.1}>
+        <FadeIn delay={0.1} className="md:col-span-2">
           <ExercisePicker />
         </FadeIn>
       </div>

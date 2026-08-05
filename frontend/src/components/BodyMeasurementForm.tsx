@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { api, ApiError, todayLocalDate, type BodyMeasurement } from "@/lib/api";
 import { Card, CardTitle } from "./ui/Card";
+import { Button } from "./ui/Button";
 
 const inputClass =
   "border border-white/10 bg-black/30 rounded-lg px-3 py-2 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-teal";
@@ -66,6 +67,7 @@ export function BodyMeasurementForm({
         <div className="grid grid-cols-3 gap-2">
           <input
             type="number"
+            step="0.1"
             placeholder="Cuello cm"
             className={inputClass}
             value={cuelloCm}
@@ -73,6 +75,7 @@ export function BodyMeasurementForm({
           />
           <input
             type="number"
+            step="0.1"
             placeholder="Cintura cm"
             className={inputClass}
             value={cinturaCm}
@@ -80,6 +83,7 @@ export function BodyMeasurementForm({
           />
           <input
             type="number"
+            step="0.1"
             placeholder="Cadera cm (mujer)"
             className={inputClass}
             value={caderaCm}
@@ -87,13 +91,9 @@ export function BodyMeasurementForm({
           />
         </div>
         {error && <p className="text-red-400 text-sm">{error}</p>}
-        <button
-          type="submit"
-          disabled={submitting}
-          className="bg-teal text-black font-semibold rounded-lg px-4 py-2.5 disabled:bg-surface disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:scale-100 self-start transition-transform hover:scale-[1.02] active:scale-[0.98]"
-        >
+        <Button type="submit" disabled={submitting} className="self-start">
           {submitting ? "Guardando..." : "Guardar"}
-        </button>
+        </Button>
       </form>
       {resultado && (
         <div className="mt-4 p-3 bg-black/30 rounded-lg text-sm text-gray-300">

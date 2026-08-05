@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { WeightTrendCard } from "./WeightTrendCard";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, type BodyMeasurement } from "@/lib/api";
 
 vi.mock("@/lib/api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
@@ -30,7 +30,7 @@ describe("WeightTrendCard", () => {
     render(<WeightTrendCard userId={1} />);
 
     await waitFor(() => expect(screen.getByRole("img")).toBeInTheDocument());
-    expect(screen.getByText(/79.2 kg/)).toBeInTheDocument();
+    expect(screen.getByText((_, el) => el?.textContent === "79.2 kg")).toBeInTheDocument();
     expect(screen.getByText(/2 d[ií]as/i)).toBeInTheDocument();
   });
 
@@ -68,7 +68,7 @@ describe("WeightTrendCard", () => {
 
   it("no actualiza el estado tras desmontar (evita el warning de setState en componente desmontado)", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
-    let resolverPromesa: (valor: unknown) => void = () => {};
+    let resolverPromesa: (valor: BodyMeasurement[]) => void = () => {};
     vi.mocked(api.getBodyMeasurementHistory).mockReturnValue(
       new Promise((resolve) => {
         resolverPromesa = resolve;

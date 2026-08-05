@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { Check } from "lucide-react";
 import { api, ApiError, HABITOS, type Habito, type HabitCorrelation } from "@/lib/api";
 import { Card, CardTitle } from "./ui/Card";
+import { Button } from "./ui/Button";
 
 /**
  * Diario de hábitos correlacionado con recovery (Épica MUST-HAVE #3 de
@@ -79,13 +81,17 @@ function HabitCheckboxes({ userId }: { userId: number }) {
           {error}
         </p>
       )}
-      <button
-        onClick={guardar}
-        disabled={guardando}
-        className="mt-4 bg-teal text-black font-semibold rounded-lg px-4 py-2 disabled:bg-surface disabled:text-gray-400 text-sm"
-      >
-        {guardando ? "Guardando..." : guardado ? "Guardado ✓" : "Guardar"}
-      </button>
+      <Button onClick={guardar} disabled={guardando} className="mt-4">
+        {guardando ? (
+          "Guardando..."
+        ) : guardado ? (
+          <>
+            Guardado <Check aria-hidden="true" size={14} />
+          </>
+        ) : (
+          "Guardar"
+        )}
+      </Button>
     </div>
   );
 }

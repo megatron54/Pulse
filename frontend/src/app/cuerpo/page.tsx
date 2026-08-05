@@ -22,12 +22,12 @@ export default function CuerpoPage() {
   const [weightRefreshKey, setWeightRefreshKey] = useState(0);
 
   return (
-    <main className="p-6 md:p-8 max-w-2xl mx-auto w-full">
+    <main className="p-6 md:p-8 max-w-5xl mx-auto w-full">
       <header className="mb-8">
         <h1 className="font-display text-2xl font-bold tracking-wide text-white">Cuerpo</h1>
         <p className="text-gray-400 mt-1">Peso, medidas y su evolución.</p>
       </header>
-      <div className="flex flex-col gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         <FadeIn>
           <BodyMeasurementForm
             userId={user.id}

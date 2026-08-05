@@ -16,7 +16,7 @@ describe("AppShell", () => {
     vi.mocked(useCurrentUser).mockReset();
   });
 
-  it("muestra 'Cargando...' mientras useCurrentUser resuelve", () => {
+  it("anuncia el estado de carga mientras useCurrentUser resuelve", () => {
     vi.mocked(useCurrentUser).mockReturnValue({
       user: null,
       loading: true,
@@ -28,7 +28,7 @@ describe("AppShell", () => {
         <p>Contenido de la página</p>
       </AppShell>
     );
-    expect(screen.getByText("Cargando...")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toBeInTheDocument();
     expect(screen.queryByText("Contenido de la página")).not.toBeInTheDocument();
   });
 

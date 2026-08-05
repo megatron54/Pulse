@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { api, ApiError, todayLocalDate, type ReadinessResult } from "@/lib/api";
 import { Card, CardTitle } from "./ui/Card";
+import { Button } from "./ui/Button";
 import { RecoveryRing } from "./RecoveryRing";
 
 const ZONA_POR_RESULTADO: Record<string, "green" | "yellow" | "red"> = {
@@ -159,13 +160,9 @@ export function ReadinessCheckinForm({
           Dolor articular hoy
         </label>
         {error && <p className="text-red-400 text-sm col-span-2">{error}</p>}
-        <button
-          type="submit"
-          disabled={submitting}
-          className="bg-teal text-black font-semibold rounded-lg px-4 py-2.5 disabled:bg-surface disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:scale-100 col-span-2 transition-transform hover:scale-[1.01] active:scale-[0.99]"
-        >
+        <Button type="submit" disabled={submitting} className="col-span-2">
           {submitting ? "Calculando..." : "Registrar check-in"}
-        </button>
+        </Button>
       </form>
       {resultado && (
         <div className="mt-6 flex items-center justify-center">

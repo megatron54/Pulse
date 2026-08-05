@@ -18,21 +18,20 @@ export default function GarminPage() {
   const user = useUser();
 
   return (
-    <main className="p-6 md:p-8 max-w-2xl mx-auto w-full">
+    <main className="p-6 md:p-8 max-w-5xl mx-auto w-full">
       <header className="mb-8">
         <h1 className="font-display text-2xl font-bold tracking-wide text-white">Garmin</h1>
         <p className="text-gray-400 mt-1">Estado de la sincronización con tu reloj.</p>
       </header>
-      <div className="flex flex-col gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         <FadeIn>
           <Card>
-            <CardTitle>Sin conectar todavía</CardTitle>
+            <CardTitle>Sincronización</CardTitle>
             <p className="text-sm text-gray-300">
-              La infraestructura de sincronización (scheduler nocturno, cliente de
-              Garmin Connect) ya está construida y probada, pero necesita tus
-              credenciales reales para empezar a traer datos - por ahora no hay
-              métricas diarias (HRV, Body Battery, training readiness) que mostrar
-              aquí, y no vamos a inventar ninguna.
+              El scheduler nocturno sincroniza recovery y actividades automáticamente
+              cada noche una vez emparejada tu cuenta. Algunas métricas (HRV, sleep
+              score) tardan unos días en poblarse tras emparejar un dispositivo
+              nuevo - no se inventa ningún valor mientras tanto.
             </p>
           </Card>
         </FadeIn>
