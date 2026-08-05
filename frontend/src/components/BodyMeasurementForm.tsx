@@ -61,14 +61,15 @@ export function BodyMeasurementForm({
           />
         </label>
         <p className="text-sm text-gray-400">
-          Opcional: añade cuello/cintura(/cadera) para estimar % de grasa (fórmula Navy, siempre
-          como rango, nunca un número exacto).
+          Opcional: añade cuello/cintura (y cadera si eres mujer) para estimar % de grasa
+          (fórmula Navy, siempre como rango, nunca un número exacto).
         </p>
         <div className="grid grid-cols-3 gap-2">
           <input
             type="number"
             step="0.1"
-            placeholder="Cuello cm"
+            placeholder="Cuello (cm)"
+            aria-label="Cuello en centímetros"
             className={inputClass}
             value={cuelloCm}
             onChange={(e) => setCuelloCm(e.target.value)}
@@ -76,7 +77,8 @@ export function BodyMeasurementForm({
           <input
             type="number"
             step="0.1"
-            placeholder="Cintura cm"
+            placeholder="Cintura (cm)"
+            aria-label="Cintura en centímetros"
             className={inputClass}
             value={cinturaCm}
             onChange={(e) => setCinturaCm(e.target.value)}
@@ -84,7 +86,8 @@ export function BodyMeasurementForm({
           <input
             type="number"
             step="0.1"
-            placeholder="Cadera cm (mujer)"
+            placeholder="Cadera (cm)"
+            aria-label="Cadera en centímetros, solo para mujer"
             className={inputClass}
             value={caderaCm}
             onChange={(e) => setCaderaCm(e.target.value)}

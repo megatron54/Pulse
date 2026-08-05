@@ -78,7 +78,8 @@ export function ReadinessCheckinForm({
     <Card>
       <CardTitle>Check-in de recuperación</CardTitle>
       <p className="text-sm text-gray-400 mb-4 -mt-2">
-        Manual mientras la sincronización con Garmin real siga pendiente (Fase H).
+        Manual mientras el scheduler nocturno todavía no tenga suficiente historial
+        de tu Garmin real para calcular esto solo.
       </p>
       <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-3">
         <label className="flex flex-col gap-1 text-sm text-gray-300">
