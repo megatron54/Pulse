@@ -7,6 +7,7 @@ solo serialización (Pydantic) y mapeo de errores a códigos HTTP.
 """
 from __future__ import annotations
 
+import logging
 import os
 
 from fastapi import FastAPI, Request
@@ -28,6 +29,8 @@ from api.routers import (
 )
 from garmin_sync.mapper import InsufficientDataError
 from services.errors import EntityNotFoundError
+
+logger = logging.getLogger("pulse.api")
 
 app = FastAPI(
     title="Pulse API",
@@ -74,6 +77,28 @@ async def insufficient_data_handler(request: Request, exc: InsufficientDataError
     comunican como 422 (entidad no procesable), distinto de un 400 de
     input malformado por parte del cliente."""
     return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Red de seguridad final: cualquier excepción NO prevista por los
+    handlers específicos de arriba (un bug real, un fallo de
+    infraestructura como una tabla que falta) se registra completa en
+    el log del servidor, pero al cliente solo le llega un mensaje
+    genérico - NUNCA el mensaje de la excepción original.
+
+    Hallazgo real (verificación manual con Playwright, Fase de pulido
+    de frontend): un fallo de Postgres (`relation "wger_credentials"
+    does not exist`) se propagó sin este handler y el frontend mostró
+    en pantalla el mensaje crudo de psycopg2/SQLAlchemy, incluyendo la
+    consulta SQL completa y los parámetros - una fuga de información
+    interna real, no solo teórica."""
+    logger.exception(
+        "Excepción no controlada en %s %s", request.method, request.url.path, exc_info=exc
+    )
+    return JSONResponse(
+        status_code=500, content={"detail": "Ha ocurrido un error interno. Inténtalo de nuevo."}
+    )
 
 
 app.include_router(users.router)

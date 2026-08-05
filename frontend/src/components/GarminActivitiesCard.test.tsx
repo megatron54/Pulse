@@ -24,7 +24,7 @@ describe("GarminActivitiesCard", () => {
     render(<GarminActivitiesCard userId={1} />);
 
     await waitFor(() =>
-      expect(screen.getByText(/no hay actividades sincronizadas todavía/i)).toBeInTheDocument()
+      expect(screen.getByText(/sin actividades sincronizadas todavía/i)).toBeInTheDocument()
     );
   });
 
