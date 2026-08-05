@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Frontend — Pulse
 
-## Getting Started
+Dashboard visual (Next.js 16 / App Router / React 19 / TypeScript / Tailwind v4) estilo WHOOP/Apple Health/Samsung Health: gráficas reales, no listados de texto.
 
-First, run the development server:
+## Setup y arranque local
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```powershell
+cd frontend
+npm install
+npm run dev -- --webpack
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+> **Nota Windows**: `next dev`/`next build` por defecto usan Turbopack, que requiere bindings nativos no disponibles en algunos entornos Windows (cae a WASM y falla con *"Turbopack is not supported on this platform"*). Usa siempre `--webpack` en ese caso (nota el `--` extra: sin él, npm interpretaría el flag como propio, no como argumento para `next dev`).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Necesita el backend corriendo en `http://localhost:8000` (ver `../backend/README.md`) y `PULSE_FRONTEND_ORIGIN=http://localhost:3000` en el backend para CORS.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Estructura
 
-## Learn More
+- `src/app/` — páginas (App Router): `page.tsx` (Hoy, dashboard principal), `entrenamiento/`, `nutricion/`, `cuerpo/`, `garmin/`.
+- `src/components/` — un componente por tarjeta/formulario (`ReadinessCheckinForm`, `TrainingLoadCard`, `NutritionTargetCard`, `HabitJournalCard`, `PeriodicSummaryCard`, `GarminActivitiesCard`...).
+- `src/components/ui/` — primitivas compartidas: `Button` (foco visible WCAG 2.4.7, feedback con springs físicos), `LoadingState`/`EmptyState`/`ErrorState` (con reintento), `Skeleton` (shimmer, no `animate-pulse` genérico), `AnimatedNumber` (contador imperativo), `AreaTrendChart`/`RadialGauge`/`DonutChart` (wrappers de `recharts`), `Card`, `FadeIn`.
+- `src/lib/` — `api.ts` (cliente tipado), `theme.ts` (paleta centralizada), `motion-tokens.ts` (sistema de tokens de animación: duración/easing/springs), `useCurrentUser.ts`/`UserContext.tsx` (sesión mono-usuario vía `localStorage`, sin login real todavía).
 
-To learn more about Next.js, take a look at the following resources:
+## Librerías clave
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `motion` (framer-motion) para animación — springs físicos, nunca `hover:scale` de CSS suelto.
+- `recharts` para gráficas (área con degradado, medidor radial, donut).
+- `lucide-react` para iconos SVG (nunca emoji).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Tests
 
-## Deploy on Vercel
+```powershell
+npx vitest run
+npx tsc --noEmit
+npm run lint
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+`vitest.setup.mts` incluye polyfills de `ResizeObserver`/`getBoundingClientRect` para que los componentes de `recharts` rendericen en jsdom.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Build de producción
+
+```powershell
+npx next build --webpack
+```
