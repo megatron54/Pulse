@@ -61,6 +61,20 @@ def _es_error_de_rate_limit(exc: Exception) -> bool:
     return any(marcador in mensaje for marcador in _RATE_LIMIT_MARCADORES)
 
 
+def _sanitizar_mensaje(mensaje: str, password: str | None) -> str:
+    """Defensa en profundidad (LOW-1 de la revisión de seguridad del
+    emparejamiento de Fase H): `python-garminconnect`/`garth` no
+    incluyen la contraseña en sus mensajes de error observados, pero
+    este código no debe depender para siempre de ese comportamiento de
+    una librería externa. Si la contraseña apareciera como substring en
+    el mensaje de error por cualquier motivo, se enmascara antes de que
+    la excepción se propague/imprima en pantalla (ver scripts/
+    garmin_pair.py)."""
+    if password:
+        mensaje = mensaje.replace(password, "***")
+    return mensaje
+
+
 def _extraer_hrv(payload: Any) -> float | None:
     if not payload:
         return None
@@ -126,24 +140,35 @@ class GarminClient:
         email: str | None = None,
         password: str | None = None,
         api_factory: Callable[..., Any] | None = None,
+        mfa_code_prompt: Callable[[], str] | None = None,
     ) -> None:
         self._token_store_dir = token_store_dir
         self._email = email
         self._password = password
         self._api_factory = api_factory or _default_api_factory()
+        self._mfa_code_prompt = mfa_code_prompt
         self._api: Any = None
 
     def login(self) -> None:
         """Un único intento de login, reutilizando el token cacheado.
         Nunca reintenta internamente: si falla, la capa llamante decide
-        (backoff, esperar al día siguiente, alertar al usuario)."""
-        api = self._api_factory(self._email, self._password)
+        (backoff, esperar al día siguiente, alertar al usuario).
+
+        `mfa_code_prompt`, si se proporciona, se pasa como `prompt_mfa`
+        a la factory de `garminconnect.Garmin` - necesario para
+        emparejar cuentas reales con verificación en dos pasos (Fase H)
+        en una sola llamada, en vez de fallar sin más explicación."""
+        kwargs_factory = {}
+        if self._mfa_code_prompt is not None:
+            kwargs_factory["prompt_mfa"] = self._mfa_code_prompt
+        api = self._api_factory(self._email, self._password, **kwargs_factory)
         try:
             api.login(self._token_store_dir)
         except Exception as exc:
+            mensaje = _sanitizar_mensaje(str(exc), self._password)
             if _es_error_de_rate_limit(exc):
-                raise GarminRateLimitedError(str(exc)) from exc
-            raise GarminAuthError(str(exc)) from exc
+                raise GarminRateLimitedError(mensaje) from exc
+            raise GarminAuthError(mensaje) from exc
         self._api = api
 
     def get_daily_recovery_raw(self, date_str: str) -> dict[str, Any]:
