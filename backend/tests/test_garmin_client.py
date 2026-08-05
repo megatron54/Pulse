@@ -28,6 +28,19 @@ def _fake_api_factory(fake_api):
     return lambda *args, **kwargs: fake_api
 
 
+def _fake_api_factory_que_registra_kwargs(fake_api, llamadas: dict):
+    """Variante que además registra los kwargs de la última llamada, para
+    poder comprobar qué le pasa GarminClient a la factory (p.ej.
+    `prompt_mfa`) sin depender de la firma interna real de
+    garminconnect.Garmin."""
+
+    def factory(*args, **kwargs):
+        llamadas["kwargs"] = kwargs
+        return fake_api
+
+    return factory
+
+
 class TestLogin:
     def test_login_exitoso_devuelve_la_api_autenticada(self):
         fake_api = MagicMock()
@@ -72,6 +85,51 @@ class TestLogin:
         )
         with pytest.raises(GarminRateLimitedError):
             client.login()
+
+    def test_login_nunca_expone_la_contrasena_en_el_mensaje_de_error(self):
+        # LOW-1 de code-review de seguridad: defensa en profundidad -
+        # si el mensaje de error de la librería externa incluyera la
+        # contraseña por cualquier motivo, nunca debe propagarse tal
+        # cual en la excepción que ve el resto del sistema (y que el
+        # script CLI imprime en pantalla).
+        fake_api = MagicMock()
+        fake_api.login.side_effect = Exception("login failed for password=hunter2")
+        client = GarminClient(
+            token_store_dir="C:/fake/.garminconnect",
+            email="atleta@example.com",
+            password="hunter2",
+            api_factory=_fake_api_factory(fake_api),
+        )
+        with pytest.raises(GarminAuthError) as excinfo:
+            client.login()
+        assert "hunter2" not in str(excinfo.value)
+
+    def test_login_pasa_el_prompt_mfa_a_la_api_factory_si_se_proporciona(self):
+        # LOW-2 de code-review: cuentas reales con verificación en dos
+        # pasos necesitan que garminconnect reciba un callback
+        # `prompt_mfa` para poder completar el login en una sola
+        # llamada - sin esto, el emparejamiento fallaría a la primera
+        # para cualquier usuario con MFA activado.
+        fake_api = MagicMock()
+        llamadas: dict = {}
+        prompt = lambda: "123456"  # noqa: E731 - callback trivial de test
+        client = GarminClient(
+            token_store_dir="C:/fake/.garminconnect",
+            api_factory=_fake_api_factory_que_registra_kwargs(fake_api, llamadas),
+            mfa_code_prompt=prompt,
+        )
+        client.login()
+        assert llamadas["kwargs"].get("prompt_mfa") is prompt
+
+    def test_login_sin_prompt_mfa_no_lo_pasa_a_la_api_factory(self):
+        fake_api = MagicMock()
+        llamadas: dict = {}
+        client = GarminClient(
+            token_store_dir="C:/fake/.garminconnect",
+            api_factory=_fake_api_factory_que_registra_kwargs(fake_api, llamadas),
+        )
+        client.login()
+        assert "prompt_mfa" not in llamadas["kwargs"]
 
     def test_operar_sin_login_previo_lanza_runtime_error(self):
         fake_api = MagicMock()
