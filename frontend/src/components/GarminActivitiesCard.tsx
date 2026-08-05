@@ -66,7 +66,7 @@ export function GarminActivitiesCard({ userId }: { userId: number }) {
       {!error && actividades !== null && actividades.length === 0 && (
         <EmptyState
           icon={Watch}
-          message="No hay actividades sincronizadas todavía - necesita credenciales reales de Garmin, no vamos a inventar ninguna mientras tanto."
+          message="Sin actividades sincronizadas todavía. El scheduler nocturno las trae automáticamente en cuanto haya alguna nueva en tu cuenta - no se inventa ninguna mientras tanto."
         />
       )}
       {!error && actividades !== null && actividades.length > 0 && (

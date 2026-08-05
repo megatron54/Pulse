@@ -76,4 +76,20 @@ describe("PeriodicSummaryCard", () => {
     render(<PeriodicSummaryCard userId={1} />);
     await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
   });
+
+  it("vuelve a pedir el resumen cuando cambia refreshKey (tras un check-in nuevo)", async () => {
+    // Regresión de un hallazgo real de verificación manual con
+    // Playwright: tras registrar un check-in de recuperación, esta
+    // tarjeta se quedaba mostrando "0 días con check-in" hasta
+    // recargar la página entera - sin refreshKey no había forma de
+    // decirle "hay datos nuevos" (mismo patrón que
+    // ReadinessTrendCard/WeightTrendCard).
+    vi.mocked(api.getPeriodicSummary).mockResolvedValue(_RESUMEN_VACIO);
+
+    const { rerender } = render(<PeriodicSummaryCard userId={1} refreshKey={0} />);
+    await waitFor(() => expect(api.getPeriodicSummary).toHaveBeenCalledTimes(1));
+
+    rerender(<PeriodicSummaryCard userId={1} refreshKey={1} />);
+    await waitFor(() => expect(api.getPeriodicSummary).toHaveBeenCalledTimes(2));
+  });
 });

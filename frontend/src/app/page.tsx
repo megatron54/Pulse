@@ -46,7 +46,7 @@ export default function HoyPage() {
           <ReadinessTrendCard userId={user.id} refreshKey={readinessRefreshKey} />
         </FadeIn>
         <FadeIn delay={0.15}>
-          <PeriodicSummaryCard userId={user.id} />
+          <PeriodicSummaryCard userId={user.id} refreshKey={readinessRefreshKey} />
         </FadeIn>
         <FadeIn delay={0.2} className="md:col-span-2 xl:col-span-1">
           <HabitJournalCard userId={user.id} />

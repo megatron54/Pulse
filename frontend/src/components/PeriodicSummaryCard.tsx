@@ -17,7 +17,19 @@ import { PALETA } from "@/lib/theme";
  * refleja los mismos flags de "unknown is not zero" que ya devuelve el
  * backend (`peso_delta_kg`/`training_load.datos_suficientes`).
  */
-export function PeriodicSummaryCard({ userId }: { userId: number }) {
+export function PeriodicSummaryCard({
+  userId,
+  refreshKey = 0,
+}: {
+  userId: number;
+  /** Al cambiar (p.ej. tras un check-in de recuperación exitoso en la
+   * página Hoy), fuerza a recargar el resumen - hallazgo real de
+   * verificación manual con Playwright: sin esto, "días con check-in"
+   * se quedaba en 0 tras registrar un check-in hasta recargar la
+   * página entera. Mismo patrón que `ReadinessTrendCard`/
+   * `WeightTrendCard`. */
+  refreshKey?: number;
+}) {
   const [resumen, setResumen] = useState<PeriodicSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [intentos, setIntentos] = useState(0);
@@ -36,7 +48,7 @@ export function PeriodicSummaryCard({ userId }: { userId: number }) {
     return () => {
       cancelado = true;
     };
-  }, [userId, intentos]);
+  }, [userId, refreshKey, intentos]);
 
   return (
     <Card>
@@ -55,7 +67,9 @@ export function PeriodicSummaryCard({ userId }: { userId: number }) {
         <div className="flex flex-col gap-4">
           <div>
             <p className="text-sm text-gray-400 mb-2">
-              {resumen.dias_con_checkin_readiness} días con check-in de recuperación
+              {resumen.dias_con_checkin_readiness}{" "}
+              {resumen.dias_con_checkin_readiness === 1 ? "día" : "días"} con check-in de
+              recuperación
             </p>
             <div className="flex items-center gap-5">
               {resumen.dias_con_checkin_readiness > 0 && (
