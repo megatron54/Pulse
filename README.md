@@ -1,11 +1,40 @@
 # Pulse — Entrenador personal con IA (multi-deporte, multi-objetivo)
 
-> App personal (móvil + escritorio) que actúa como entrenador y nutricionista, integrando datos de Garmin, fotos de progreso y objetivos múltiples (fuerza, hipertrofia, running, natación, artes marciales, estética, cortes de peso, rendimiento general).
+> App personal (móvil + escritorio) que actúa como entrenador y nutricionista, integrando datos reales de Garmin, wger (ejercicios/nutrición) y objetivos múltiples (fuerza, hipertrofia, running, artes marciales, composición corporal, cortes de peso).
 
 ## Estado del proyecto
 
-**Fase actual:** Investigación completada → Diseño de arquitectura y roadmap.
-**Última actualización:** 2026-08-02
+**Fase actual:** aplicación funcional en uso real (mono-usuario), con Garmin Connect real emparejado y sincronizando. Backend (FastAPI) + frontend (Next.js) + Postgres, todo en Docker o local. Desarrollo continuo con TDD estricto, revisión de código antes de cada merge, y verificación manual real (Playwright) además de tests automatizados.
+
+**Documento vivo de seguimiento:** [`02-roadmap/03-vision-produccion.md`](02-roadmap/03-vision-produccion.md) — épicas hechas/pendientes, hallazgos de investigación, decisiones de diseño. Léelo antes de retomar el trabajo para no repetir investigación ya hecha.
+
+## Arquitectura en 3 capas
+
+1. **Capa 1 — Motor de reglas determinista** (`backend/engine/`): decide nutrición, progresión, periodización, readiness (semáforo RED/YELLOW/GREEN) y guardrails de seguridad. Sin llamadas a red ni a IA. Cobertura de tests ~100% — es la capa que toma decisiones que importan.
+2. **Capa 2 — Servicios/API** (`backend/services/`, `backend/api/`): orquesta la Capa 1 con datos reales (Garmin, wger) y los expone vía REST.
+3. **Capa 3 — Coach conversacional** (`backend/coach/`): IA (Gemini, con fallback determinista) que **explica** las decisiones ya tomadas por la Capa 1 — nunca decide por su cuenta.
+
+Detalle completo en [`01-arquitectura/`](01-arquitectura/).
+
+## Qué funciona hoy
+
+- **Garmin Connect real**: emparejamiento seguro (`backend/scripts/garmin_pair.py`), sincronización nocturna automática de recovery (HRV/Body Battery/sleep/training readiness, cuando el dispositivo lo soporta) y actividades.
+- **wger**: catálogo de ejercicios, diario de comidas real (vía el propio wger del usuario, token permanente).
+- **Motor de reglas**: nutrición (TDEE + macros por fase), progresión (1RM, doble progresión, autorregulación RIR/APRE), periodización (readiness diario, ACWR real), guardrails (deload forzado, pausa de déficit por mala recuperación sostenida).
+- **Diario de hábitos** correlacionado con recovery (estilo WHOOP Journal), resumen periódico de tendencias.
+- **Frontend**: dashboard visual (gráficas reales, no listados) estilo WHOOP/Apple Health/Samsung Health — ver [`frontend/README.md`](frontend/README.md).
+
+## Quickstart
+
+```powershell
+cp .env.example .env
+docker compose up -d --build
+```
+
+- Backend: http://localhost:8000 (docs interactivas en `/docs`)
+- Frontend: http://localhost:3000
+
+Ver [`DEPLOYMENT.md`](DEPLOYMENT.md) para variables de entorno y verificación. Para desarrollo local sin Docker del backend/frontend (solo Postgres en Docker), ver [`backend/README.md`](backend/README.md) y [`frontend/README.md`](frontend/README.md).
 
 ## Índice de documentación
 
@@ -24,22 +53,17 @@
 3. [03-modelo-datos.md](01-arquitectura/03-modelo-datos.md) — Esquema de datos principal
 
 ### 🗺️ 02-roadmap/ — Plan de ejecución
-1. [01-fases-desarrollo.md](02-roadmap/01-fases-desarrollo.md) — Roadmap por fases (MVP → v1 → v2)
+1. [01-fases-desarrollo.md](02-roadmap/01-fases-desarrollo.md) — Roadmap original por fases (MVP → v1 → v2)
+2. [02-plan-autonomo.md](02-roadmap/02-plan-autonomo.md) — Plan de ejecución autónomo por fases (A-J)
+3. **[03-vision-produccion.md](02-roadmap/03-vision-produccion.md)** — Documento vivo: estado real de cada épica, hallazgos, decisiones pendientes. **Empieza aquí.**
 
 ### 📦 recursos/ — Material descargado y referencias
-- `recursos/repos/` — Repos GitHub clonados localmente (código real reutilizable)
-- `recursos/datasets/` — Datasets de referencia (ejercicios, nutrición)
-- `recursos/papers/` — Papers científicos citados, resumidos
+- `recursos/repos/` — Repos GitHub clonados localmente (código real reutilizable, no versionado)
 - [recursos/00-indice-recursos.md](recursos/00-indice-recursos.md) — Índice completo con enlaces
 
-## Decisión de alcance (pendiente de confirmar contigo)
+## Principios que no cambian
 
-- **Usuarios:** solo tú (self-hosted, 1 usuario) — simplifica mucho Garmin, privacidad y multiusuario.
-- **Plataformas:** móvil + escritorio desde una sola base de código.
-- **Filosofía central:** el motor de reglas determinista decide (macros, progresión, periodización, seguridad); la IA solo explica y conversa. Nunca al revés.
-
-## Próximos pasos sugeridos
-
-1. Confirmar/ajustar el stack propuesto en `01-arquitectura/02-stack-tecnologico.md`.
-2. Congelar el roadmap de fases en `02-roadmap/01-fases-desarrollo.md`.
-3. Arrancar Fase 0 (setup del entorno + wger self-hosted + sync Garmin básico) con TDD desde el primer commit.
+- **TDD real**: tests antes que implementación, revisión de código antes de cada merge.
+- **Nunca falsa precisión**: rangos donde el dominio es incierto, categorías donde el motor es categórico. Ninguna métrica se fabrica cuando faltan datos ("unknown is not zero").
+- **La IA nunca decide**, solo explica una decisión ya tomada por reglas deterministas auditables.
+- **Reutilizar antes que reinventar**: wger antes que una integración externa nueva; cuando ni eso sirve, se documenta honestamente que no hay integración viable en vez de prometerla.
