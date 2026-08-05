@@ -12,6 +12,7 @@ import {
   type TrainingBlock,
 } from "@/lib/api";
 import { Card, CardTitle } from "./ui/Card";
+import { Button } from "./ui/Button";
 
 const inputClass =
   "border border-white/10 bg-black/30 rounded-lg px-3 py-2 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-teal";
@@ -139,16 +140,12 @@ export function WeeklyScheduleForm({
           ))}
         </div>
         {error && <p className="text-red-400 text-sm">{error}</p>}
-        <button
-          type="submit"
-          disabled={submitting}
-          className="bg-teal text-black font-semibold rounded-lg px-4 py-2.5 disabled:bg-surface disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:scale-100 self-start transition-transform hover:scale-[1.02] active:scale-[0.98]"
-        >
+        <Button type="submit" disabled={submitting} className="self-start">
           {submitting ? "Creando..." : "Activar plan semanal"}
-        </button>
+        </Button>
       </form>
       {created && (
-        <p className="mt-3 text-[#16EC06] text-sm font-medium">Plan semanal activado.</p>
+        <p className="mt-3 text-recovery-high text-sm font-medium">Plan semanal activado.</p>
       )}
     </Card>
   );

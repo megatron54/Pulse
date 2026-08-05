@@ -1,10 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Scale } from "lucide-react";
 import { api, ApiError, type BodyMeasurement } from "@/lib/api";
 import { dedupeUltimaPorDia } from "@/lib/dedupe";
-import { Sparkline } from "./Sparkline";
+import { AreaTrendChart } from "./ui/AreaTrendChart";
+import { AnimatedNumber } from "./ui/AnimatedNumber";
 import { Card, CardTitle } from "./ui/Card";
+import { EmptyState } from "./ui/EmptyState";
+import { ErrorState } from "./ui/ErrorState";
+import { LoadingState } from "./ui/LoadingState";
+import { PALETA } from "@/lib/theme";
 
 /**
  * Dashboard de tendencia de peso (Fase I del plan autónomo) sobre
@@ -26,6 +32,7 @@ export function WeightTrendCard({
 }) {
   const [mediciones, setMediciones] = useState<BodyMeasurement[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [intentos, setIntentos] = useState(0);
 
   useEffect(() => {
     let cancelado = false;
@@ -41,7 +48,7 @@ export function WeightTrendCard({
     return () => {
       cancelado = true;
     };
-  }, [userId, refreshKey]);
+  }, [userId, refreshKey, intentos]);
 
   const diario = mediciones ? dedupeUltimaPorDia(mediciones) : [];
   const ultimo = diario.at(-1);
@@ -49,25 +56,33 @@ export function WeightTrendCard({
   return (
     <Card>
       <CardTitle>Tendencia de peso (90 días)</CardTitle>
-      {error && <p className="text-red-400 text-sm">{error}</p>}
+      {error && (
+        <ErrorState
+          message={error}
+          onRetry={() => {
+            setError(null);
+            setIntentos((n) => n + 1);
+          }}
+        />
+      )}
+      {!error && mediciones === null && <LoadingState lines={1} />}
       {!error && mediciones !== null && diario.length === 0 && (
-        <p className="text-sm text-gray-400 italic">
-          Todavía no hay mediciones registradas.
-        </p>
+        <EmptyState icon={Scale} message="Todavía no hay mediciones registradas." />
       )}
       {!error && diario.length > 0 && (
         <>
-          <Sparkline
-            values={diario.map((m) => m.peso_kg)}
-            label={`Tendencia de peso, ${diario.length} días, último registro ${ultimo?.peso_kg.toFixed(1)} kg`}
-          />
-          <p className="text-sm text-gray-400 mt-2">
+          <p className="text-sm text-gray-400 mb-2">
             Último registro:{" "}
-            <span className="font-display text-base text-white">
-              {ultimo?.peso_kg.toFixed(1)} kg
+            <span className="font-display text-lg text-white">
+              <AnimatedNumber value={ultimo?.peso_kg ?? 0} decimals={1} /> kg
             </span>{" "}
             ({diario.length} días con dato)
           </p>
+          <AreaTrendChart
+            data={diario.map((m) => ({ fecha: m.fecha, valor: m.peso_kg }))}
+            color={PALETA.teal}
+            unidad=" kg"
+          />
         </>
       )}
     </Card>

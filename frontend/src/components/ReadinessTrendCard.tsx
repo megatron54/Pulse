@@ -1,9 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CalendarClock } from "lucide-react";
+import { motion } from "motion/react";
 import { api, ApiError, type ReadinessResult } from "@/lib/api";
 import { dedupeUltimaPorDia } from "@/lib/dedupe";
 import { Card, CardTitle } from "./ui/Card";
+import { EmptyState } from "./ui/EmptyState";
+import { ErrorState } from "./ui/ErrorState";
+import { LoadingState } from "./ui/LoadingState";
+import { springs } from "@/lib/motion-tokens";
 
 // Colores exactos de la guía de marca de WHOOP para zonas de recovery
 // ("WHOOP - Brand & Design Guidelines"), vía los tokens de tema
@@ -45,6 +51,7 @@ export function ReadinessTrendCard({
 }) {
   const [historial, setHistorial] = useState<ReadinessResult[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [intentos, setIntentos] = useState(0);
 
   useEffect(() => {
     let cancelado = false;
@@ -62,34 +69,73 @@ export function ReadinessTrendCard({
     return () => {
       cancelado = true;
     };
-  }, [userId, refreshKey]);
+  }, [userId, refreshKey, intentos]);
 
   const diario = historial ? dedupeUltimaPorDia(historial) : [];
+  const totales = diario.reduce(
+    (acc, dia) => {
+      acc[dia.resultado as "green" | "yellow" | "red"] =
+        (acc[dia.resultado as "green" | "yellow" | "red"] ?? 0) + 1;
+      return acc;
+    },
+    {} as Record<"green" | "yellow" | "red", number>
+  );
 
   return (
     <Card>
       <CardTitle>Tendencia de readiness (30 días)</CardTitle>
-      {error && <p className="text-red-400 text-sm">{error}</p>}
+      {error && (
+        <ErrorState
+          message={error}
+          onRetry={() => {
+            setError(null);
+            setIntentos((n) => n + 1);
+          }}
+        />
+      )}
+      {!error && historial === null && <LoadingState lines={1} />}
       {!error && historial !== null && diario.length === 0 && (
-        <p className="text-sm text-gray-400 italic">Todavía no hay check-ins registrados.</p>
+        <EmptyState icon={CalendarClock} message="Todavía no hay check-ins registrados." />
       )}
       {!error && diario.length > 0 && (
-        <div
-          className="flex flex-wrap gap-1.5"
-          role="list"
-          aria-label="Historial de readiness por día"
-        >
-          {diario.map((dia) => (
-            <div
-              key={dia.id}
-              role="listitem"
-              data-testid="readiness-dia"
-              aria-label={`${dia.fecha}: ${ETIQUETA_POR_RESULTADO[dia.resultado] ?? dia.resultado}`}
-              title={`${dia.fecha}: ${dia.resultado}`}
-              className={`w-4 h-4 rounded-full transition-transform hover:scale-125 ${COLOR_POR_RESULTADO[dia.resultado] ?? "bg-gray-600"}`}
-            />
-          ))}
-        </div>
+        <>
+          {/* Barra de proporción: la distribución general de un vistazo,
+              antes del detalle día a día del heatmap de abajo. */}
+          <div className="flex h-2 w-full rounded-full overflow-hidden mb-4 bg-white/5">
+            {(["green", "yellow", "red"] as const).map((zona) =>
+              totales[zona] ? (
+                <motion.div
+                  key={zona}
+                  className={COLOR_POR_RESULTADO[zona]}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(totales[zona] / diario.length) * 100}%` }}
+                  transition={springs.gentle}
+                />
+              ) : null
+            )}
+          </div>
+          <div
+            className="flex flex-wrap gap-2"
+            role="list"
+            aria-label="Historial de readiness por día"
+          >
+            {diario.map((dia) => (
+              <div
+                key={dia.id}
+                role="listitem"
+                data-testid="readiness-dia"
+                aria-label={`${dia.fecha}: ${ETIQUETA_POR_RESULTADO[dia.resultado] ?? dia.resultado}`}
+                title={`${dia.fecha}: ${dia.resultado}`}
+                // Hallazgo H5 de la auditoría UI/UX: 16px (w-4 h-4) está
+                // muy por debajo del área táctil mínima recomendada
+                // (WCAG 2.5.5, ~24px como mínimo AA) - se sube a 24px y
+                // se añade un pequeño padding visual vía el propio
+                // tamaño para que sea razonable de tocar en móvil.
+                className={`w-6 h-6 rounded-full transition-transform hover:scale-125 ${COLOR_POR_RESULTADO[dia.resultado] ?? "bg-gray-600"}`}
+              />
+            ))}
+          </div>
+        </>
       )}
     </Card>
   );

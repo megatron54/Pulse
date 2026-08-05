@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, type PeriodicSummary } from "@/lib/api";
 import { Card, CardTitle } from "./ui/Card";
+import { ErrorState } from "./ui/ErrorState";
+import { LoadingState } from "./ui/LoadingState";
+import { DonutChart } from "./ui/DonutChart";
+import { PALETA } from "@/lib/theme";
 
 /**
  * Resumen semanal de tendencias (Épica MUST-HAVE #4 de 02-roadmap/
@@ -16,6 +20,7 @@ import { Card, CardTitle } from "./ui/Card";
 export function PeriodicSummaryCard({ userId }: { userId: number }) {
   const [resumen, setResumen] = useState<PeriodicSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [intentos, setIntentos] = useState(0);
 
   useEffect(() => {
     let cancelado = false;
@@ -31,45 +36,65 @@ export function PeriodicSummaryCard({ userId }: { userId: number }) {
     return () => {
       cancelado = true;
     };
-  }, [userId]);
+  }, [userId, intentos]);
 
   return (
     <Card>
       <CardTitle>Resumen de la semana</CardTitle>
       {error && (
-        <p role="alert" className="text-red-400 text-sm">
-          {error}
-        </p>
+        <ErrorState
+          message={error}
+          onRetry={() => {
+            setError(null);
+            setIntentos((n) => n + 1);
+          }}
+        />
       )}
-      {!error && resumen === null && (
-        <p role="status" className="text-sm text-gray-400 italic">
-          Cargando...
-        </p>
-      )}
+      {!error && resumen === null && <LoadingState lines={3} />}
       {!error && resumen !== null && (
         <div className="flex flex-col gap-4">
           <div>
             <p className="text-sm text-gray-400 mb-2">
               {resumen.dias_con_checkin_readiness} días con check-in de recuperación
             </p>
-            <div className="flex gap-4 text-center">
-              <div>
-                <p className="font-display text-2xl font-bold text-recovery-high">
-                  {resumen.distribucion_readiness.green}
-                </p>
-                <p className="text-xs text-gray-400 uppercase">Green</p>
-              </div>
-              <div>
-                <p className="font-display text-2xl font-bold text-recovery-medium">
-                  {resumen.distribucion_readiness.yellow}
-                </p>
-                <p className="text-xs text-gray-400 uppercase">Yellow</p>
-              </div>
-              <div>
-                <p className="font-display text-2xl font-bold text-recovery-low">
-                  {resumen.distribucion_readiness.red}
-                </p>
-                <p className="text-xs text-gray-400 uppercase">Red</p>
+            <div className="flex items-center gap-5">
+              {resumen.dias_con_checkin_readiness > 0 && (
+                <DonutChart
+                  size={84}
+                  segments={(
+                    [
+                      ["green", PALETA.recoveryHigh],
+                      ["yellow", PALETA.recoveryMedium],
+                      ["red", PALETA.recoveryLow],
+                    ] as const
+                  )
+                    .filter(([zona]) => resumen.distribucion_readiness[zona] > 0)
+                    .map(([zona, color]) => ({
+                      nombre: zona,
+                      valor: resumen.distribucion_readiness[zona],
+                      color,
+                    }))}
+                />
+              )}
+              <div className="flex gap-4 text-center">
+                <div>
+                  <p className="font-display text-2xl font-bold text-recovery-high">
+                    {resumen.distribucion_readiness.green}
+                  </p>
+                  <p className="text-xs text-gray-400 uppercase">Green</p>
+                </div>
+                <div>
+                  <p className="font-display text-2xl font-bold text-recovery-medium">
+                    {resumen.distribucion_readiness.yellow}
+                  </p>
+                  <p className="text-xs text-gray-400 uppercase">Yellow</p>
+                </div>
+                <div>
+                  <p className="font-display text-2xl font-bold text-recovery-low">
+                    {resumen.distribucion_readiness.red}
+                  </p>
+                  <p className="text-xs text-gray-400 uppercase">Red</p>
+                </div>
               </div>
             </div>
           </div>

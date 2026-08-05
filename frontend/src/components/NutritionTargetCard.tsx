@@ -1,8 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { TriangleAlert } from "lucide-react";
 import { api, ApiError, todayLocalDate, type NutritionTarget } from "@/lib/api";
 import { Card, CardTitle } from "./ui/Card";
+import { Button } from "./ui/Button";
+import { AnimatedNumber } from "./ui/AnimatedNumber";
+import { DonutChart } from "./ui/DonutChart";
 import { PALETA } from "@/lib/theme";
 
 // Reutiliza los mismos colores centralizados en lib/theme.ts (code-review
@@ -15,33 +19,18 @@ const MACRO_COLOR = {
   grasa: PALETA.sleep,
 };
 
-function MacroBar({
-  nombre,
-  gramos,
-  kcalPorGramo,
-  kcalTotal,
-  color,
-}: {
-  nombre: string;
-  gramos: number;
-  kcalPorGramo: number;
-  kcalTotal: number;
-  color: string;
-}) {
-  const kcalDelMacro = gramos * kcalPorGramo;
-  const porcentaje = kcalTotal > 0 ? Math.min(100, (kcalDelMacro / kcalTotal) * 100) : 0;
+function LeyendaMacro({ nombre, gramos, color }: { nombre: string; gramos: number; color: string }) {
   return (
-    <div>
-      <div className="flex justify-between text-sm mb-1">
-        <span className="text-gray-300">{nombre}</span>
-        <span className="font-display font-semibold text-white">{gramos.toFixed(0)} g</span>
-      </div>
-      <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
-        <div
-          className="h-full rounded-full transition-all duration-700 ease-out"
-          style={{ width: `${porcentaje}%`, backgroundColor: color }}
-        />
-      </div>
+    <div className="flex items-center gap-2 text-sm">
+      <span
+        aria-hidden="true"
+        className="w-2.5 h-2.5 rounded-full shrink-0"
+        style={{ backgroundColor: color }}
+      />
+      <span className="text-gray-300">{nombre}</span>
+      <span className="font-display font-semibold text-white ml-auto">
+        {gramos.toFixed(0)} g
+      </span>
     </div>
   );
 }
@@ -73,49 +62,58 @@ export function NutritionTargetCard({ userId }: { userId: number }) {
   return (
     <Card>
       <CardTitle>Objetivo nutricional de hoy</CardTitle>
-      <button
-        onClick={fetchTarget}
-        disabled={loading}
-        className="bg-teal text-black font-semibold rounded-lg px-4 py-2.5 disabled:bg-surface disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:scale-100 transition-transform hover:scale-[1.02] active:scale-[0.98]"
-      >
+      <Button onClick={fetchTarget} disabled={loading}>
         {loading ? "Calculando..." : "Calcular macros de hoy"}
-      </button>
+      </Button>
       {error && <p className="text-red-400 text-sm mt-2">{error}</p>}
       {resultado && (
         <div className="mt-5">
-          <p className="font-display text-4xl font-bold text-white">
-            {resultado.kcal_objetivo.toFixed(0)}
-            <span className="text-lg text-gray-400 font-sans font-normal ml-2">kcal</span>
-          </p>
-          <div className="flex flex-col gap-3 mt-5">
-            <MacroBar
-              nombre="Proteína"
-              gramos={resultado.proteina_g}
-              kcalPorGramo={4}
-              kcalTotal={resultado.kcal_objetivo}
-              color={MACRO_COLOR.proteina}
+          <div className="flex items-center gap-5">
+            <DonutChart
+              segments={[
+                {
+                  nombre: "Proteína",
+                  valor: resultado.proteina_g * 4,
+                  color: MACRO_COLOR.proteina,
+                },
+                {
+                  nombre: "Carbohidratos",
+                  valor: resultado.carbohidratos_g * 4,
+                  color: MACRO_COLOR.carbohidratos,
+                },
+                { nombre: "Grasa", valor: resultado.grasa_g * 9, color: MACRO_COLOR.grasa },
+              ]}
+              size={110}
+              centro={
+                <>
+                  <span className="font-display text-xl font-bold text-white">
+                    <AnimatedNumber value={resultado.kcal_objetivo} />
+                  </span>
+                  <span className="text-[10px] uppercase tracking-wide text-gray-400">kcal</span>
+                </>
+              }
             />
-            <MacroBar
-              nombre="Carbohidratos"
-              gramos={resultado.carbohidratos_g}
-              kcalPorGramo={4}
-              kcalTotal={resultado.kcal_objetivo}
-              color={MACRO_COLOR.carbohidratos}
-            />
-            <MacroBar
-              nombre="Grasa"
-              gramos={resultado.grasa_g}
-              kcalPorGramo={9}
-              kcalTotal={resultado.kcal_objetivo}
-              color={MACRO_COLOR.grasa}
-            />
+            <div className="flex-1 flex flex-col gap-2.5">
+              <LeyendaMacro
+                nombre="Proteína"
+                gramos={resultado.proteina_g}
+                color={MACRO_COLOR.proteina}
+              />
+              <LeyendaMacro
+                nombre="Carbohidratos"
+                gramos={resultado.carbohidratos_g}
+                color={MACRO_COLOR.carbohidratos}
+              />
+              <LeyendaMacro nombre="Grasa" gramos={resultado.grasa_g} color={MACRO_COLOR.grasa} />
+            </div>
           </div>
           <p className="text-sm text-gray-400 mt-4 uppercase tracking-wide">
             Fase aplicada: {resultado.fase_aplicada}
           </p>
           {resultado.deficit_pausado_por_guardrail && (
             <p className="text-sm text-recovery-medium mt-2 flex items-center gap-1.5">
-              ⚠️ Déficit pausado automáticamente por mala recuperación sostenida.
+              <TriangleAlert aria-hidden="true" size={14} />
+              Déficit pausado automáticamente por mala recuperación sostenida.
             </p>
           )}
         </div>

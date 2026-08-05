@@ -1,8 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { UtensilsCrossed } from "lucide-react";
 import { api, ApiError, type DailyFoodLog, type Ingredient } from "@/lib/api";
 import { Card, CardTitle } from "./ui/Card";
+import { Button } from "./ui/Button";
+import { EmptyState } from "./ui/EmptyState";
+import { ErrorState } from "./ui/ErrorState";
+import { LoadingState } from "./ui/LoadingState";
 
 /**
  * Diario de comidas real (petición explícita del usuario: "input
@@ -63,13 +68,9 @@ function WgerConnectForm({
           {error}
         </p>
       )}
-      <button
-        type="submit"
-        disabled={guardando}
-        className="bg-teal text-black font-semibold rounded-lg px-4 py-2.5 disabled:bg-surface disabled:text-gray-400 disabled:cursor-not-allowed self-start transition-transform hover:scale-[1.02] active:scale-[0.98]"
-      >
+      <Button type="submit" disabled={guardando} className="self-start">
         {guardando ? "Conectando..." : "Conectar"}
-      </button>
+      </Button>
     </form>
   );
 }
@@ -113,13 +114,9 @@ function IngredientSearchAndLog({ userId, onRegistrado }: { userId: number; onRe
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        <button
-          type="submit"
-          disabled={buscando}
-          className="bg-teal text-black font-semibold rounded-lg px-4 py-2 disabled:bg-surface disabled:text-gray-400"
-        >
+        <Button type="submit" disabled={buscando} className="px-4 py-2 text-sm">
           Buscar
-        </button>
+        </Button>
       </form>
       {error && (
         <p role="alert" className="text-red-400 text-sm mt-2">
@@ -136,12 +133,13 @@ function IngredientSearchAndLog({ userId, onRegistrado }: { userId: number; onRe
               <p className="text-white">{ing.nombre}</p>
               <p className="text-gray-400 text-xs">{ing.kcal_100g.toFixed(0)} kcal/100g</p>
             </div>
-            <button
+            <Button
+              variant="ghost"
               onClick={() => registrar(ing.id)}
-              className="text-teal text-xs font-semibold uppercase tracking-wide"
+              aria-label={`Añadir 100g de ${ing.nombre}`}
             >
               Añadir 100g
-            </button>
+            </Button>
           </div>
         ))}
       </div>
@@ -181,26 +179,30 @@ export function FoodLogCard({ userId }: { userId: number }) {
     <Card>
       <CardTitle>Diario de comidas</CardTitle>
       {error && (
-        <p role="alert" className="text-red-400 text-sm">
-          {error}
-        </p>
+        <ErrorState
+          message={error}
+          onRetry={() => {
+            setError(null);
+            setRefreshKey((k) => k + 1);
+          }}
+        />
       )}
-      {!error && conectado === null && (
-        <p role="status" className="text-sm text-gray-400 italic">
-          Cargando...
-        </p>
-      )}
+      {!error && conectado === null && <LoadingState />}
       {!error && conectado === false && (
         <WgerConnectForm userId={userId} onConectado={() => setRefreshKey((k) => k + 1)} />
       )}
       {!error && conectado === true && diario && (
         <>
-          <p className="font-display text-3xl font-bold text-white">
-            {Math.round(diario.kcal_total)}
-            <span className="text-base text-gray-400 font-sans font-normal ml-2">
-              kcal hoy
-            </span>
-          </p>
+          {diario.entradas.length === 0 && diario.entradas_omitidas === 0 ? (
+            <EmptyState icon={UtensilsCrossed} message="Todavía no has registrado ninguna comida hoy." />
+          ) : (
+            <p className="font-display text-3xl font-bold text-white">
+              {Math.round(diario.kcal_total)}
+              <span className="text-base text-gray-400 font-sans font-normal ml-2">
+                kcal hoy
+              </span>
+            </p>
+          )}
           {diario.entradas_omitidas > 0 && (
             <p className="text-sm text-recovery-medium mt-2">
               {diario.entradas_omitidas} entradas no se pudieron cargar desde wger.
