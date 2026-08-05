@@ -277,6 +277,28 @@ class TestReadinessManualCheckin:
         assert resp.status_code == 201
         assert resp.json()["resultado"] == "red"
 
+    def test_training_readiness_null_es_valido_relojes_que_no_lo_calculan(self, client):
+        # Regresión Fase H: dispositivos como el Forerunner 165 nunca
+        # calculan Training Readiness - el check-in manual no debe
+        # obligar a inventar un valor que el usuario no puede medir.
+        usuario = _crear_usuario(client)
+        resp = client.post(
+            f"/users/{usuario['id']}/readiness/manual-checkin",
+            json={
+                "target_date": "2026-08-02",
+                "hrv_today": 65.0,
+                "hrv_baseline_28d": 65.0,
+                "hrv_trend_7d": 0.0,
+                "body_battery_am": 80,
+                "training_readiness": None,
+                "sleep_score": 85,
+                "acwr": 1.0,
+                "joint_pain_flag": False,
+            },
+        )
+        assert resp.status_code == 201
+        assert resp.json()["resultado"] == "green"
+
     def test_training_readiness_invalido_da_422(self, client):
         usuario = _crear_usuario(client)
         resp = client.post(

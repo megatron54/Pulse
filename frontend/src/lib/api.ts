@@ -96,7 +96,7 @@ export type ManualReadinessInput = {
   hrv_baseline_28d: number;
   hrv_trend_7d: number;
   body_battery_am: number;
-  training_readiness: "high" | "moderate" | "low" | "very_low";
+  training_readiness: "high" | "moderate" | "low" | "very_low" | null;
   sleep_score: number;
   acwr: number;
   joint_pain_flag: boolean;

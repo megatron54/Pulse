@@ -78,7 +78,7 @@ class ManualReadinessRequest(BaseModel):
     hrv_baseline_28d: float = Field(gt=0)
     hrv_trend_7d: float
     body_battery_am: int = Field(ge=0, le=100)
-    training_readiness: Literal["high", "moderate", "low", "very_low"]
+    training_readiness: Literal["high", "moderate", "low", "very_low"] | None = None
     sleep_score: int = Field(ge=0, le=100)
     acwr: float = Field(ge=0)
     joint_pain_flag: bool = False
