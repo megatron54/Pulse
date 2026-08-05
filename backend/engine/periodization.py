@@ -102,16 +102,28 @@ def _validar_entero_en_rango(nombre: str, valor: int, minimo: int, maximo: int) 
 @dataclass(frozen=True)
 class RecoveryContext:
     """Datos de recuperación del día, típicamente sincronizados desde
-    Garmin (ver backend/garmin_sync/) más flags manuales del usuario."""
+    Garmin (ver backend/garmin_sync/) más flags manuales del usuario.
+
+    `training_readiness` es OPCIONAL (a diferencia del resto de señales):
+    varios relojes Garmin de gama de entrada/media (Forerunner 55, 165,
+    Instinct...) no calculan Training Readiness en absoluto - es una
+    limitación estructural del dispositivo, no un dato que "todavía no
+    ha llegado". Exigirlo como obligatorio bloquearía el cálculo de
+    readiness PARA SIEMPRE en esas cuentas. Cuando es `None`, esa señal
+    simplemente no aporta flags rojos/amarillos - el resto de señales
+    (HRV, Body Battery, ACWR, sueño) sí lo hacen con normalidad. Esto
+    es distinto de "fabricar un valor neutral": es excluir
+    honestamente una señal que no existe para ese dispositivo, en vez
+    de inventar un "moderate" que no se midió."""
 
     hrv_today: float
     hrv_baseline_28d: float
     hrv_trend_7d: float  # pendiente relativa de los últimos 7 días
     body_battery_am: int
-    training_readiness: str  # "high" | "moderate" | "low" | "very_low"
     sleep_score: int
     acwr: float  # Acute:Chronic Workload Ratio
     joint_pain_flag: bool
+    training_readiness: str | None = None  # "high" | "moderate" | "low" | "very_low" | None
 
     def __post_init__(self) -> None:
         for nombre, valor in (
@@ -129,9 +141,12 @@ class RecoveryContext:
         _validar_entero_en_rango(
             "sleep_score", self.sleep_score, _SLEEP_SCORE_MIN, _SLEEP_SCORE_MAX
         )
-        if self.training_readiness not in _TRAINING_READINESS_VALIDOS:
+        if (
+            self.training_readiness is not None
+            and self.training_readiness not in _TRAINING_READINESS_VALIDOS
+        ):
             raise ValueError(
-                f"training_readiness debe ser uno de {_TRAINING_READINESS_VALIDOS}"
+                f"training_readiness debe ser None o uno de {_TRAINING_READINESS_VALIDOS}"
             )
         if not math.isfinite(self.acwr) or self.acwr < 0:
             raise ValueError("acwr debe ser un número finito no negativo")
@@ -180,6 +195,9 @@ def compute_readiness(ctx: RecoveryContext) -> ReadinessLevel:
         red_flags += 1
     elif ctx.training_readiness == "low":
         yellow_flags += 1
+    # ctx.training_readiness is None: el dispositivo no calcula esta
+    # métrica (ver docstring de RecoveryContext) - no aporta flags, ni
+    # rojo ni amarillo. El resto de señales deciden por sí solas.
 
     if ctx.body_battery_am < _BODY_BATTERY_RED:
         red_flags += 1

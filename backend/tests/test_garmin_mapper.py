@@ -48,15 +48,19 @@ class TestMapGarminRawToRecoveryContext:
                 joint_pain_flag=False,
             )
 
-    def test_lanza_insufficient_data_si_falta_training_readiness(self):
-        with pytest.raises(InsufficientDataError):
-            map_garmin_raw_to_recovery_context(
-                raw=_raw_completo(training_readiness=None),
-                hrv_baseline_28d=65.0,
-                hrv_trend_7d=0.0,
-                acwr=1.0,
-                joint_pain_flag=False,
-            )
+    def test_training_readiness_ausente_no_es_error_el_dispositivo_puede_no_soportarlo(self):
+        # Regresión del hallazgo real de Fase H (cuenta real con un
+        # Forerunner 165, que estructuralmente NUNCA calcula Training
+        # Readiness - no es un dato puntualmente ausente, así que NO
+        # debe bloquear el cálculo de readiness para siempre).
+        ctx = map_garmin_raw_to_recovery_context(
+            raw=_raw_completo(training_readiness=None),
+            hrv_baseline_28d=65.0,
+            hrv_trend_7d=0.0,
+            acwr=1.0,
+            joint_pain_flag=False,
+        )
+        assert ctx.training_readiness is None
 
     def test_lanza_insufficient_data_si_falta_body_battery(self):
         with pytest.raises(InsufficientDataError):

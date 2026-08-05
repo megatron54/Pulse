@@ -71,6 +71,32 @@ class TestComputeReadiness:
         ctx = _ctx(training_readiness="low", sleep_score=45)
         assert compute_readiness(ctx) == ReadinessLevel.YELLOW
 
+    def test_training_readiness_none_no_aporta_flags_calcula_con_el_resto_de_senales(self):
+        # Regresión del hallazgo real de Fase H: relojes que no calculan
+        # Training Readiness (Forerunner 165 y similares) deben poder
+        # llegar a GREEN igualmente si el resto de señales son buenas -
+        # None no debe interpretarse como "low"/"very_low" ni como
+        # ninguna otra categoría, simplemente no cuenta.
+        ctx = _ctx(training_readiness=None)
+        assert compute_readiness(ctx) == ReadinessLevel.GREEN
+
+    def test_training_readiness_none_no_impide_detectar_red_por_otra_senal(self):
+        ctx = _ctx(training_readiness=None, acwr=1.6)
+        assert compute_readiness(ctx) == ReadinessLevel.RED
+
+    def test_acepta_training_readiness_none_sin_lanzar_valueerror(self):
+        # __post_init__ no debe validar None contra el enum de valores.
+        RecoveryContext(
+            hrv_today=65.0,
+            hrv_baseline_28d=65.0,
+            hrv_trend_7d=0.0,
+            body_battery_am=80,
+            training_readiness=None,
+            sleep_score=85,
+            acwr=1.0,
+            joint_pain_flag=False,
+        )
+
     def test_body_battery_muy_bajo_da_red(self):
         ctx = _ctx(body_battery_am=25)
         assert compute_readiness(ctx) == ReadinessLevel.RED

@@ -39,7 +39,7 @@ export function ReadinessCheckinForm({
   const [bodyBattery, setBodyBattery] = useState(80);
   const [sleepScore, setSleepScore] = useState(85);
   const [trainingReadiness, setTrainingReadiness] = useState<
-    "high" | "moderate" | "low" | "very_low"
+    "high" | "moderate" | "low" | "very_low" | ""
   >("high");
   const [acwr, setAcwr] = useState(1.0);
   const [jointPain, setJointPain] = useState(false);
@@ -59,7 +59,7 @@ export function ReadinessCheckinForm({
         hrv_baseline_28d: hrvBaseline,
         hrv_trend_7d: 0,
         body_battery_am: bodyBattery,
-        training_readiness: trainingReadiness,
+        training_readiness: trainingReadiness === "" ? null : trainingReadiness,
         sleep_score: sleepScore,
         acwr,
         joint_pain_flag: jointPain,
@@ -135,6 +135,7 @@ export function ReadinessCheckinForm({
             <option value="moderate">Moderado</option>
             <option value="low">Bajo</option>
             <option value="very_low">Muy bajo</option>
+            <option value="">Mi reloj no lo calcula</option>
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm text-gray-300">
