@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { api, ApiError, SESSION_TYPES, todayLocalDate, type DailySessionResult, type SessionTypeValue } from "@/lib/api";
 import { Card, CardTitle } from "./ui/Card";
+import { Button } from "./ui/Button";
 
 const LABELS: Record<SessionTypeValue, string> = {
   rest: "Descanso",
@@ -81,13 +82,9 @@ export function DailySessionCard({ userId }: { userId: number }) {
           </label>
         )}
         {error && <p className="text-red-400 text-sm">{error}</p>}
-        <button
-          type="submit"
-          disabled={submitting}
-          className="bg-strain text-white font-semibold rounded-lg px-4 py-2.5 disabled:bg-surface disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:scale-100 self-start transition-transform hover:scale-[1.02] active:scale-[0.98]"
-        >
+        <Button type="submit" variant="strain" disabled={submitting} className="self-start">
           {submitting ? "Consultando..." : "Ver decisión del coach"}
-        </button>
+        </Button>
       </form>
       {resultado && (
         <div className="mt-5 p-5 rounded-xl bg-black/30 border border-strain/20">

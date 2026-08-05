@@ -17,12 +17,12 @@ export default function NutricionPage() {
   const user = useUser();
 
   return (
-    <main className="p-6 md:p-8 max-w-2xl mx-auto w-full">
+    <main className="p-6 md:p-8 max-w-5xl mx-auto w-full">
       <header className="mb-8">
         <h1 className="font-display text-2xl font-bold tracking-wide text-white">Nutrición</h1>
         <p className="text-gray-400 mt-1">Tu objetivo de macros y diario de comidas.</p>
       </header>
-      <div className="flex flex-col gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         <FadeIn>
           <NutritionTargetCard userId={user.id} />
         </FadeIn>
