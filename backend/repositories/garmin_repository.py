@@ -26,14 +26,25 @@ def save_daily_metrics(
 ) -> GarminDailyMetrics:
     """Persiste una fila append-only con los campos normalizados del
     payload de garmin_sync.client.get_daily_recovery_raw. Nunca
-    sobreescribe una sincronización previa del mismo día."""
+    sobreescribe una sincronización previa del mismo día.
+
+    Épica A del plan de expansión (02-roadmap/03-vision-produccion.md):
+    hrv_status/vo2max/stress_avg/resting_hr existían como columnas
+    desde el modelo original pero nunca se rellenaban porque el
+    cliente nunca los pedía - `.get(...)` con default None mantiene el
+    comportamiento "unknown is not zero" para raws antiguos/parciales
+    que todavía no traigan estas claves."""
     fila = GarminDailyMetrics(
         user_id=user_id,
         fecha=fecha,
         hrv_value=raw.get("hrv_today"),
+        hrv_status=raw.get("hrv_status"),
         training_readiness=raw.get("training_readiness"),
         body_battery_am=raw.get("body_battery_am"),
         sleep_score=raw.get("sleep_score"),
+        stress_avg=raw.get("stress_avg"),
+        resting_hr=raw.get("resting_hr"),
+        vo2max=raw.get("vo2max"),
     )
     session.add(fila)
     session.commit()

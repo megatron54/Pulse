@@ -57,6 +57,12 @@ def _fake_api_factory(hrv=65.0, readiness="high", body_battery=80, sleep=85):
     fake_api.get_sleep_data.return_value = {
         "dailySleepDTO": {"sleepScores": {"overall": {"value": sleep}}}
     }
+    # Épica A (02-roadmap/03-vision-produccion.md) - ver mismo comentario
+    # en test_readiness_service.py: sin esto, un MagicMock sin configurar
+    # rompe los extractores nuevos de garmin_sync.client.
+    fake_api.get_stress_data.return_value = {}
+    fake_api.get_rhr_day.return_value = {}
+    fake_api.get_max_metrics.return_value = []
     return lambda *a, **k: fake_api
 
 
@@ -168,6 +174,9 @@ class TestRunDailySyncForAllUsers:
         fake_api.get_sleep_data.return_value = {
             "dailySleepDTO": {"sleepScores": {"overall": {"value": 85}}}
         }
+        fake_api.get_stress_data.return_value = {}
+        fake_api.get_rhr_day.return_value = {}
+        fake_api.get_max_metrics.return_value = []
 
         resultado = run_daily_sync_for_all_users(
             session, target_date=date(2026, 8, 2), api_factory=lambda *a, **k: fake_api
