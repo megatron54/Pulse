@@ -12,7 +12,7 @@ pip install -r requirements.txt
 pytest
 ```
 
-Requiere Postgres corriendo (ver `infra/docker-compose.pulse.yml` en la raíz, o el `docker compose up` completo desde la raíz del repo) - los tests usan su propio SQLite en memoria y no necesitan Postgres real.
+Requiere Postgres corriendo (ver `docker-compose.yml` en la raíz - `docker compose up -d db`, o el stack completo `docker compose up -d --build`) - los tests usan su propio SQLite en memoria y no necesitan Postgres real.
 
 ## Estructura
 
@@ -41,12 +41,19 @@ Docs interactivas (OpenAPI/Swagger) en `http://127.0.0.1:8000/docs`.
 ## Emparejar una cuenta Garmin real
 
 ```powershell
+# Local (venv):
 python -m scripts.garmin_pair --user-id <id>
+
+# O si el stack corre en Docker (ver docker-compose.yml en la raíz -
+# backend y scheduler comparten el volumen nombrado `garmin-tokens`):
+docker compose exec backend python -m scripts.garmin_pair --user-id <id>
 ```
 
 Pide email/contraseña por terminal (nunca se guardan, solo se usan para un login en memoria); soporta verificación en dos pasos. Tras emparejar, el scheduler nocturno sincroniza automáticamente - ver `services/scheduler_service.py`.
 
 ## Ejecutar el scheduler nocturno
+
+Ya corre como su propio servicio Docker (`scheduler` en `docker-compose.yml` de la raíz) al hacer `docker compose up -d --build` - no hace falta lanzarlo a mano si usas Docker. Para desarrollo local sin Docker:
 
 ```powershell
 python -m scheduler.app

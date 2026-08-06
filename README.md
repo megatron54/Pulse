@@ -18,7 +18,7 @@ Detalle completo en [`01-arquitectura/`](01-arquitectura/).
 
 ## Qué funciona hoy
 
-- **Garmin Connect real**: emparejamiento seguro (`backend/scripts/garmin_pair.py`), sincronización nocturna automática de recovery (HRV/Body Battery/sleep/training readiness, cuando el dispositivo lo soporta) y actividades.
+- **Garmin Connect real**: emparejamiento seguro (`backend/scripts/garmin_pair.py`), sincronización nocturna automática de recovery (HRV/Body Battery/sleep/training readiness, cuando el dispositivo lo soporta) y actividades — corre como servicio Docker propio (`scheduler`), no depende de dejar un terminal manual abierto.
 - **wger**: catálogo de ejercicios, diario de comidas real (vía el propio wger del usuario, token permanente).
 - **Motor de reglas**: nutrición (TDEE + macros por fase), progresión (1RM, doble progresión, autorregulación RIR/APRE), periodización (readiness diario, ACWR real), guardrails (deload forzado, pausa de déficit por mala recuperación sostenida).
 - **Diario de hábitos** correlacionado con recovery (estilo WHOOP Journal), resumen periódico de tendencias.
@@ -34,7 +34,7 @@ docker compose up -d --build
 - Backend: http://localhost:8000 (docs interactivas en `/docs`)
 - Frontend: http://localhost:3000
 
-Ver [`DEPLOYMENT.md`](DEPLOYMENT.md) para variables de entorno y verificación. Para desarrollo local sin Docker del backend/frontend (solo Postgres en Docker), ver [`backend/README.md`](backend/README.md) y [`frontend/README.md`](frontend/README.md).
+Esto levanta los 4 servicios (Postgres, backend, frontend, y el scheduler nocturno de Garmin) — `docker compose ps` debe mostrar los 4 como `healthy`. Ver [`DEPLOYMENT.md`](DEPLOYMENT.md) para variables de entorno y verificación. Para desarrollo local sin Docker del backend/frontend (solo Postgres en Docker), ver [`backend/README.md`](backend/README.md) y [`frontend/README.md`](frontend/README.md).
 
 ## Índice de documentación
 
