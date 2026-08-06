@@ -1,5 +1,13 @@
 # Pulse — Entrenador personal con IA (multi-deporte, multi-objetivo)
 
+![Python](https://img.shields.io/badge/-Python-3776AB?style=flat-square&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/-FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
+![Next.js](https://img.shields.io/badge/-Next.js-000000?style=flat-square&logo=nextdotjs&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/-PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/-Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
+![Playwright](https://img.shields.io/badge/-Playwright-2EAD33?style=flat-square&logo=playwright&logoColor=white)
+![TDD](https://img.shields.io/badge/tests-TDD%20~100%25%20engine-success?style=flat-square)
+
 > App personal (móvil + escritorio) que actúa como entrenador y nutricionista, integrando datos reales de Garmin, wger (ejercicios/nutrición) y objetivos múltiples (fuerza, hipertrofia, running, artes marciales, composición corporal, cortes de peso).
 
 ## Estado del proyecto
@@ -67,3 +75,8 @@ Esto levanta los 4 servicios (Postgres, backend, frontend, y el scheduler noctur
 - **Nunca falsa precisión**: rangos donde el dominio es incierto, categorías donde el motor es categórico. Ninguna métrica se fabrica cuando faltan datos ("unknown is not zero").
 - **La IA nunca decide**, solo explica una decisión ya tomada por reglas deterministas auditables.
 - **Reutilizar antes que reinventar**: wger antes que una integración externa nueva; cuando ni eso sirve, se documenta honestamente que no hay integración viable en vez de prometerla.
+
+## Autor
+
+**Miguel Serra Ferrando** — Telecommunications Engineer
+[GitHub](https://github.com/megatron54) · [LinkedIn](https://www.linkedin.com/in/miguel-serra-ferrando) · [Email](mailto:miguel.serra.ferrando@gmail.com)
