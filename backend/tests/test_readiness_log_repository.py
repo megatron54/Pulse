@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from engine.periodization import ReadinessLevel
 from models.schema import Base, ReadinessLog, UserProfile
 from repositories.readiness_log_repository import (
+    get_readiness_log_for_date,
     get_recent_readiness_levels,
     get_volumen_pct_history,
     set_volumen_pct_ajustado,
@@ -28,6 +29,62 @@ def usuario(session):
     session.add(u)
     session.commit()
     return u
+
+
+class TestGetReadinessLogForDate:
+    """Épica H del plan de expansión (02-roadmap/03-vision-produccion.md):
+    el coach de salud necesita la FILA completa de ReadinessLog de un
+    día concreto (no solo el `resultado`, como ya da
+    `get_latest_readiness_level`) para poder explicar la decisión con
+    los campos estructurados que la motivaron."""
+
+    def test_devuelve_none_si_no_hay_ningun_readiness_log_ese_dia(self, session, usuario):
+        assert get_readiness_log_for_date(session, usuario.id, date(2026, 8, 6)) is None
+
+    def test_devuelve_la_fila_del_dia_indicado(self, session, usuario):
+        session.add(
+            ReadinessLog(
+                user_id=usuario.id,
+                fecha=date(2026, 8, 6),
+                resultado=ReadinessLevel.GREEN.value,
+                sesion_recomendada="strength_heavy",
+            )
+        )
+        session.commit()
+
+        fila = get_readiness_log_for_date(session, usuario.id, date(2026, 8, 6))
+
+        assert fila is not None
+        assert fila.resultado == ReadinessLevel.GREEN.value
+        assert fila.sesion_recomendada == "strength_heavy"
+
+    def test_si_hay_varias_filas_el_mismo_dia_devuelve_la_mas_reciente(self, session, usuario):
+        # Append-only: un check-in re-ejecutado el mismo día no
+        # sobreescribe, añade una fila nueva - "la última gana", mismo
+        # criterio que get_latest_readiness_level.
+        session.add(
+            ReadinessLog(user_id=usuario.id, fecha=date(2026, 8, 6), resultado=ReadinessLevel.RED.value)
+        )
+        session.commit()
+        session.add(
+            ReadinessLog(user_id=usuario.id, fecha=date(2026, 8, 6), resultado=ReadinessLevel.GREEN.value)
+        )
+        session.commit()
+
+        fila = get_readiness_log_for_date(session, usuario.id, date(2026, 8, 6))
+
+        assert fila.resultado == ReadinessLevel.GREEN.value
+
+    def test_no_mezcla_datos_de_otro_usuario(self, session, usuario):
+        otro = UserProfile(nombre="Otro", altura_cm=170.0, fecha_nacimiento=date(1990, 1, 1), sexo="F")
+        session.add(otro)
+        session.commit()
+        session.add(
+            ReadinessLog(user_id=otro.id, fecha=date(2026, 8, 6), resultado=ReadinessLevel.RED.value)
+        )
+        session.commit()
+
+        assert get_readiness_log_for_date(session, usuario.id, date(2026, 8, 6)) is None
 
 
 class TestGetRecentReadinessLevels:

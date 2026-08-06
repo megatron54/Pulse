@@ -2,6 +2,7 @@
 
 import { useUser } from "@/lib/UserContext";
 import { GarminHealthHistoryCard } from "@/components/GarminHealthHistoryCard";
+import { CoachNarrativeBlock } from "@/components/CoachNarrativeBlock";
 import { FadeIn } from "@/components/ui/FadeIn";
 
 /**
@@ -10,6 +11,9 @@ import { FadeIn } from "@/components/ui/FadeIn";
  * Battery, sueño, estrés, pulso en reposo y VO2max, con selector de
  * rango temporal. El resumen corto de estas mismas métricas vive en
  * el dashboard "Hoy" (Épica J); esta página es el DETALLE completo.
+ * El bloque de coach (Épica H) explica el estado de recovery ya
+ * decidido citando estos mismos datos reales - nunca decide nada
+ * nuevo, ver `coach.health_narrative_service`.
  */
 export default function SaludPage() {
   const user = useUser();
@@ -22,6 +26,9 @@ export default function SaludPage() {
       </header>
       <div className="grid grid-cols-1 gap-6 items-start">
         <FadeIn>
+          <CoachNarrativeBlock userId={user.id} />
+        </FadeIn>
+        <FadeIn delay={0.05}>
           <GarminHealthHistoryCard userId={user.id} />
         </FadeIn>
       </div>

@@ -259,6 +259,14 @@ export type GarminHealthDay = {
   vo2max: number | null;
 };
 
+// Épica H del plan de expansión: explicación conversacional (Capa 3)
+// del estado de recovery de un día - text/source son null cuando la
+// Capa 1 aún no ha calculado ningún ReadinessLog para esa fecha.
+export type HealthNarrative = {
+  text: string | null;
+  source: "llm" | "template" | null;
+};
+
 export type PeriodicSummary = {
   dias_con_checkin_readiness: number;
   distribucion_readiness: { green: number; yellow: number; red: number };
@@ -368,6 +376,9 @@ export const api = {
 
   getGarminHealthHistory: (userId: number, days = 90) =>
     request<GarminHealthDay[]>(`/users/${userId}/garmin/health-history?days=${days}`),
+
+  getGarminHealthNarrative: (userId: number, fecha = todayLocalDate()) =>
+    request<HealthNarrative>(`/users/${userId}/garmin/health-narrative?fecha=${fecha}`),
 
   getPeriodicSummary: (userId: number, days = 7, asOf = todayLocalDate()) =>
     request<PeriodicSummary>(

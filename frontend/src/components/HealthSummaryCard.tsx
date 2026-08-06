@@ -6,6 +6,7 @@ import { ArrowRight, HeartPulse } from "lucide-react";
 import { api, ApiError, type GarminHealthDay } from "@/lib/api";
 import { AreaTrendChart } from "./ui/AreaTrendChart";
 import { Card, CardTitle } from "./ui/Card";
+import { CoachNarrativeBlock } from "./CoachNarrativeBlock";
 import { EmptyState } from "./ui/EmptyState";
 import { ErrorState } from "./ui/ErrorState";
 import { LoadingState } from "./ui/LoadingState";
@@ -67,6 +68,7 @@ export function HealthSummaryCard({ userId }: { userId: number }) {
       )}
       {!error && historial && historial.length > 0 && (
         <div className="flex flex-col gap-3">
+          <CoachNarrativeBlock userId={userId} />
           <MiniMetrica titulo="VFC" color={PALETA.recoveryHigh} datos={cronologico} campo="hrv_value" />
           <MiniMetrica titulo="Body Battery" color={PALETA.teal} datos={cronologico} campo="body_battery_am" />
           <MiniMetrica titulo="Sueño" color={PALETA.sleep} datos={cronologico} campo="sleep_score" />

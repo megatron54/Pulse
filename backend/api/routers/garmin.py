@@ -13,7 +13,9 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_db, verify_api_key
-from api.schemas import GarminActivityOut, GarminDailyMetricsOut
+from api.schemas import GarminActivityOut, GarminDailyMetricsOut, HealthNarrativeOut
+from coach.gemini_client import build_gemini_client_if_configured
+from coach.health_narrative_service import generate_health_narrative_for_user
 from services.garmin_query_service import (
     CategoriaDeporte,
     get_activity_history_for_user,
@@ -59,3 +61,25 @@ def get_health_history(
         db, user_id, as_of=as_of or date.today(), days=days
     )
     return [GarminDailyMetricsOut.model_validate(m, from_attributes=True) for m in metricas]
+
+
+@router.get("/health-narrative", response_model=HealthNarrativeOut)
+def get_health_narrative(
+    user_id: int,
+    fecha: date | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> HealthNarrativeOut:
+    """Explicación conversacional (Capa 3, Épica H) del estado de
+    recovery ya decidido para `fecha` (por defecto hoy). `text`/`source`
+    vienen `None` si todavía no existe ningún ReadinessLog para ese
+    día - nunca se inventa una explicación de una decisión que no se
+    ha tomado."""
+    resultado = generate_health_narrative_for_user(
+        db,
+        user_id,
+        fecha=fecha or date.today(),
+        gemini_client=build_gemini_client_if_configured(),
+    )
+    if resultado is None:
+        return HealthNarrativeOut(text=None, source=None)
+    return HealthNarrativeOut(text=resultado.text, source=resultado.source)

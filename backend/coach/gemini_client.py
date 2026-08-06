@@ -12,6 +12,7 @@ por un doble de prueba en tests, sin red ni credenciales reales.
 """
 from __future__ import annotations
 
+import os
 from typing import Any, Callable
 
 _DEFAULT_MODEL_NAME = "gemini-1.5-flash"
@@ -64,3 +65,17 @@ class GeminiClient:
             raise
         except Exception as exc:
             raise GeminiError(str(exc)) from exc
+
+
+def build_gemini_client_if_configured() -> GeminiClient | None:
+    """La IA es opcional y no autoritativa (ver docs/00-research/
+    07-arquitectura-coach-ia.md): si no hay GEMINI_API_KEY configurada,
+    la Capa 3 usa su plantilla determinista de respaldo sin que ningún
+    endpoint falle ni se degrade la decisión estructurada. Extraído de
+    `api/routers/session.py` (Épica H, 02-roadmap/03-vision-produccion.md)
+    para que cada router nuevo que use la Capa 3 no reimplemente esta
+    misma comprobación de variable de entorno."""
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        return None
+    return GeminiClient(api_key=api_key)

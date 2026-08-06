@@ -270,6 +270,17 @@ class GarminDailyMetricsOut(BaseModel):
     resting_hr: int | None
     vo2max: float | None
 
+
+class HealthNarrativeOut(BaseModel):
+    """Épica H del plan de expansión (02-roadmap/03-vision-produccion.md):
+    explicación conversacional (Capa 3) del estado de recovery de un
+    día - `text`/`source` son `None` cuando la Capa 1 todavía no ha
+    calculado ningún ReadinessLog para esa fecha (nunca se inventa un
+    estado de recovery ni una explicación de algo que no se decidió)."""
+
+    text: str | None
+    source: str | None  # "llm" | "template" | None
+
     model_config = {"from_attributes": True}
 
 
