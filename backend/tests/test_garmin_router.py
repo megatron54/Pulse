@@ -11,7 +11,7 @@ from sqlalchemy.pool import StaticPool
 
 from api.dependencies import get_db
 from api.main import app
-from models.schema import Base, GarminActivity, GarminDailyMetrics
+from models.schema import Base, GarminActivity, GarminDailyMetrics, ReadinessLog
 
 
 @pytest.fixture()
@@ -190,3 +190,44 @@ class TestGetHealthHistory:
         body = resp.json()
         assert len(body) == 1
         assert body[0]["hrv_value"] == 50.0
+
+
+class TestGetHealthNarrative:
+    """Épica H del plan de expansión (02-roadmap/03-vision-produccion.md)."""
+
+    def test_sin_readiness_calculado_devuelve_text_y_source_none(self, client):
+        c, _ = client
+        usuario = _crear_usuario(c)
+        resp = c.get(f"/users/{usuario['id']}/garmin/health-narrative?fecha=2026-08-06")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body == {"text": None, "source": None}
+
+    def test_con_readiness_calculado_devuelve_una_narrativa_real(self, client):
+        c, engine = client
+        usuario = _crear_usuario(c)
+        with Session(engine) as session:
+            session.add(
+                ReadinessLog(user_id=usuario["id"], fecha=date(2026, 8, 6), resultado="green")
+            )
+            session.add(
+                GarminDailyMetrics(
+                    user_id=usuario["id"],
+                    fecha=date(2026, 8, 6),
+                    hrv_value=60.0,
+                    sleep_score=82,
+                )
+            )
+            session.commit()
+
+        resp = c.get(f"/users/{usuario['id']}/garmin/health-narrative?fecha=2026-08-06")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["text"] is not None
+        assert body["source"] == "template"
+        assert "60" in body["text"]
+
+    def test_usuario_inexistente_da_404(self, client):
+        c, _ = client
+        resp = c.get("/users/99999/garmin/health-narrative")
+        assert resp.status_code == 404

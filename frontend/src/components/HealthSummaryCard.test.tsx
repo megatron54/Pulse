@@ -10,6 +10,10 @@ vi.mock("@/lib/api", async () => {
     api: {
       ...actual.api,
       getGarminHealthHistory: vi.fn(),
+      // CoachNarrativeBlock (Épica H) llama a esto internamente - se
+      // mockea aquí también para que los tests no disparen una
+      // petición de red real de fondo en jsdom.
+      getGarminHealthNarrative: vi.fn().mockResolvedValue({ text: null, source: null }),
     },
   };
 });
@@ -17,6 +21,8 @@ vi.mock("@/lib/api", async () => {
 describe("HealthSummaryCard", () => {
   beforeEach(() => {
     vi.mocked(api.getGarminHealthHistory).mockReset();
+    vi.mocked(api.getGarminHealthNarrative).mockReset();
+    vi.mocked(api.getGarminHealthNarrative).mockResolvedValue({ text: null, source: null });
   });
 
   it("pide solo los últimos 7 días (resumen, no el histórico completo)", async () => {
