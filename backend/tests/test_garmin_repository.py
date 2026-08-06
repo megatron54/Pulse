@@ -55,17 +55,37 @@ class TestSaveDailyMetrics:
     def test_persiste_los_campos_normalizados_del_raw(self, session, usuario):
         raw = {
             "hrv_today": 65.0,
+            "hrv_status": "BALANCED",
             "training_readiness": "high",
             "body_battery_am": 80,
             "sleep_score": 85,
+            "stress_avg": 25,
+            "resting_hr": 54,
+            "vo2max": 47.5,
             "raw_json": {"hrv": {}, "sleep": {}},
         }
         fila = save_daily_metrics(session, usuario.id, date(2026, 8, 2), raw)
         assert fila.id is not None
         assert fila.hrv_value == 65.0
+        assert fila.hrv_status == "BALANCED"
         assert fila.training_readiness == "high"
         assert fila.body_battery_am == 80
         assert fila.sleep_score == 85
+        assert fila.stress_avg == 25
+        assert fila.resting_hr == 54
+        assert fila.vo2max == 47.5
+
+    def test_campos_ausentes_en_el_raw_quedan_none_no_provocan_error(self, session, usuario):
+        # Épica A (02-roadmap/03-vision-produccion.md): hrv_status,
+        # vo2max, stress_avg y resting_hr son campos nuevos - un raw
+        # que todavía no los traiga (p.ej. datos ya sincronizados antes
+        # del fix) no debe romper la persistencia de los demás campos.
+        fila = save_daily_metrics(session, usuario.id, date(2026, 8, 2), {"hrv_today": 60})
+        assert fila.hrv_value == 60
+        assert fila.hrv_status is None
+        assert fila.stress_avg is None
+        assert fila.resting_hr is None
+        assert fila.vo2max is None
 
     def test_es_append_only_no_sobreescribe_sincronizaciones_previas(self, session, usuario):
         fecha = date(2026, 8, 2)
