@@ -158,3 +158,55 @@ def get_activity_history(
         .order_by(GarminActivity.fecha.desc())
     )
     return list(session.execute(stmt).scalars().all())
+
+
+_DIAS_HISTORIAL_METRICAS_POR_DEFECTO = 90
+
+
+def get_daily_metrics_history(
+    session: Session, user_id: int, as_of: date, days: int = _DIAS_HISTORIAL_METRICAS_POR_DEFECTO
+) -> list[GarminDailyMetrics]:
+    """Historial completo de recovery (HRV, hrv_status, body battery,
+    training readiness, sleep score, stress, resting HR, VO2max) del
+    usuario en `[as_of-days+1, as_of]`, más recientes primero,
+    DEDUPLICADO a una fila por día (gana el `id` más alto = la
+    sincronización más reciente de ese día).
+
+    Épica C del plan de expansión (02-roadmap/03-vision-produccion.md):
+    alimenta tanto la página nueva de Salud/Recovery como el resumen
+    del dashboard "Hoy". Usa el criterio de ventana CORRECTO desde el
+    principio (`days` exactos) - el punto 10 del doc vivo advierte que
+    `get_readiness_history`/`get_weight_history` arrastran un
+    off-by-one (`days+1`) que aquí NO se replica a propósito.
+
+    Deduplicación: `GarminDailyMetrics` es append-only SIN
+    UNIQUE(user_id, fecha) - un mismo día puede tener varias filas
+    (observado en datos reales: scheduler + una sincronización manual
+    el mismo día). Un endpoint de HISTORIAL PARA GRÁFICA debe devolver
+    un único punto por día - hallazgo de @code-reviewer: dejarlo crudo
+    obligaría a cada consumidor nuevo a recordar deduplicar (como ya
+    hace el frontend hoy con `dedupeUltimaPorDia` para
+    peso/readiness), propagando la misma deuda. Se deduplica aquí una
+    sola vez, en el origen; el histórico completo sin deduplicar sigue
+    intacto en la tabla para auditoría, esta función solo cambia lo
+    que se PROYECTA para lectura.
+
+    Cada campo se devuelve tal cual está en la fila (None si no hay
+    dato ese día) - "unknown is not zero": nunca se interpola ni se
+    rellena un hueco con un valor inventado."""
+    fecha_inicio = as_of - timedelta(days=days - 1)
+    stmt = (
+        select(GarminDailyMetrics)
+        .where(GarminDailyMetrics.user_id == user_id)
+        .where(GarminDailyMetrics.fecha >= fecha_inicio)
+        .where(GarminDailyMetrics.fecha <= as_of)
+        .order_by(GarminDailyMetrics.fecha.desc(), GarminDailyMetrics.id.desc())
+    )
+    filas = session.execute(stmt).scalars().all()
+
+    vista_por_fecha: dict[date, GarminDailyMetrics] = {}
+    for fila in filas:
+        # Ordenado por id desc dentro de cada fecha: la primera fila
+        # vista para una fecha ya es la de mayor id (más reciente).
+        vista_por_fecha.setdefault(fila.fecha, fila)
+    return list(vista_por_fecha.values())
