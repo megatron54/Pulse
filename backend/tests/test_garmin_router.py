@@ -11,7 +11,7 @@ from sqlalchemy.pool import StaticPool
 
 from api.dependencies import get_db
 from api.main import app
-from models.schema import Base, GarminActivity
+from models.schema import Base, GarminActivity, GarminDailyMetrics
 
 
 @pytest.fixture()
@@ -82,3 +82,67 @@ class TestGetActivityHistory:
         c, _ = client
         resp = c.get("/users/99999/garmin/activities")
         assert resp.status_code == 404
+
+
+class TestGetHealthHistory:
+    """Épica C del plan de expansión (02-roadmap/03-vision-produccion.md)."""
+
+    def test_devuelve_el_historial_de_metricas_diarias_del_usuario(self, client):
+        c, engine = client
+        usuario = _crear_usuario(c)
+        with Session(engine) as session:
+            session.add(
+                GarminDailyMetrics(
+                    user_id=usuario["id"],
+                    fecha=date(2026, 8, 6),
+                    hrv_value=49.0,
+                    hrv_status="NONE",
+                    body_battery_am=77,
+                    training_readiness="high",
+                    sleep_score=82,
+                    stress_avg=10,
+                    resting_hr=54,
+                    vo2max=None,
+                )
+            )
+            session.commit()
+
+        resp = c.get(f"/users/{usuario['id']}/garmin/health-history")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body) == 1
+        assert body[0]["hrv_value"] == 49.0
+        assert body[0]["hrv_status"] == "NONE"
+        assert body[0]["stress_avg"] == 10
+        assert body[0]["resting_hr"] == 54
+        assert body[0]["vo2max"] is None
+
+    def test_usuario_sin_historial_devuelve_lista_vacia(self, client):
+        c, _ = client
+        usuario = _crear_usuario(c)
+        resp = c.get(f"/users/{usuario['id']}/garmin/health-history")
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    def test_usuario_inexistente_da_404(self, client):
+        c, _ = client
+        resp = c.get("/users/99999/garmin/health-history")
+        assert resp.status_code == 404
+
+    def test_respeta_el_parametro_days(self, client):
+        c, engine = client
+        usuario = _crear_usuario(c)
+        with Session(engine) as session:
+            session.add(
+                GarminDailyMetrics(user_id=usuario["id"], fecha=date(2026, 1, 1), hrv_value=40.0)
+            )
+            session.add(
+                GarminDailyMetrics(user_id=usuario["id"], fecha=date(2026, 8, 6), hrv_value=50.0)
+            )
+            session.commit()
+
+        resp = c.get(f"/users/{usuario['id']}/garmin/health-history?days=7&as_of=2026-08-06")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body) == 1
+        assert body[0]["hrv_value"] == 50.0

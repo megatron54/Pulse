@@ -254,6 +254,25 @@ class GarminActivityOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class GarminDailyMetricsOut(BaseModel):
+    """Épica C del plan de expansión (02-roadmap/03-vision-produccion.md):
+    un punto del historial de recovery. Cada campo es honesto sobre su
+    ausencia (None) - "unknown is not zero", nunca se rellena un hueco
+    con 0 ni se interpola."""
+
+    fecha: date
+    hrv_value: float | None
+    hrv_status: str | None
+    body_battery_am: int | None
+    training_readiness: str | None
+    sleep_score: int | None
+    stress_avg: int | None
+    resting_hr: int | None
+    vo2max: float | None
+
+    model_config = {"from_attributes": True}
+
+
 class PeriodicSummaryOut(BaseModel):
     dias_con_checkin_readiness: int
     distribucion_readiness: dict[str, int]
