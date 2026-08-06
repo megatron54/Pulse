@@ -34,6 +34,24 @@ def get_latest_readiness_level(
     return ReadinessLevel(log.resultado) if log is not None else None
 
 
+def get_readiness_log_for_date(
+    session: Session, user_id: int, target_date: date
+) -> ReadinessLog | None:
+    """La fila COMPLETA de ReadinessLog más reciente para `user_id` en
+    `target_date` (mismo criterio "la última gana" que
+    `get_latest_readiness_level`, que solo devuelve el `resultado`
+    aislado). Épica H del plan de expansión (02-roadmap/
+    03-vision-produccion.md): el coach de salud necesita más campos
+    estructurados (`sesion_recomendada`, `hrv_delta_pct`...) para poder
+    explicar la decisión, no solo el semáforo."""
+    return (
+        session.query(ReadinessLog)
+        .filter_by(user_id=user_id, fecha=target_date)
+        .order_by(ReadinessLog.created_at.desc(), ReadinessLog.id.desc())
+        .first()
+    )
+
+
 def get_recent_readiness_levels(
     session: Session, user_id: int, as_of: date, n: int
 ) -> list[ReadinessLevel]:
