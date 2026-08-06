@@ -148,8 +148,8 @@ El usuario compartió el hallazgo de que **intervals.icu** ofrece un programa "B
 | E | Frontend: página `/salud` (histórico interactivo completo: selector de rango 7/30/90d, tooltips, una gráfica por métrica con datos reales) | ✅ Hecho (PR #52) | Épica C |
 | J | Frontend: resumen corto de salud (VFC/Body Battery/sueño/estrés + sparklines) en el dashboard "Hoy", enlazando a `/salud` | ✅ Hecho (PR #53) | Épica C |
 | B | Fases de sueño detalladas (deep/light/REM/awake) - `get_sleep_data` ya confirmado que las expone, falta persistirlas (tabla `GarminSleepDetail`) | ⬜ Pendiente | Épica A (hecha) |
-| D | Endpoint de actividades filtrado por `tipo` (running/ciclismo/gimnasio) | ⬜ Pendiente, siguiente en la cola | Épica 2 (hecha) |
-| G | Páginas por deporte (`/running`, `/ciclismo`, `/gimnasio`) con histórico e info específica + slot de coach | ⬜ Pendiente | Épica D |
+| D | Endpoint de actividades filtrado por `tipo` (running/ciclismo/gimnasio) | ✅ Hecho (PR #55) - agrupación de `typeKey` sin verificar aún contra actividades reales del usuario (tabla vacía), documentado explícitamente | Épica 2 (hecha) |
+| G | Páginas por deporte (`/running`, `/ciclismo`, `/gimnasio`) con histórico e info específica + slot de coach | 🟡 Parcial (PR #55) - histórico de actividades filtrado por categoría hecho; falta el slot de coach (Épica H) y el detalle de series/reps de gimnasio (`get_activity_exercise_sets`, requiere ingesta nueva) | Épica D (hecha) |
 | H | Generalizar el coach (Capa 3) a más contextos (salud, deporte, nutrición) sin romper "la IA nunca decide" | ⬜ Pendiente | Épicas E/G/I según contexto |
 | I | Motor de nutrición con sleep/HRV crudos reales (Capa 1) - **requiere investigación científica previa antes de fijar umbrales** | ⬜ Pendiente, bloqueado en fase de research | Épica A (hecha, ya hay datos crudos reales disponibles) |
 
