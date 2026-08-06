@@ -145,18 +145,33 @@ def save_activity_if_new(session: Session, user_id: int, actividad: dict[str, An
 
 
 def get_activity_history(
-    session: Session, user_id: int, as_of: date, days: int = _DIAS_HISTORIAL_ACTIVIDADES_POR_DEFECTO
+    session: Session,
+    user_id: int,
+    as_of: date,
+    days: int = _DIAS_HISTORIAL_ACTIVIDADES_POR_DEFECTO,
+    tipos: list[str] | None = None,
 ) -> list[GarminActivity]:
     """Actividades del usuario en `[as_of-days+1, as_of]`, más recientes
-    primero - para el listado de la página Garmin del frontend."""
+    primero - para el listado de la página Garmin del frontend.
+
+    `tipos`: filtro opcional por una LISTA de `typeKey` de Garmin (no
+    un único valor exacto) - Épica D del plan de expansión
+    (02-roadmap/03-vision-produccion.md): las páginas por deporte
+    (running/ciclismo/gimnasio) agrupan varias variantes reales de
+    Garmin bajo una misma categoría (ej. "running" +
+    "trail_running" + "treadmill_running" son todas "running" para el
+    usuario), la agrupación exacta vive en la capa de servicio, este
+    repositorio solo filtra por el conjunto ya resuelto."""
     fecha_inicio = as_of - timedelta(days=days - 1)
     stmt = (
         select(GarminActivity)
         .where(GarminActivity.user_id == user_id)
         .where(GarminActivity.fecha >= fecha_inicio)
         .where(GarminActivity.fecha <= as_of)
-        .order_by(GarminActivity.fecha.desc())
     )
+    if tipos:
+        stmt = stmt.where(GarminActivity.tipo.in_(tipos))
+    stmt = stmt.order_by(GarminActivity.fecha.desc())
     return list(session.execute(stmt).scalars().all())
 
 

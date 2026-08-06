@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Watch } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { api, ApiError, type GarminActivity } from "@/lib/api";
 import { formatDistancia, formatDuracion } from "@/lib/activityFormat";
 import { Card, CardTitle } from "./ui/Card";
@@ -9,18 +9,34 @@ import { EmptyState } from "./ui/EmptyState";
 import { ErrorState } from "./ui/ErrorState";
 import { LoadingState } from "./ui/LoadingState";
 
-/**
- * Historial de actividades Garmin ya ingeridas (Épica 2 de
- * 02-roadmap/03-vision-produccion.md). El scheduler nocturno
- * (`services.scheduler_service.run_daily_activity_sync_for_all_users`)
- * es quien sincroniza de verdad - este componente solo lee lo que ya
- * está en la base de datos. Sin credenciales reales de Garmin (Fase H
- * bloqueada), la lista viene vacía para todo usuario real - se muestra
- * ese estado con honestidad (mismo principio que el resto de la app),
- * nunca una maqueta de actividades fabricadas.
+/** Épica G del plan de expansión (02-roadmap/03-vision-produccion.md):
+ * histórico de actividades de UNA categoría de deporte (running,
+ * ciclismo, gimnasio), reutilizando el mismo endpoint de `/activities`
+ * ya construido (Épica D del backend añadió el filtro `categoria`).
+ * Un único componente parametrizado en vez de 3 casi-duplicados
+ * (`GarminActivitiesCard` sigue existiendo tal cual para la vista SIN
+ * filtrar de la página `/garmin`).
+ *
+ * Nota de honestidad (Épica D del backend): la agrupación de `typeKey`
+ * de Garmin bajo cada categoría (ej. "running" también incluye
+ * "trail_running") no está verificada todavía contra una actividad
+ * real del usuario - se documenta esa incertidumbre en
+ * `services.garmin_query_service.CategoriaDeporte`, no aquí (este
+ * componente solo consume el resultado ya filtrado por el backend).
  */
-
-export function GarminActivitiesCard({ userId }: { userId: number }) {
+export function SportActivityHistoryCard({
+  userId,
+  categoria,
+  titulo,
+  icono,
+  mensajeVacio,
+}: {
+  userId: number;
+  categoria: "running" | "ciclismo" | "gimnasio";
+  titulo: string;
+  icono: LucideIcon;
+  mensajeVacio: string;
+}) {
   const [actividades, setActividades] = useState<GarminActivity[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [intentos, setIntentos] = useState(0);
@@ -28,9 +44,11 @@ export function GarminActivitiesCard({ userId }: { userId: number }) {
   useEffect(() => {
     let cancelado = false;
     api
-      .getGarminActivities(userId)
+      .getGarminActivities(userId, 90, undefined, categoria)
       .then((datos) => {
-        if (!cancelado) setActividades(datos);
+        if (cancelado) return;
+        setActividades(datos);
+        setError(null);
       })
       .catch((err) => {
         if (cancelado) return;
@@ -39,11 +57,18 @@ export function GarminActivitiesCard({ userId }: { userId: number }) {
     return () => {
       cancelado = true;
     };
-  }, [userId, intentos]);
+  }, [userId, categoria, intentos]);
 
   return (
     <Card>
-      <CardTitle>Actividades</CardTitle>
+      <div className="flex items-baseline justify-between mb-4">
+        <CardTitle>{titulo}</CardTitle>
+        {actividades && actividades.length > 0 && (
+          <span className="text-xs text-gray-400">
+            {actividades.length} {actividades.length === 1 ? "sesión" : "sesiones"} (90 días)
+          </span>
+        )}
+      </div>
       {error && (
         <ErrorState
           message={error}
@@ -55,10 +80,7 @@ export function GarminActivitiesCard({ userId }: { userId: number }) {
       )}
       {!error && actividades === null && <LoadingState lines={2} />}
       {!error && actividades !== null && actividades.length === 0 && (
-        <EmptyState
-          icon={Watch}
-          message="Sin actividades sincronizadas todavía. El scheduler nocturno las trae automáticamente en cuanto haya alguna nueva en tu cuenta - no se inventa ninguna mientras tanto."
-        />
+        <EmptyState icon={icono} message={mensajeVacio} />
       )}
       {!error && actividades !== null && actividades.length > 0 && (
         <div className="flex flex-col gap-2">

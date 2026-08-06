@@ -83,6 +83,50 @@ class TestGetActivityHistory:
         resp = c.get("/users/99999/garmin/activities")
         assert resp.status_code == 404
 
+    def test_filtra_por_categoria_de_deporte(self, client):
+        c, engine = client
+        usuario = _crear_usuario(c)
+        with Session(engine) as session:
+            session.add(
+                GarminActivity(
+                    user_id=usuario["id"],
+                    activity_id="1",
+                    fecha=date(2026, 8, 1),
+                    tipo="running",
+                    duracion_seg=1800,
+                    distancia_m=5000.0,
+                    hr_avg=150,
+                    hr_max=172,
+                    training_effect=3.2,
+                )
+            )
+            session.add(
+                GarminActivity(
+                    user_id=usuario["id"],
+                    activity_id="2",
+                    fecha=date(2026, 8, 2),
+                    tipo="road_biking",
+                    duracion_seg=3600,
+                    distancia_m=20000.0,
+                    hr_avg=140,
+                    hr_max=160,
+                    training_effect=2.8,
+                )
+            )
+            session.commit()
+
+        resp = c.get(f"/users/{usuario['id']}/garmin/activities?categoria=ciclismo")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body) == 1
+        assert body[0]["tipo"] == "road_biking"
+
+    def test_categoria_invalida_da_422(self, client):
+        c, _ = client
+        usuario = _crear_usuario(c)
+        resp = c.get(f"/users/{usuario['id']}/garmin/activities?categoria=natacion")
+        assert resp.status_code == 422
+
 
 class TestGetHealthHistory:
     """Épica C del plan de expansión (02-roadmap/03-vision-produccion.md)."""

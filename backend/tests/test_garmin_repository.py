@@ -247,6 +247,85 @@ class TestGetActivityHistory:
         historial = get_activity_history(session, usuario.id, as_of=date(2026, 8, 10), days=30)
         assert historial == []
 
+    def test_filtra_por_lista_de_tipos_cuando_se_indica(self, session, usuario):
+        # Épica D del plan de expansión (02-roadmap/03-vision-produccion.md):
+        # las páginas por deporte necesitan filtrar por un CONJUNTO de
+        # typeKey (ej. "running"/"trail_running"/"treadmill_running"
+        # agrupados bajo la categoría "running"), no solo uno exacto.
+        save_activity_if_new(
+            session,
+            usuario.id,
+            {
+                "activity_id": "1",
+                "fecha": date(2026, 8, 1),
+                "tipo": "running",
+                "duracion_seg": 1800,
+                "distancia_m": 5000.0,
+                "hr_avg": 150,
+                "hr_max": 172,
+                "training_effect": 3.2,
+                "raw_json": {},
+            },
+        )
+        save_activity_if_new(
+            session,
+            usuario.id,
+            {
+                "activity_id": "2",
+                "fecha": date(2026, 8, 2),
+                "tipo": "cycling",
+                "duracion_seg": 3600,
+                "distancia_m": 20000.0,
+                "hr_avg": 140,
+                "hr_max": 160,
+                "training_effect": 2.8,
+                "raw_json": {},
+            },
+        )
+
+        historial = get_activity_history(
+            session, usuario.id, as_of=date(2026, 8, 10), days=30, tipos=["running"]
+        )
+
+        assert len(historial) == 1
+        assert historial[0].activity_id == "1"
+
+    def test_sin_tipos_devuelve_todas_las_actividades(self, session, usuario):
+        save_activity_if_new(
+            session,
+            usuario.id,
+            {
+                "activity_id": "1",
+                "fecha": date(2026, 8, 1),
+                "tipo": "running",
+                "duracion_seg": 1800,
+                "distancia_m": 5000.0,
+                "hr_avg": 150,
+                "hr_max": 172,
+                "training_effect": 3.2,
+                "raw_json": {},
+            },
+        )
+        save_activity_if_new(
+            session,
+            usuario.id,
+            {
+                "activity_id": "2",
+                "fecha": date(2026, 8, 2),
+                "tipo": "cycling",
+                "duracion_seg": 3600,
+                "distancia_m": 20000.0,
+                "hr_avg": 140,
+                "hr_max": 160,
+                "training_effect": 2.8,
+                "raw_json": {},
+            },
+        )
+
+        historial = get_activity_history(session, usuario.id, as_of=date(2026, 8, 10), days=30)
+
+        assert len(historial) == 2
+
 
 class TestGetDailyMetricsHistory:
     """Épica C del plan de expansión (02-roadmap/03-vision-produccion.md):

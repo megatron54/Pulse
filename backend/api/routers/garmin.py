@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from api.dependencies import get_db, verify_api_key
 from api.schemas import GarminActivityOut, GarminDailyMetricsOut
 from services.garmin_query_service import (
+    CategoriaDeporte,
     get_activity_history_for_user,
     get_daily_metrics_history_for_user,
 )
@@ -31,10 +32,14 @@ def get_activities(
     user_id: int,
     days: int = Query(default=90, ge=1, le=365),
     as_of: date | None = Query(default=None),
+    categoria: CategoriaDeporte | None = Query(
+        default=None,
+        description="Filtra por categoría de deporte (running/ciclismo/gimnasio) - agrupa varios typeKey reales de Garmin.",
+    ),
     db: Session = Depends(get_db),
 ) -> list[GarminActivityOut]:
     actividades = get_activity_history_for_user(
-        db, user_id, as_of=as_of or date.today(), days=days
+        db, user_id, as_of=as_of or date.today(), days=days, categoria=categoria
     )
     return [GarminActivityOut.model_validate(a, from_attributes=True) for a in actividades]
 
