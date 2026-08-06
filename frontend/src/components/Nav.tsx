@@ -2,16 +2,31 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Dumbbell, HeartPulse, Ruler, Sun, Utensils, Watch } from "lucide-react";
+import {
+  Bike,
+  Dumbbell,
+  HeartPulse,
+  PersonStanding,
+  Ruler,
+  Sun,
+  Utensils,
+  Watch,
+  Weight,
+} from "lucide-react";
 
 /**
  * Navegación principal de Pulse (rediseño de arquitectura de
  * información a petición explícita del usuario: "no veo diferentes
  * paginas, menus"). Responsive real, no solo un layout que se encoge:
- * - Desktop (md+): barra lateral fija con las 5 secciones.
+ * - Desktop (md+): barra lateral fija con las 9 secciones.
  * - Móvil (<md): barra de pestañas fija abajo, patrón estándar de app
  *   de fitness (WHOOP, Strava, etc. usan esto mismo en vez de un menú
  *   hamburguesa, porque la navegación se usa varias veces al día).
+ *   Con 9 secciones (Épica G añadió running/ciclismo/gimnasio) se
+ *   desliza horizontalmente en vez de repartir el ancho a partes
+ *   iguales - un gradiente en el borde derecho (`nav-scroll-fade`,
+ *   ver globals.css) da la pista visual de que hay más pestañas fuera
+ *   de vista, ya que `overflow-x-auto` por sí solo no lo comunica.
  *
  * Iconos SVG (lucide-react) en vez de emoji (code-review M4): el
  * renderizado de emoji varía entre plataformas (monocromo vs. color,
@@ -21,6 +36,9 @@ const SECCIONES = [
   { href: "/", label: "Hoy", labelCorto: "Hoy", Icono: Sun },
   { href: "/salud", label: "Salud", labelCorto: "Salud", Icono: HeartPulse },
   { href: "/entrenamiento", label: "Entrenamiento", labelCorto: "Entreno", Icono: Dumbbell },
+  { href: "/running", label: "Running", labelCorto: "Running", Icono: PersonStanding },
+  { href: "/ciclismo", label: "Ciclismo", labelCorto: "Ciclismo", Icono: Bike },
+  { href: "/gimnasio", label: "Gimnasio", labelCorto: "Gimnasio", Icono: Weight },
   { href: "/nutricion", label: "Nutrición", labelCorto: "Nutrición", Icono: Utensils },
   { href: "/cuerpo", label: "Cuerpo", labelCorto: "Cuerpo", Icono: Ruler },
   { href: "/garmin", label: "Garmin", labelCorto: "Garmin", Icono: Watch },
@@ -67,28 +85,43 @@ export function Nav() {
         })}
       </nav>
 
-      {/* Barra de pestañas de móvil */}
-      <nav
-        aria-label="Navegación principal (móvil)"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-10 flex border-t border-surface-border bg-surface/95 backdrop-blur pb-[env(safe-area-inset-bottom)]"
-      >
-        {SECCIONES.map(({ href, labelCorto, Icono }) => {
-          const activa = esRutaActiva(pathname, href);
-          return (
-            <Link
-              key={href}
-              href={href}
-              aria-current={activa ? "page" : undefined}
-              className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium leading-tight ${focusRing} ${
-                activa ? "text-teal" : "text-gray-400"
-              }`}
-            >
-              <Icono aria-hidden="true" size={20} />
-              <span className="truncate max-w-full px-0.5">{labelCorto}</span>
-            </Link>
-          );
-        })}
-      </nav>
+      {/* Barra de pestañas de móvil. Con 9 secciones (Épica G añadió
+          running/ciclismo/gimnasio), repartir el ancho a partes iguales
+          (flex-1) dejaría cada pestaña casi ilegible - se desliza
+          horizontalmente en su lugar (ancho fijo por item, swipe para
+          ver el resto), en vez de comprimir todo para que quepa. El
+          div envolvente + el degradado son solo la PISTA VISUAL de que
+          hay más pestañas fuera de vista (hallazgo de @code-reviewer:
+          `overflow-x-auto` por sí solo no lo comunica) - no afecta a
+          teclado/lectores de pantalla, cada `<Link>` sigue siendo
+          alcanzable con Tab y el navegador auto-desplaza al enfocarlo. */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-10">
+        <nav
+          aria-label="Navegación principal (móvil)"
+          className="relative flex overflow-x-auto border-t border-surface-border bg-surface/95 backdrop-blur pb-[env(safe-area-inset-bottom)]"
+        >
+          {SECCIONES.map(({ href, labelCorto, Icono }) => {
+            const activa = esRutaActiva(pathname, href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                aria-current={activa ? "page" : undefined}
+                className={`flex w-16 shrink-0 flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium leading-tight ${focusRing} ${
+                  activa ? "text-teal" : "text-gray-400"
+                }`}
+              >
+                <Icono aria-hidden="true" size={20} />
+                <span className="truncate max-w-full px-0.5">{labelCorto}</span>
+              </Link>
+            );
+          })}
+        </nav>
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute right-0 top-0 bottom-[env(safe-area-inset-bottom)] w-8 bg-gradient-to-l from-surface to-transparent"
+        />
+      </div>
     </>
   );
 }

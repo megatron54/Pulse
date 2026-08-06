@@ -354,9 +354,16 @@ export const api = {
       `/users/${userId}/habits/correlation?habito=${habito}&as_of=${asOf}`
     ),
 
-  getGarminActivities: (userId: number, days = 90, asOf = todayLocalDate()) =>
+  getGarminActivities: (
+    userId: number,
+    days = 90,
+    asOf = todayLocalDate(),
+    categoria?: "running" | "ciclismo" | "gimnasio"
+  ) =>
     request<GarminActivity[]>(
-      `/users/${userId}/garmin/activities?days=${days}&as_of=${asOf}`
+      `/users/${userId}/garmin/activities?days=${days}&as_of=${asOf}${
+        categoria ? `&categoria=${categoria}` : ""
+      }`
     ),
 
   getGarminHealthHistory: (userId: number, days = 90) =>
