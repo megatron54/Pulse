@@ -128,7 +128,7 @@ El usuario compartió el hallazgo de que **intervals.icu** ofrece un programa "B
 | 2 | Backend: ingestión de actividades Garmin (carrera/ciclismo/fuerza) | ✅ Hecho (PR #38, construido y testeado con dobles) | Fase H (credenciales reales) sigue bloqueando la sincronización REAL en producción - el job nocturno (04:15) y el endpoint de lectura ya están listos para el día en que existan |
 | 3 | Backend: carga de entrenamiento numérica (acute:chronic ratio) | ✅ Hecho | - |
 | 4 | Backend + frontend: food log real vía wger (`nutritiondiary`/ingredientes, token permanente del usuario) | ✅ Hecho | Nota de seguridad: token guardado en texto plano por ahora (documentado explícitamente como deuda, ver `models.schema.WgerCredentials`) - cifrar antes de cualquier despliegue en red |
-| 5 | Frontend: página Garmin con datos reales (una vez haya Fase H o al menos ingestión de actividades) | 🟡 Parcial (PR #38) - `GarminActivitiesCard` ya lee y muestra el historial real de `GET /garmin/activities`, honesto cuando viene vacío; falta el resto (HRV/Body Battery/training readiness en la misma página) | Épica 2 (hecha) |
+| 5 | Frontend: página Garmin con datos reales (una vez haya Fase H o al menos ingestión de actividades) | ✅ Hecho — `GarminActivitiesCard` en `/garmin` (actividades) + página `/salud` nueva (Épica E) con HRV/Body Battery/training readiness/sleep/stress/resting HR | Épica 2 (hecha), Épica E (hecha) |
 | 6 | Backend + frontend: explorador del catálogo de ejercicios de wger (`GET /exercises/categories`, `/equipment`, `/search`, proxy 502 si wger falla) + `ExercisePicker` en la página Entrenamiento | ✅ Hecho (solo lectura/exploración - añadir ejercicios concretos a una sesión sigue pendiente, requiere decidir el modelo de "sesión con ejercicios") | - |
 | 7 | Diario de hábitos (journal) + correlación con recovery | ✅ Hecho (PR #37) | Ninguna |
 | 8 | Resumen periódico / informe exportable | 🟡 Parcial (PR #40) - `GET /users/{id}/summary` + `PeriodicSummaryCard` en Hoy (readiness/peso/carga/actividades de la ventana); falta la parte "exportable" (PDF/informe descargable, SHOULD-HAVE) | Ninguna |
@@ -143,6 +143,15 @@ El usuario compartió el hallazgo de que **intervals.icu** ofrece un programa "B
 | 17 | Integración intervals.icu para escribir entrenamientos estructurados de vuelta al reloj Garmin | ⬜ Pendiente, requiere investigación dedicada previa (ver punto 12) | Ninguna todavía - bloqueada en fase de research |
 | 18 | `coach.md` (preferencias de coaching persistentes editables por el usuario) como input de la Capa 3 | ⬜ Pendiente, solo research (ver punto 12) | Ninguna |
 | 19 | Canal de entrega por Telegram del resumen narrativo de la Capa 3 | ⬜ Pendiente, solo research (ver punto 12) | Ninguna |
+| A | **Backend: mapear hrv_status/stress_avg/resting_hr/vo2max desde Garmin** (bloqueante del resto de la expansión de salud) | ✅ Hecho (PR #50) - verificado contra la cuenta real; vo2max sigue NULL honestamente (dispositivo sin ese cálculo aún) | Ninguna |
+| C | Backend: endpoint `GET /garmin/health-history` (historial completo de recovery, deduplicado a un punto por día, ventana sin off-by-one) | ✅ Hecho (PR #51) | Épica A |
+| E | Frontend: página `/salud` (histórico interactivo completo: selector de rango 7/30/90d, tooltips, una gráfica por métrica con datos reales) | ✅ Hecho (PR #52) | Épica C |
+| J | Frontend: resumen corto de salud (VFC/Body Battery/sueño/estrés + sparklines) en el dashboard "Hoy", enlazando a `/salud` | ✅ Hecho (PR #53) | Épica C |
+| B | Fases de sueño detalladas (deep/light/REM/awake) - `get_sleep_data` ya confirmado que las expone, falta persistirlas (tabla `GarminSleepDetail`) | ⬜ Pendiente | Épica A (hecha) |
+| D | Endpoint de actividades filtrado por `tipo` (running/ciclismo/gimnasio) | ⬜ Pendiente, siguiente en la cola | Épica 2 (hecha) |
+| G | Páginas por deporte (`/running`, `/ciclismo`, `/gimnasio`) con histórico e info específica + slot de coach | ⬜ Pendiente | Épica D |
+| H | Generalizar el coach (Capa 3) a más contextos (salud, deporte, nutrición) sin romper "la IA nunca decide" | ⬜ Pendiente | Épicas E/G/I según contexto |
+| I | Motor de nutrición con sleep/HRV crudos reales (Capa 1) - **requiere investigación científica previa antes de fijar umbrales** | ⬜ Pendiente, bloqueado en fase de research | Épica A (hecha, ya hay datos crudos reales disponibles) |
 
 ## Deuda pendiente de higiene de repositorio (señalada por el usuario, no urgente)
 
