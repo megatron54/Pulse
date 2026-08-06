@@ -243,6 +243,22 @@ export type GarminActivity = {
   training_effect: number | null;
 };
 
+// Épica C/E del plan de expansión (02-roadmap/03-vision-produccion.md):
+// un punto del histórico de recovery de Garmin - un punto por día,
+// deduplicado ya en el backend. Todos los campos son honestos con su
+// ausencia (null) - nunca asumir que un valor null es 0.
+export type GarminHealthDay = {
+  fecha: string;
+  hrv_value: number | null;
+  hrv_status: string | null;
+  body_battery_am: number | null;
+  training_readiness: string | null;
+  sleep_score: number | null;
+  stress_avg: number | null;
+  resting_hr: number | null;
+  vo2max: number | null;
+};
+
 export type PeriodicSummary = {
   dias_con_checkin_readiness: number;
   distribucion_readiness: { green: number; yellow: number; red: number };
@@ -342,6 +358,9 @@ export const api = {
     request<GarminActivity[]>(
       `/users/${userId}/garmin/activities?days=${days}&as_of=${asOf}`
     ),
+
+  getGarminHealthHistory: (userId: number, days = 90) =>
+    request<GarminHealthDay[]>(`/users/${userId}/garmin/health-history?days=${days}`),
 
   getPeriodicSummary: (userId: number, days = 7, asOf = todayLocalDate()) =>
     request<PeriodicSummary>(

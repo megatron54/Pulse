@@ -10,7 +10,7 @@ describe("Nav", () => {
   it("renderiza un enlace a cada sección principal en el sidebar de escritorio", () => {
     render(<Nav />);
     const sidebar = screen.getByRole("navigation", { name: "Navegación principal" });
-    for (const nombre of ["Hoy", "Entrenamiento", "Nutrición", "Cuerpo", "Garmin"]) {
+    for (const nombre of ["Hoy", "Salud", "Entrenamiento", "Nutrición", "Cuerpo", "Garmin"]) {
       expect(within(sidebar).getByText(nombre)).toBeInTheDocument();
     }
   });

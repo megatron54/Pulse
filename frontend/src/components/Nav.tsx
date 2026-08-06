@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Dumbbell, Ruler, Sun, Utensils, Watch } from "lucide-react";
+import { Dumbbell, HeartPulse, Ruler, Sun, Utensils, Watch } from "lucide-react";
 
 /**
  * Navegación principal de Pulse (rediseño de arquitectura de
@@ -19,6 +19,7 @@ import { Dumbbell, Ruler, Sun, Utensils, Watch } from "lucide-react";
  */
 const SECCIONES = [
   { href: "/", label: "Hoy", labelCorto: "Hoy", Icono: Sun },
+  { href: "/salud", label: "Salud", labelCorto: "Salud", Icono: HeartPulse },
   { href: "/entrenamiento", label: "Entrenamiento", labelCorto: "Entreno", Icono: Dumbbell },
   { href: "/nutricion", label: "Nutrición", labelCorto: "Nutrición", Icono: Utensils },
   { href: "/cuerpo", label: "Cuerpo", labelCorto: "Cuerpo", Icono: Ruler },
