@@ -7,6 +7,7 @@ import { DailySessionCard } from "@/components/DailySessionCard";
 import { ReadinessTrendCard } from "@/components/ReadinessTrendCard";
 import { HabitJournalCard } from "@/components/HabitJournalCard";
 import { PeriodicSummaryCard } from "@/components/PeriodicSummaryCard";
+import { HealthSummaryCard } from "@/components/HealthSummaryCard";
 import { FadeIn } from "@/components/ui/FadeIn";
 
 /**
@@ -50,6 +51,9 @@ export default function HoyPage() {
         </FadeIn>
         <FadeIn delay={0.2} className="md:col-span-2 xl:col-span-1">
           <HabitJournalCard userId={user.id} />
+        </FadeIn>
+        <FadeIn delay={0.25}>
+          <HealthSummaryCard userId={user.id} />
         </FadeIn>
       </div>
     </main>
