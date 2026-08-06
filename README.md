@@ -29,6 +29,8 @@ Detalle completo en [`01-arquitectura/`](01-arquitectura/).
 ```powershell
 cp .env.example .env
 docker compose up -d --build
+# o, equivalente y con espera automatica a que todo quede listo + apertura del navegador:
+.\start.ps1
 ```
 
 - Backend: http://localhost:8000 (docs interactivas en `/docs`)
