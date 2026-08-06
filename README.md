@@ -56,6 +56,7 @@ Esto levanta los 4 servicios (Postgres, backend, frontend, y el scheduler noctur
 5. [05-analisis-corporal-foto.md](00-research/05-analisis-corporal-foto.md) — Estimación de composición corporal por foto
 6. [06-periodizacion-ciencia-deportiva.md](00-research/06-periodizacion-ciencia-deportiva.md) — Ciencia de periodización multi-objetivo
 7. [07-arquitectura-coach-ia.md](00-research/07-arquitectura-coach-ia.md) — Patrones de arquitectura para el coach conversacional
+8. [08-nutricion-recovery-ciencia.md](00-research/08-nutricion-recovery-ciencia.md) — Evidencia científica sobre sueño/HRV y ajuste de calorías/macros (Épica I)
 
 ### 🏗️ 01-arquitectura/ — Diseño técnico
 1. [01-arquitectura-general.md](01-arquitectura/01-arquitectura-general.md) — Las 3 capas del sistema
