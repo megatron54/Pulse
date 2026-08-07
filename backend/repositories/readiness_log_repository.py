@@ -74,13 +74,22 @@ def get_recent_readiness_levels(
 def get_readiness_history(
     session: Session, user_id: int, as_of: date, days: int
 ) -> list[ReadinessLog]:
-    """Historial de ReadinessLog de los últimos `days` días, INCLUYENDO
-    `as_of` - para dashboards de tendencia (Fase I). A diferencia de
-    `get_recent_readiness_levels` (usado por guardrails, que excluye
-    el día actual a propósito porque ese aún se está calculando en el
-    momento de la consulta), aquí sí interesa el dato de hoy si ya existe.
-    """
-    fecha_inicio = as_of - timedelta(days=days)
+    """Historial de ReadinessLog de los últimos `days` días EXACTOS,
+    INCLUYENDO `as_of` - para dashboards de tendencia (Fase I). A
+    diferencia de `get_recent_readiness_levels` (usado por guardrails,
+    que excluye el día actual a propósito porque ese aún se está
+    calculando en el momento de la consulta), aquí sí interesa el dato
+    de hoy si ya existe.
+
+    Corregido el off-by-one histórico (hallazgo #10 del doc vivo,
+    02-roadmap/03-vision-produccion.md): antes devolvía `days+1` días
+    (límites inclusivos por ambos lados sobre `as_of - timedelta(days)`)
+    - ahora la ventana es exactamente `[as_of-days+1, as_of]`, mismo
+    criterio que `get_activity_history`/`get_daily_metrics_history`.
+    `services.periodic_summary_service` ya filtraba explícitamente para
+    compensar esta inconsistencia; ese filtro queda ahora redundante
+    pero inofensivo (no cambia ningún resultado)."""
+    fecha_inicio = as_of - timedelta(days=days - 1)
     stmt = (
         select(ReadinessLog)
         .where(ReadinessLog.user_id == user_id)
