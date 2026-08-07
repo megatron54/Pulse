@@ -155,7 +155,7 @@ Petición explícita del usuario (sesión de expansión de salud): la experienci
 | 7 | Diario de hábitos (journal) + correlación con recovery | ✅ Hecho (PR #37) | Ninguna |
 | 8 | Resumen periódico / informe exportable | 🟡 Parcial (PR #40) - `GET /users/{id}/summary` + `PeriodicSummaryCard` en Hoy (readiness/peso/carga/actividades de la ventana); falta la parte "exportable" (PDF/informe descargable, SHOULD-HAVE) | Ninguna |
 | 9 | Fotos de progreso: captura de landmarks + tendencia de silueta (SIN %grasa desde foto) | ⬜ Pendiente (Fase G) | Ninguna |
-| 10 | Gráficas de volumen por deporte (fuerza/hipertrofia vs. resistencia) | ⬜ Pendiente | Épicas 2 y 3 (3 ya lista) |
+| 10 | Gráficas de volumen por deporte (fuerza/hipertrofia vs. resistencia) | ✅ Hecho (PR #63) - `get_weekly_volume_for_user` + `GET /activities/volume`, `WeeklyVolumeChart` integrado en `SportActivityHistoryCard` (`/running`, `/ciclismo`, `/gimnasio`) | Ninguna |
 | 11 | Recetas (modelo de datos nuevo sobre `mealitem` de wger) | ⬜ Pendiente | Épica 4 |
 | 12 | HealthKit como fuente secundaria (MyFitnessPal resúmenes aproximados, solo iOS) | ⬜ Pendiente, prioridad baja | Épica 14 (comparte el shell nativo) |
 | 13 | Motor de reglas de timing/ayuno intermitente/redistribución de macros (Capa 1 nueva) + explicación en Capa 3 | ⬜ Pendiente, requiere investigación científica dedicada previa | Épicas 3, 4, 9 (necesita carga, nutrición real, y fotos/tendencia) |
