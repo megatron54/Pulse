@@ -57,6 +57,7 @@ Esto levanta los 4 servicios (Postgres, backend, frontend, y el scheduler noctur
 6. [06-periodizacion-ciencia-deportiva.md](00-research/06-periodizacion-ciencia-deportiva.md) — Ciencia de periodización multi-objetivo
 7. [07-arquitectura-coach-ia.md](00-research/07-arquitectura-coach-ia.md) — Patrones de arquitectura para el coach conversacional
 8. [08-nutricion-recovery-ciencia.md](00-research/08-nutricion-recovery-ciencia.md) — Evidencia científica sobre sueño/HRV y ajuste de calorías/macros (Épica I)
+9. [09-app-nativa-escritorio.md](00-research/09-app-nativa-escritorio.md) — Comparación Tauri/Electron/Capacitor para migrar a app nativa de escritorio (Épica K)
 
 ### 🏗️ 01-arquitectura/ — Diseño técnico
 1. [01-arquitectura-general.md](01-arquitectura/01-arquitectura-general.md) — Las 3 capas del sistema
