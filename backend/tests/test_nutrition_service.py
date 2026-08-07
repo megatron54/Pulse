@@ -16,7 +16,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from engine.nutrition import WeightPhase
-from models.schema import AuditLog, Base, BodyMeasurements, ReadinessLog, UserProfile
+from models.schema import AuditLog, Base, BodyMeasurements, GarminDailyMetrics, ReadinessLog, UserProfile
 from services.nutrition_service import compute_daily_nutrition_target
 
 
@@ -113,3 +113,124 @@ class TestComputeDailyNutritionTarget:
         )
         auditoria = session.query(AuditLog).filter_by(user_id=usuario.id, modulo="nutrition").one()
         assert "kcal_objetivo" in auditoria.decision_final
+
+    def test_cut_con_sleep_score_bajo_sostenido_pausa_el_deficit(self, session):
+        # Épica I del plan de expansión: extensión conservadora del
+        # guardrail existente usando sleep_score crudo (umbral <60,
+        # 3 noches consecutivas, confirmado explícitamente por el
+        # usuario tras revisar 00-research/08-nutricion-recovery-ciencia.md).
+        usuario = _crear_usuario(session, fase_peso="cut")
+        hoy = date(2026, 8, 10)
+        for i in range(0, 3):
+            session.add(
+                GarminDailyMetrics(
+                    user_id=usuario.id, fecha=hoy - timedelta(days=i), sleep_score=50
+                )
+            )
+        session.commit()
+
+        resultado = compute_daily_nutrition_target(
+            session, usuario.id, target_date=hoy, factor_actividad=1.55
+        )
+        assert resultado.fase_aplicada == WeightPhase.MAINTENANCE
+        assert resultado.deficit_pausado_por_guardrail is True
+
+    def test_cut_con_sleep_score_bajo_solo_dos_noches_no_pausa(self, session):
+        usuario = _crear_usuario(session, fase_peso="cut")
+        hoy = date(2026, 8, 10)
+        for i in range(0, 2):
+            session.add(
+                GarminDailyMetrics(
+                    user_id=usuario.id, fecha=hoy - timedelta(days=i), sleep_score=50
+                )
+            )
+        session.commit()
+
+        resultado = compute_daily_nutrition_target(
+            session, usuario.id, target_date=hoy, factor_actividad=1.55
+        )
+        assert resultado.fase_aplicada == WeightPhase.CUT
+        assert resultado.deficit_pausado_por_guardrail is False
+
+    def test_dias_sin_sleep_score_sincronizado_no_disparan_la_pausa(self, session):
+        # "unknown is not zero": sin GarminDailyMetrics para esos días,
+        # nunca se debe pausar el déficit por una ausencia de dato.
+        usuario = _crear_usuario(session, fase_peso="cut")
+        resultado = compute_daily_nutrition_target(
+            session, usuario.id, target_date=date(2026, 8, 10), factor_actividad=1.55
+        )
+        assert resultado.deficit_pausado_por_guardrail is False
+
+    def test_dia_sincronizado_sin_sleep_score_calculado_no_dispara_la_pausa(self, session):
+        # Distinto del caso anterior: aquí SÍ hay fila de
+        # GarminDailyMetrics para los 3 días, pero uno de ellos no trae
+        # sleep_score (None real en la fila, no ausencia de fila) - el
+        # guardrail debe seguir sin pausar (racha rota, no 2 malas + 1
+        # ausente contando como mala).
+        usuario = _crear_usuario(session, fase_peso="cut")
+        hoy = date(2026, 8, 10)
+        session.add(GarminDailyMetrics(user_id=usuario.id, fecha=hoy, sleep_score=50))
+        session.add(
+            GarminDailyMetrics(user_id=usuario.id, fecha=hoy - timedelta(days=1), sleep_score=None)
+        )
+        session.add(
+            GarminDailyMetrics(user_id=usuario.id, fecha=hoy - timedelta(days=2), sleep_score=50)
+        )
+        session.commit()
+
+        resultado = compute_daily_nutrition_target(
+            session, usuario.id, target_date=hoy, factor_actividad=1.55
+        )
+        assert resultado.deficit_pausado_por_guardrail is False
+
+    def test_readiness_bueno_no_impide_que_el_sueno_pausado_dispare_la_pausa(self, session):
+        # Ejercita de verdad la rama `else` de compute_daily_nutrition_target
+        # (readiness presente pero NO dispara la guardrail, distinto de
+        # "sin ningún ReadinessLog") - antes solo se probaba el caso sin
+        # historial de readiness en absoluto.
+        usuario = _crear_usuario(session, fase_peso="cut")
+        hoy = date(2026, 8, 10)
+        for i in range(1, 4):
+            session.add(
+                ReadinessLog(user_id=usuario.id, fecha=hoy - timedelta(days=i), resultado="green")
+            )
+        for i in range(0, 3):
+            session.add(
+                GarminDailyMetrics(
+                    user_id=usuario.id, fecha=hoy - timedelta(days=i), sleep_score=50
+                )
+            )
+        session.commit()
+
+        resultado = compute_daily_nutrition_target(
+            session, usuario.id, target_date=hoy, factor_actividad=1.55
+        )
+        assert resultado.fase_aplicada == WeightPhase.MAINTENANCE
+        assert resultado.deficit_pausado_por_guardrail is True
+
+        auditoria = (
+            session.query(AuditLog)
+            .filter_by(user_id=usuario.id, modulo="nutrition")
+            .order_by(AuditLog.id.desc())
+            .first()
+        )
+        assert auditoria.regla_disparada == "should_pause_calorie_deficit_for_poor_sleep"
+
+    def test_readiness_red_sostenido_tiene_prioridad_y_queda_registrado_en_auditoria(self, session):
+        usuario = _crear_usuario(session, fase_peso="cut")
+        hoy = date(2026, 8, 10)
+        for i in range(1, 4):
+            session.add(
+                ReadinessLog(user_id=usuario.id, fecha=hoy - timedelta(days=i), resultado="red")
+            )
+        session.commit()
+
+        compute_daily_nutrition_target(session, usuario.id, target_date=hoy, factor_actividad=1.55)
+
+        auditoria = (
+            session.query(AuditLog)
+            .filter_by(user_id=usuario.id, modulo="nutrition")
+            .order_by(AuditLog.id.desc())
+            .first()
+        )
+        assert auditoria.regla_disparada == "should_pause_calorie_deficit"
