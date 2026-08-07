@@ -113,7 +113,13 @@ export function NutritionTargetCard({ userId }: { userId: number }) {
           {resultado.deficit_pausado_por_guardrail && (
             <p className="text-sm text-recovery-medium mt-2 flex items-center gap-1.5">
               <TriangleAlert aria-hidden="true" size={14} />
-              Déficit pausado automáticamente por mala recuperación sostenida.
+              {/* Épica I del plan de expansión: la pausa puede
+                  dispararse por readiness categórico sostenido O por
+                  sleep_score crudo sostenido (mismo guardrail,
+                  extendido) - el texto no distingue el motivo exacto
+                  porque el backend no expone hoy cuál de los dos
+                  disparó (solo el booleano), ver services.nutrition_service. */}
+              Déficit pausado automáticamente por recuperación (readiness o sueño) sostenida por debajo de lo saludable.
             </p>
           )}
         </div>
