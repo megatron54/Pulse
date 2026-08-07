@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Épica K (02-roadmap/03-vision-produccion.md): artefactos de build
+    // de Rust/Tauri (scaffolding de la prueba de concepto) - nunca son
+    // código fuente propio, no deben lintarse.
+    "src-tauri/target/**",
   ]),
 ]);
 
