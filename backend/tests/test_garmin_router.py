@@ -231,3 +231,47 @@ class TestGetHealthNarrative:
         c, _ = client
         resp = c.get("/users/99999/garmin/health-narrative")
         assert resp.status_code == 404
+
+
+class TestGetWeeklyVolume:
+    """Épica 10 del plan de expansión (02-roadmap/03-vision-produccion.md)."""
+
+    def test_devuelve_el_volumen_semanal_agregado(self, client):
+        c, engine = client
+        usuario = _crear_usuario(c)
+        with Session(engine) as session:
+            session.add(
+                GarminActivity(
+                    user_id=usuario["id"],
+                    activity_id="1",
+                    fecha=date(2026, 8, 3),
+                    tipo="running",
+                    duracion_seg=1800,
+                    distancia_m=5000.0,
+                    hr_avg=150,
+                    hr_max=172,
+                    training_effect=3.2,
+                )
+            )
+            session.commit()
+
+        resp = c.get(
+            f"/users/{usuario['id']}/garmin/activities/volume?categoria=running&weeks=4&as_of=2026-08-10"
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body) == 4
+        semana_con_datos = [s for s in body if s["num_sesiones"] > 0]
+        assert len(semana_con_datos) == 1
+        assert semana_con_datos[0]["distancia_total_m"] == 5000.0
+
+    def test_categoria_es_obligatoria(self, client):
+        c, _ = client
+        usuario = _crear_usuario(c)
+        resp = c.get(f"/users/{usuario['id']}/garmin/activities/volume?weeks=4")
+        assert resp.status_code == 422
+
+    def test_usuario_inexistente_da_404(self, client):
+        c, _ = client
+        resp = c.get("/users/99999/garmin/activities/volume?categoria=running")
+        assert resp.status_code == 404

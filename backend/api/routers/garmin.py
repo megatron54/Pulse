@@ -13,13 +13,14 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_db, verify_api_key
-from api.schemas import GarminActivityOut, GarminDailyMetricsOut, HealthNarrativeOut
+from api.schemas import GarminActivityOut, GarminDailyMetricsOut, HealthNarrativeOut, WeeklyVolumeOut
 from coach.gemini_client import build_gemini_client_if_configured
 from coach.health_narrative_service import generate_health_narrative_for_user
 from services.garmin_query_service import (
     CategoriaDeporte,
     get_activity_history_for_user,
     get_daily_metrics_history_for_user,
+    get_weekly_volume_for_user,
 )
 
 router = APIRouter(
@@ -83,3 +84,25 @@ def get_health_narrative(
     if resultado is None:
         return HealthNarrativeOut(text=None, source=None)
     return HealthNarrativeOut(text=resultado.text, source=resultado.source)
+
+
+@router.get("/activities/volume", response_model=list[WeeklyVolumeOut])
+def get_weekly_volume(
+    user_id: int,
+    categoria: CategoriaDeporte = Query(
+        ...,
+        description="Categoría de deporte (running/ciclismo/gimnasio) - obligatoria, a diferencia de /activities donde es opcional.",
+    ),
+    weeks: int = Query(default=12, ge=1, le=52),
+    as_of: date | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> list[WeeklyVolumeOut]:
+    """Volumen semanal agregado (distancia, duración, número de
+    sesiones) de una categoría de deporte - Épica 10 del plan de
+    expansión (gráficas de volumen por deporte, backlog MUST-HAVE).
+    Devuelve SIEMPRE `weeks` puntos en orden ascendente, incluyendo
+    semanas sin actividad con 0 sesiones explícitas."""
+    semanas = get_weekly_volume_for_user(
+        db, user_id, as_of=as_of or date.today(), categoria=categoria, weeks=weeks
+    )
+    return [WeeklyVolumeOut.model_validate(s, from_attributes=True) for s in semanas]
