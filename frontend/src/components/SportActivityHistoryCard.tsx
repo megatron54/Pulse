@@ -8,6 +8,7 @@ import { Card, CardTitle } from "./ui/Card";
 import { EmptyState } from "./ui/EmptyState";
 import { ErrorState } from "./ui/ErrorState";
 import { LoadingState } from "./ui/LoadingState";
+import { WeeklyVolumeChart } from "./WeeklyVolumeChart";
 
 /** Épica G del plan de expansión (02-roadmap/03-vision-produccion.md):
  * histórico de actividades de UNA categoría de deporte (running,
@@ -100,6 +101,13 @@ export function SportActivityHistoryCard({
             </div>
           ))}
         </div>
+      )}
+      {!error && (
+        <WeeklyVolumeChart
+          userId={userId}
+          categoria={categoria}
+          metrica={categoria === "gimnasio" ? "duracion" : "distancia"}
+        />
       )}
     </Card>
   );
