@@ -34,8 +34,9 @@ def get_latest_weight_kg(session: Session, user_id: int) -> float | None:
 def get_weight_history(
     session: Session, user_id: int, as_of: date, days: int
 ) -> list[BodyMeasurements]:
-    """Mediciones de los últimos `days` días (incluyendo `as_of`), en
-    orden cronológico ascendente - para dashboards de tendencia (Fase I).
+    """Mediciones de los últimos `days` días EXACTOS (incluyendo
+    `as_of`), en orden cronológico ascendente - para dashboards de
+    tendencia (Fase I).
 
     Nota de diseño: a diferencia de `get_latest_weight_kg` (que aplica
     "la última fila del día gana"), esta función devuelve TODAS las
@@ -43,8 +44,13 @@ def get_weight_history(
     pero un dashboard que solo quiera un punto por día debe agregar él
     mismo (quedarse con la última fila de cada `fecha`). Desempate
     intra-día por `id` (monótono), igual que el resto del repositorio.
+
+    Corregido el off-by-one histórico (hallazgo #10 del doc vivo,
+    02-roadmap/03-vision-produccion.md): antes devolvía `days+1` días -
+    ahora la ventana es exactamente `[as_of-days+1, as_of]`, mismo
+    criterio que `get_activity_history`/`get_daily_metrics_history`.
     """
-    fecha_inicio = as_of - timedelta(days=days)
+    fecha_inicio = as_of - timedelta(days=days - 1)
     stmt = (
         select(BodyMeasurements)
         .where(BodyMeasurements.user_id == user_id)
