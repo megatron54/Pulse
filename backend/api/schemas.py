@@ -281,6 +281,18 @@ class HealthNarrativeOut(BaseModel):
     text: str | None
     source: str | None  # "llm" | "template" | None
 
+
+class WeeklyVolumeOut(BaseModel):
+    """Épica 10 del plan de expansión: un punto de la gráfica de
+    volumen semanal por deporte. `distancia_total_m`/`duracion_total_seg`
+    son `None` si ninguna actividad de esa semana trae ese campo -
+    "unknown is not zero", nunca 0 inventado."""
+
+    semana_inicio: date
+    distancia_total_m: float | None
+    duracion_total_seg: int | None
+    num_sesiones: int
+
     model_config = {"from_attributes": True}
 
 

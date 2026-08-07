@@ -243,6 +243,16 @@ export type GarminActivity = {
   training_effect: number | null;
 };
 
+// Épica 10 del plan de expansión: un punto de la gráfica de volumen
+// semanal por deporte - distancia_total_m/duracion_total_seg son null
+// si ninguna actividad de esa semana trae ese campo (nunca 0 inventado).
+export type WeeklyVolume = {
+  semana_inicio: string;
+  distancia_total_m: number | null;
+  duracion_total_seg: number | null;
+  num_sesiones: number;
+};
+
 // Épica C/E del plan de expansión (02-roadmap/03-vision-produccion.md):
 // un punto del histórico de recovery de Garmin - un punto por día,
 // deduplicado ya en el backend. Todos los campos son honestos con su
@@ -372,6 +382,16 @@ export const api = {
       `/users/${userId}/garmin/activities?days=${days}&as_of=${asOf}${
         categoria ? `&categoria=${categoria}` : ""
       }`
+    ),
+
+  getGarminWeeklyVolume: (
+    userId: number,
+    categoria: "running" | "ciclismo" | "gimnasio",
+    weeks = 12,
+    asOf = todayLocalDate()
+  ) =>
+    request<WeeklyVolume[]>(
+      `/users/${userId}/garmin/activities/volume?categoria=${categoria}&weeks=${weeks}&as_of=${asOf}`
     ),
 
   getGarminHealthHistory: (userId: number, days = 90) =>
