@@ -35,7 +35,7 @@ logger = logging.getLogger("pulse.api")
 app = FastAPI(
     title="Pulse API",
     description="Entrenador personal con IA - motor de reglas determinista + coach conversacional.",
-    version="0.1.0",
+    version="0.2.0",
 )
 
 # CORS: necesario para que el frontend (Fase B, Next.js en otro puerto/
