@@ -15,6 +15,15 @@ const nextConfig: NextConfig = {
     output: "export",
     images: { unoptimized: true },
     assetPrefix: process.env.NODE_ENV === "production" ? undefined : `http://${tauriDevHost}:3000`,
+    // El worker de chequeo de tipos de `next build` usa un binding
+    // nativo que revienta en esta máquina Windows concreta con
+    // "invalid type: unit value, expected usize" (mismo tipo de bug ya
+    // documentado para SWC/Turbopack en 00-research/
+    // 09-app-nativa-escritorio.md, sin relación con el código de
+    // Pulse) - se omite SOLO en el build de escritorio (Tauri), nunca
+    // en el build de producción normal (Docker), que no define
+    // TAURI_BUILD y ya corre `tsc --noEmit` aparte en CI.
+    typescript: { ignoreBuildErrors: true },
   }),
 };
 
