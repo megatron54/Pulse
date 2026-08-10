@@ -6,7 +6,7 @@ import { Card, CardTitle } from "./ui/Card";
 import { Button } from "./ui/Button";
 
 const inputClass =
-  "border border-white/10 bg-black/30 rounded-lg px-3 py-2 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-teal";
+  "border border-surface-border bg-surface-muted rounded-lg px-3 py-2 text-foreground placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-accent";
 
 export function BodyMeasurementForm({
   userId,
@@ -49,7 +49,7 @@ export function BodyMeasurementForm({
     <Card>
       <CardTitle>Registrar peso / medidas</CardTitle>
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1 text-sm text-gray-300">
+        <label className="flex flex-col gap-1 text-sm text-text-secondary">
           Peso (kg)
           <input
             type="number"
@@ -60,7 +60,7 @@ export function BodyMeasurementForm({
             required
           />
         </label>
-        <p className="text-sm text-gray-400">
+        <p className="text-sm text-text-secondary">
           Opcional: añade cuello/cintura (y cadera si eres mujer) para estimar % de grasa
           (fórmula Navy, siempre como rango, nunca un número exacto).
         </p>
@@ -93,19 +93,19 @@ export function BodyMeasurementForm({
             onChange={(e) => setCaderaCm(e.target.value)}
           />
         </div>
-        {error && <p className="text-red-400 text-sm">{error}</p>}
+        {error && <p className="text-recovery-low text-sm">{error}</p>}
         <Button type="submit" disabled={submitting} className="self-start">
           {submitting ? "Guardando..." : "Guardar"}
         </Button>
       </form>
       {resultado && (
-        <div className="mt-4 p-3 bg-black/30 rounded-lg text-sm text-gray-300">
+        <div className="mt-4 p-3 bg-surface-muted rounded-lg text-sm text-text-secondary">
           <p>Método: {resultado.metodo}</p>
           {resultado.bodyfat_pct_rango_min !== null && (
-            <p className="font-display text-lg text-white mt-1">
+            <p className="text-lg text-foreground mt-1">
               {resultado.bodyfat_pct_rango_min.toFixed(1)}% -{" "}
               {resultado.bodyfat_pct_rango_max?.toFixed(1)}%{" "}
-              <span className="text-sm text-gray-400 font-sans">grasa estimada</span>
+              <span className="text-sm text-text-secondary font-sans">grasa estimada</span>
             </p>
           )}
         </div>

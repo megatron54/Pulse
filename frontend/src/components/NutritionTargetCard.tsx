@@ -14,8 +14,8 @@ import { PALETA } from "@/lib/theme";
 // reasignan por analogía visual: teal para el macro "positivo" por
 // excelencia, azul de recovery para carbohidratos, sleep-blue para grasa.
 const MACRO_COLOR = {
-  proteina: PALETA.teal,
-  carbohidratos: PALETA.recoveryBlue,
+  proteina: PALETA.accent,
+  carbohidratos: PALETA.accent,
   grasa: PALETA.sleep,
 };
 
@@ -27,8 +27,8 @@ function LeyendaMacro({ nombre, gramos, color }: { nombre: string; gramos: numbe
         className="w-2.5 h-2.5 rounded-full shrink-0"
         style={{ backgroundColor: color }}
       />
-      <span className="text-gray-300">{nombre}</span>
-      <span className="font-display font-semibold text-white ml-auto">
+      <span className="text-text-secondary">{nombre}</span>
+      <span className="font-semibold text-foreground ml-auto">
         {gramos.toFixed(0)} g
       </span>
     </div>
@@ -65,7 +65,7 @@ export function NutritionTargetCard({ userId }: { userId: number }) {
       <Button onClick={fetchTarget} disabled={loading}>
         {loading ? "Calculando..." : "Calcular macros de hoy"}
       </Button>
-      {error && <p className="text-red-400 text-sm mt-2">{error}</p>}
+      {error && <p className="text-recovery-low text-sm mt-2">{error}</p>}
       {resultado && (
         <div className="mt-5">
           <div className="flex items-center gap-5">
@@ -86,10 +86,10 @@ export function NutritionTargetCard({ userId }: { userId: number }) {
               size={110}
               centro={
                 <>
-                  <span className="font-display text-xl font-bold text-white">
+                  <span className="text-xl font-bold text-foreground">
                     <AnimatedNumber value={resultado.kcal_objetivo} />
                   </span>
-                  <span className="text-[10px] uppercase tracking-wide text-gray-400">kcal</span>
+                  <span className="text-[10px] uppercase tracking-wide text-text-secondary">kcal</span>
                 </>
               }
             />
@@ -107,7 +107,7 @@ export function NutritionTargetCard({ userId }: { userId: number }) {
               <LeyendaMacro nombre="Grasa" gramos={resultado.grasa_g} color={MACRO_COLOR.grasa} />
             </div>
           </div>
-          <p className="text-sm text-gray-400 mt-4 uppercase tracking-wide">
+          <p className="text-sm text-text-secondary mt-4 uppercase tracking-wide">
             Fase aplicada: {resultado.fase_aplicada}
           </p>
           {resultado.deficit_pausado_por_guardrail && (

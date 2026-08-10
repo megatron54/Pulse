@@ -22,10 +22,10 @@ export default function CuerpoPage() {
   const [weightRefreshKey, setWeightRefreshKey] = useState(0);
 
   return (
-    <main className="p-6 md:p-8 max-w-5xl mx-auto w-full">
-      <header className="mb-8">
-        <h1 className="font-display text-2xl font-semibold tracking-tight text-white">Cuerpo</h1>
-        <p className="text-gray-400 mt-1">Peso, medidas y su evolución.</p>
+    <main className="content-container py-6 md:py-8">
+      <header className="mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Cuerpo</h1>
+        <p className="text-text-secondary mt-1">Peso, medidas y su evolución.</p>
       </header>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         <FadeIn>
