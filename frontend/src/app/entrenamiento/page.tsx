@@ -22,7 +22,7 @@ export default function EntrenamientoPage() {
   return (
     <main className="p-6 md:p-8 max-w-6xl mx-auto w-full">
       <header className="mb-8">
-        <h1 className="font-display text-2xl font-bold tracking-wide text-white">
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-white">
           Entrenamiento
         </h1>
         <p className="text-gray-400 mt-1">Tu plan semanal y bloque activo.</p>

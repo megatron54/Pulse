@@ -87,7 +87,7 @@ export function OnboardingForm({
           <button
             type="submit"
             disabled={submitting}
-            className="bg-teal text-black font-semibold rounded-lg px-4 py-2.5 disabled:bg-surface disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:scale-100 transition-transform hover:scale-[1.02] active:scale-[0.98]"
+            className="bg-teal text-black font-semibold rounded-lg px-4 py-2.5 disabled:bg-surface-solid disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:scale-100 transition-transform hover:scale-[1.02] active:scale-[0.98]"
           >
             {submitting ? "Creando..." : "Crear perfil"}
           </button>

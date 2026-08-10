@@ -57,14 +57,16 @@ export function Nav() {
 
   return (
     <>
-      {/* Sidebar de escritorio */}
+      {/* Sidebar de escritorio: material translúcido (apple-design §12
+          "build nav/toolbars/sheets as translucent layers"), no una
+          columna opaca con borde recto. El borde derecho pasa de un
+          1px sólido a un hairline translúcido (`border-surface-border`
+          ya es rgba tras el repintado de globals.css). */}
       <nav
         aria-label="Navegación principal"
-        className="hidden md:flex md:flex-col md:w-56 md:shrink-0 md:border-r md:border-surface-border md:p-4 md:gap-1"
+        className="material-surface hidden md:flex md:flex-col md:w-56 md:shrink-0 md:border-r md:border-surface-border md:p-4 md:gap-1"
       >
-        <span className="font-display text-xl font-bold tracking-wide text-white mb-6 px-2">
-          PULSE
-        </span>
+        <span className="text-xl font-semibold tracking-tight text-white mb-6 px-2">Pulse</span>
         {SECCIONES.map(({ href, label, Icono }) => {
           const activa = esRutaActiva(pathname, href);
           return (
@@ -72,10 +74,8 @@ export function Nav() {
               key={href}
               href={href}
               aria-current={activa ? "page" : undefined}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${focusRing} ${
-                activa
-                  ? "bg-teal/10 text-teal"
-                  : "text-gray-400 hover:text-white hover:bg-white/5"
+              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150 active:scale-[0.98] ${focusRing} ${
+                activa ? "bg-teal/15 text-teal" : "text-gray-400 hover:text-white hover:bg-white/5"
               }`}
             >
               <Icono aria-hidden="true" size={18} />
@@ -98,7 +98,7 @@ export function Nav() {
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-10">
         <nav
           aria-label="Navegación principal (móvil)"
-          className="relative flex overflow-x-auto border-t border-surface-border bg-surface/95 backdrop-blur pb-[env(safe-area-inset-bottom)]"
+          className="material-surface relative flex overflow-x-auto border-t border-surface-border pb-[env(safe-area-inset-bottom)]"
         >
           {SECCIONES.map(({ href, labelCorto, Icono }) => {
             const activa = esRutaActiva(pathname, href);
@@ -107,7 +107,7 @@ export function Nav() {
                 key={href}
                 href={href}
                 aria-current={activa ? "page" : undefined}
-                className={`flex w-16 shrink-0 flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium leading-tight ${focusRing} ${
+                className={`flex w-16 shrink-0 flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium leading-tight transition-transform active:scale-95 ${focusRing} ${
                   activa ? "text-teal" : "text-gray-400"
                 }`}
               >
@@ -119,7 +119,7 @@ export function Nav() {
         </nav>
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute right-0 top-0 bottom-[env(safe-area-inset-bottom)] w-8 bg-gradient-to-l from-surface to-transparent"
+          className="pointer-events-none absolute right-0 top-0 bottom-[env(safe-area-inset-bottom)] w-8 bg-gradient-to-l from-black to-transparent"
         />
       </div>
     </>

@@ -1,42 +1,60 @@
 @import "tailwindcss";
 
 /*
- * Paleta y tokens visuales de Pulse (rediseño estilo WHOOP, a petición
- * del usuario). Colores tomados de la guía oficial de marca de WHOOP
- * ("WHOOP - Brand & Design Guidelines"):
- * - Recovery High/Medium/Low: los 3 colores exactos de zona de recovery.
- * - Strain (#0093E7) y Sleep (#7BA1BB): colores de métrica dedicados.
- * - Teal (#00F19F): call-to-action / highlights / valores positivos.
- * - Fondo: degradado oscuro #101518 → #283339 (branding real de WHOOP),
- *   no un negro plano - da profundidad sin salirse de la identidad.
- * Tipografía: WHOOP usa Proxima Nova (texto) + DINPro (números), ambas
- * de pago. Sustitutas libres elegidas por parecido real:
- * - Inter para texto/UI (misma familia geométrica humanista).
- * - Oswald para números grandes y titulares en mayúsculas (heredera
- *   directa de la familia DIN/Alternate Gothic que WHOOP usa para cifras).
+ * Paleta y tokens visuales de Pulse (rediseño estilo Apple, a petición
+ * explícita del usuario - "quiero algo tipo apple", tras instalar las
+ * skills de diseño de github.com/emilkowalski/skills en
+ * ~/.config/opencode/skills, ver especialmente `apple-design`).
+ *
+ * Reemplaza el rediseño anterior estilo WHOOP (colores neón de marca,
+ * Proxima Nova/DINPro sustituidas por Inter/Oswald). Principios de
+ * `apple-design` aplicados aquí concretamente:
+ * - "Default to the platform's system font" (§15): fuera Inter/Oswald
+ *   de Google Fonts, dentro la pila -apple-system/SF - la misma fuente
+ *   que macOS/iOS ya renderiza de forma optimizada.
+ * - "Materials & depth - translucency conveys hierarchy" (§12): las
+ *   superficies (`--color-surface`) pasan de un panel opaco plano a un
+ *   material translúcido con `backdrop-filter` (ver Card.tsx/Nav.tsx),
+ *   sobre un fondo neutro casi negro (no el degradado azulado de
+ *   WHOOP) - así el blur tiene contra qué separar profundidad.
+ * - Colores semánticos alineados a la paleta de sistema de Apple
+ *   (systemGreen/Yellow/Red/Blue/Indigo/Teal en modo oscuro) en vez de
+ *   los neones saturados de la guía de marca de WHOOP - mismo
+ *   significado semántico (recovery alto/medio/bajo, strain, sleep),
+ *   colores menos "gaming HUD", más "iOS Health app".
+ * Los NOMBRES de variable se mantienen idénticos a antes a propósito:
+ * decenas de componentes ya usan `bg-teal`/`text-recovery-high`/etc.
+ * vía Tailwind - repintar el tema cambiando solo los valores hex aquí
+ * evita tocar cada consumidor uno a uno.
  */
 :root {
   --background: #ffffff;
   --foreground: #171717;
 
-  --color-recovery-high: #16ec06;
-  --color-recovery-medium: #ffde00;
-  --color-recovery-low: #ff0026;
-  --color-strain: #0093e7;
-  --color-sleep: #7ba1bb;
-  --color-teal: #00f19f;
-  --color-recovery-blue: #67aee6;
-  --color-bg-gradient-from: #101518;
-  --color-bg-gradient-to: #283339;
-  --color-surface: #1a1f23;
-  --color-surface-border: #2c3338;
+  --color-recovery-high: #30d158;
+  --color-recovery-medium: #ffd60a;
+  --color-recovery-low: #ff453a;
+  --color-strain: #0a84ff;
+  --color-sleep: #5e5ce6;
+  --color-teal: #64d2ff;
+  --color-recovery-blue: #64d2ff;
+  --color-bg-gradient-from: #000000;
+  --color-bg-gradient-to: #1c1c1e;
+  --color-surface: rgba(255, 255, 255, 0.06);
+  --color-surface-border: rgba(255, 255, 255, 0.12);
+  /* Color SÓLIDO (no rgba) para `ring-offset-color`: el navegador
+   * pinta el hueco entre el elemento y el anillo de foco con este
+   * color de forma opaca - un valor translúcido ahí se ve "sucio"
+   * en vez de limpio, así que necesita su propio token en vez de
+   * reutilizar `--color-surface`. */
+  --color-surface-solid: #1c1c1e;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter);
-  --font-display: var(--font-oswald);
+  --font-sans: var(--font-system);
+  --font-display: var(--font-system);
   --font-mono: var(--font-geist-mono);
 
   --color-recovery-high: var(--color-recovery-high);
@@ -47,14 +65,21 @@
   --color-teal: var(--color-teal);
   --color-recovery-blue: var(--color-recovery-blue);
   --color-surface: var(--color-surface);
+  --color-surface-solid: var(--color-surface-solid);
   --color-surface-border: var(--color-surface-border);
 }
 
-/* Pulse es dark-mode-first (coherente con el estilo WHOOP), sin
- * depender de prefers-color-scheme - la app siempre usa el tema oscuro. */
+/* Pulse sigue siendo dark-mode-first, sin depender de
+ * prefers-color-scheme - la app siempre usa el tema oscuro. Negro
+ * neutro (no azulado) para que el material translúcido de las
+ * tarjetas/nav tenga verdadera profundidad contra la que separarse
+ * (apple-design §12: "bigger surfaces should read as thicker"). */
 :root {
-  --background: #101518;
+  --background: #000000;
   --foreground: #f2f4f5;
+  --font-system:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", system-ui,
+    Roboto, Helvetica, Arial, sans-serif;
 }
 
 body {
@@ -65,11 +90,35 @@ body {
   );
   background-attachment: fixed;
   color: var(--foreground);
-  font-family: var(--font-inter), Arial, Helvetica, sans-serif;
+  font-family: var(--font-system);
+  /* apple-design §15: leading algo más suelto por defecto en cuerpo
+   * de texto (leading tracks size inversely - tight en titulares
+   * grandes, más suelto en texto normal). */
+  line-height: 1.5;
 }
 
 .font-display {
-  font-family: var(--font-oswald), Arial, Helvetica, sans-serif;
+  font-family: var(--font-system);
+}
+
+/* apple-design §12: material translúcido reutilizable para
+ * tarjetas/nav (`backdrop-filter` + fondo semi-transparente, en vez de
+ * un panel opaco). Se define como utilidad compartida en vez de
+ * repetir `backdrop-blur-xl bg-surface` en cada componente, para que
+ * el "peso" del material (cuánto blur/opacidad) sea una única decisión
+ * de diseño, no una que cada tarjeta reinvente. */
+.material-surface {
+  background: var(--color-surface);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .material-surface {
+    background: #1c1c1e;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }
 
 /* Respeta prefers-reduced-motion (WCAG 2.3.3): neutraliza las
@@ -84,4 +133,3 @@ body {
     animation-duration: 0.01ms !important;
   }
 }
-

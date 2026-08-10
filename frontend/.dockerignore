@@ -1,3 +1,10 @@
 node_modules/
 .next/
 .env.local
+
+# Épica K (app nativa Tauri): artefactos de Rust/PyInstaller, varios GB
+# - no tienen nada que ver con el build de Docker y ralentizaban cada
+# build al transferirse como contexto.
+src-tauri/target/
+src-tauri/binaries/
+src-tauri/gen/
