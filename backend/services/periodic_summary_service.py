@@ -95,16 +95,15 @@ def compute_periodic_summary(
     if session.get(UserProfile, user_id) is None:
         raise EntityNotFoundError(f"No existe UserProfile con id={user_id}")
 
-    # Filtrado explícito a la ventana exacta `[as_of-days+1, as_of]`
-    # (hallazgo CRITICAL de code-review): los repositorios subyacentes
-    # NO comparten todos el mismo criterio de ventana entre sí
-    # (`get_readiness_history`/`get_weight_history` devuelven `days+1`
-    # días con límites inclusivos por ambos lados, mientras que
-    # `get_activity_history` ya usa el criterio correcto de `days`
-    # exactos) - en vez de tocar esos repositorios compartidos (usados
-    # por otros módulos que pueden depender de su comportamiento
-    # actual), este servicio filtra explícitamente aquí para que los
-    # tres agregados usen exactamente la misma ventana entre sí.
+    # Filtrado explícito a la ventana exacta `[as_of-days+1, as_of]`.
+    # Histórico (hallazgo CRITICAL de code-review, ya corregido en la
+    # fuente): `get_readiness_history`/`get_weight_history` tenían un
+    # off-by-one (devolvían `days+1` días) que este filtro compensaba;
+    # ambos repositorios ya usan el criterio correcto desde entonces
+    # (ver 02-roadmap/03-vision-produccion.md, punto 10), así que este
+    # filtro es ahora redundante - se mantiene de todos modos como
+    # defensa explícita (barato, y dejaría de fallar en silencio si
+    # algún repositorio volviera a divergir en el futuro).
     fecha_inicio_ventana = as_of - timedelta(days=days - 1)
 
     historial_readiness = [

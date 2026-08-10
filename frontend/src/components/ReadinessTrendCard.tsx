@@ -11,8 +11,7 @@ import { ErrorState } from "./ui/ErrorState";
 import { LoadingState } from "./ui/LoadingState";
 import { springs } from "@/lib/motion-tokens";
 
-// Colores exactos de la guía de marca de WHOOP para zonas de recovery
-// ("WHOOP - Brand & Design Guidelines"), vía los tokens de tema
+// Colores semánticos de zona de recovery, vía los tokens de tema
 // definidos una sola vez en globals.css (--color-recovery-*) - no
 // arbitrary values `bg-[#hex]` duplicados por componente (code-review
 // M1: evita que el mismo hex viva repetido en N archivos).
@@ -101,7 +100,7 @@ export function ReadinessTrendCard({
         <>
           {/* Barra de proporción: la distribución general de un vistazo,
               antes del detalle día a día del heatmap de abajo. */}
-          <div className="flex h-2 w-full rounded-full overflow-hidden mb-4 bg-white/5">
+          <div className="flex h-2 w-full rounded-full overflow-hidden mb-4 bg-surface-muted">
             {(["green", "yellow", "red"] as const).map((zona) =>
               totales[zona] ? (
                 <motion.div

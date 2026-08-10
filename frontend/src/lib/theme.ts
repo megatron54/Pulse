@@ -1,23 +1,24 @@
 /**
  * Paleta de Pulse en un único módulo TS, para los contextos que no
  * pueden usar clases de Tailwind (atributos SVG `stroke`/`fill`,
- * estilos inline calculados dinámicamente como el ancho de una barra).
- * Espeja exactamente los tokens de `globals.css` (`--color-*`) - si
- * cambia un hex, solo hay que tocarlo aquí (code-review M1: antes
- * estaba duplicado como string crudo en 3-4 componentes distintos).
+ * estilos inline calculados dinámicamente). Espeja los tokens de
+ * `globals.css` (`--color-*`) - fuente de verdad única:
+ * `01-arquitectura/04-design-system-v2.md`.
  *
- * Colores tomados de la guía oficial de marca de WHOOP ("WHOOP - Brand
- * & Design Guidelines"): zonas de recovery, strain, sleep y teal.
+ * Nota: como `globals.css` ahora soporta claro/oscuro reales vía
+ * `prefers-color-scheme`, estos valores fijos son los de **modo
+ * oscuro** (mismo criterio que antes de este módulo: los pocos
+ * consumidores que necesitan un hex directo - gráficas SVG - siguen
+ * viéndose bien en ambos modos porque son colores saturados de
+ * estado, no dependen del fondo).
  */
 export const PALETA = {
-  recoveryHigh: "#16EC06",
-  recoveryMedium: "#FFDE00",
-  recoveryLow: "#FF0026",
-  strain: "#0093E7",
-  sleep: "#7BA1BB",
-  teal: "#00F19F",
-  recoveryBlue: "#67AEE6",
-  surfaceTrack: "#2c3338",
-  textPrimary: "#f2f4f5",
-  textMuted: "#a9b2b8",
+  recoveryHigh: "#30D158",
+  recoveryMedium: "#FFD60A",
+  recoveryLow: "#FF453A",
+  accent: "#0A84FF",
+  sleep: "#5E5CE6",
+  surfaceTrack: "#2c2c2e",
+  textPrimary: "#f2f2f7",
+  textMuted: "rgba(235, 235, 245, 0.6)",
 } as const;

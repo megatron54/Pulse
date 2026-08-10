@@ -71,16 +71,16 @@ export function WeightTrendCard({
       )}
       {!error && diario.length > 0 && (
         <>
-          <p className="text-sm text-gray-400 mb-2">
+          <p className="text-sm text-text-secondary mb-2">
             Último registro:{" "}
-            <span className="font-display text-lg text-white">
+            <span className="text-lg text-foreground">
               <AnimatedNumber value={ultimo?.peso_kg ?? 0} decimals={1} /> kg
             </span>{" "}
             ({diario.length} días con dato)
           </p>
           <AreaTrendChart
             data={diario.map((m) => ({ fecha: m.fecha, valor: m.peso_kg }))}
-            color={PALETA.teal}
+            color={PALETA.accent}
             unidad=" kg"
           />
         </>

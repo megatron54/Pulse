@@ -78,12 +78,18 @@ class TestGetWeightHistory:
         historial = get_weight_history(session, usuario.id, as_of=hoy, days=30)
         assert [m.peso_kg for m in historial] == [81.0, 80.5]
 
-    def test_borde_inferior_de_la_ventana_es_inclusivo(self, session, usuario):
+    def test_borde_de_la_ventana_exacto_29_dias_dentro_30_fuera(self, session, usuario):
+        # Off-by-one corregido (hallazgo #10 del doc vivo,
+        # 02-roadmap/03-vision-produccion.md): con days=30, la ventana
+        # es [as_of-29, as_of] - 30 días EXACTOS, no 31. La fila de
+        # hace 30 días queda fuera; la de hace 29 días queda dentro.
         hoy = date(2026, 8, 10)
-        session.add(BodyMeasurements(user_id=usuario.id, fecha=hoy - timedelta(days=30), peso_kg=85.0))
+        session.add(BodyMeasurements(user_id=usuario.id, fecha=hoy - timedelta(days=29), peso_kg=85.0))
+        session.add(BodyMeasurements(user_id=usuario.id, fecha=hoy - timedelta(days=30), peso_kg=999.0))
         session.commit()
         historial = get_weight_history(session, usuario.id, as_of=hoy, days=30)
         assert len(historial) == 1
+        assert historial[0].peso_kg == 85.0
 
 
 class TestGetReadinessHistory:
@@ -114,3 +120,17 @@ class TestGetReadinessHistory:
 
     def test_lista_vacia_sin_historial(self, session, usuario):
         assert get_readiness_history(session, usuario.id, as_of=date(2026, 8, 10), days=30) == []
+
+    def test_borde_de_la_ventana_exacto_29_dias_dentro_30_fuera(self, session, usuario):
+        # Off-by-one corregido (hallazgo #10 del doc vivo): con days=30,
+        # la ventana es [as_of-29, as_of] - 30 días exactos.
+        hoy = date(2026, 8, 10)
+        session.add(
+            ReadinessLog(user_id=usuario.id, fecha=hoy - timedelta(days=29), resultado="green")
+        )
+        session.add(
+            ReadinessLog(user_id=usuario.id, fecha=hoy - timedelta(days=30), resultado="red")
+        )
+        session.commit()
+        historial = get_readiness_history(session, usuario.id, as_of=hoy, days=30)
+        assert [r.resultado for r in historial] == ["green"]

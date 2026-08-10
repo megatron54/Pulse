@@ -37,6 +37,14 @@ services:
       PULSE_API_KEY: ${PULSE_API_KEY:-}
       PULSE_FRONTEND_ORIGIN: ${PULSE_FRONTEND_ORIGIN:-http://localhost:3000}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      PULSE_GARMIN_TOKENS_DIR: /data/garmin-tokens
+    volumes:
+      # Token OAuth de Garmin cacheado (ver models/schema.py:GarminCredentials
+      # y scripts/garmin_pair.py) - un volumen nombrado en vez de una ruta
+      # del host: `backend` y `scheduler` corren en contenedores Linux,
+      # necesitan ver el MISMO directorio entre sí, y no debe depender de
+      # un usuario/ruta concreta de Windows (frágil si cambias de máquina).
+      - garmin-tokens:/data/garmin-tokens
     depends_on:
       db:
         condition: service_healthy
@@ -59,5 +67,43 @@ services:
     # duplica aquí - `docker compose up --wait` lo respeta igual.
     restart: unless-stopped
 
+  # Scheduler nocturno (recovery 04:00, actividades 04:15) - reutiliza la
+  # MISMA imagen que `backend` (mismo Dockerfile, mismas dependencias),
+  # solo cambia el comando. Antes de este servicio, el scheduler solo se
+  # podía correr a mano (`python -m scheduler.app`) - con "arrancar todo
+  # con un botón" como objetivo explícito, la sincronización nocturna de
+  # Garmin no podía depender de que alguien se acuerde de dejar un
+  # terminal abierto.
+  scheduler:
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg2://pulse:${POSTGRES_PASSWORD:-pulse_dev_password}@db:5432/pulse
+      PULSE_GARMIN_TOKENS_DIR: /data/garmin-tokens
+    volumes:
+      - garmin-tokens:/data/garmin-tokens
+    command: ["sh", "-c", "python -m scripts.ensure_schema && exec python -m scheduler.app"]
+    # El Dockerfile de backend/ trae un HEALTHCHECK que llama a
+    # localhost:8000/health, pero este servicio reutiliza esa MISMA
+    # imagen sin levantar servidor HTTP (solo corre APScheduler en
+    # primer plano) - se sobreescribe por uno que comprueba que el
+    # proceso sigue vivo (liveness), en vez de deshabilitarlo del todo
+    # y perder cualquier señal si `scheduler.app` muriera o quedara
+    # colgado. `pgrep` no viene instalado en la imagen base
+    # python:3.12-slim (paquete procps ausente) - se usa en su lugar
+    # `grep` directo sobre /proc/*/cmdline, sin depender de instalar
+    # nada extra solo para el healthcheck.
+    healthcheck:
+      test: ["CMD-SHELL", "grep -l scheduler.app /proc/[0-9]*/cmdline || exit 1"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   pulse-postgres-data:
+  garmin-tokens:

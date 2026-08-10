@@ -9,7 +9,15 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(
+    public status: number,
+    message: string,
+    // Detalle crudo del backend (`detail`) antes de aplanarlo a texto -
+    // necesario para 422 estructurados como
+    // GarminConnectIncompleteOut (`{campos_faltantes: [...]}`), donde
+    // el mensaje de texto por sí solo pierde la lista exacta de campos.
+    public detail?: unknown
+  ) {
     super(message);
     this.name = "ApiError";
   }
@@ -24,14 +32,15 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     },
   });
   if (!res.ok) {
-    let detail = res.statusText;
+    let detail: unknown = res.statusText;
     try {
       const body = await res.json();
       detail = body.detail ?? detail;
     } catch {
       // respuesta sin JSON (ej. 500 sin body) - se usa statusText
     }
-    throw new ApiError(res.status, detail);
+    const mensaje = typeof detail === "string" ? detail : res.statusText;
+    throw new ApiError(res.status, mensaje, detail);
   }
   // 204 / respuestas vacías
   const text = await res.text();
@@ -64,6 +73,19 @@ export type User = {
 
 export type UserCreateInput = Omit<User, "id">;
 
+// Alta conectando Garmin (sustituye al formulario manual de perfil -
+// petición explícita del usuario). `overrides` solo debe incluir los
+// campos que el 422 previo (GarminConnectIncompleteOut) listó como
+// faltantes - nunca sobreescribir un dato que Garmin ya dio.
+export type GarminConnectInput = {
+  email: string;
+  password: string;
+  nombre?: string;
+  altura_cm?: number;
+  fecha_nacimiento?: string;
+  sexo?: "M" | "F";
+};
+
 export type BodyMeasurement = {
   id: number;
   fecha: string;
@@ -88,6 +110,35 @@ export type NutritionTarget = {
   grasa_g: number;
   fase_aplicada: string;
   deficit_pausado_por_guardrail: boolean;
+};
+
+// Planes de deficit/superavit/mantenimiento con duración determinada
+// (petición explícita del usuario: "como tu nutricionista personal").
+// El sistema RECOMIENDA, el usuario CONFIRMA - nunca se crea un plan
+// automáticamente desde la recomendación sin que el usuario lo pida.
+export type FaseNutricional = "cut" | "maintenance" | "recomp" | "surplus";
+
+export type NutritionPlan = {
+  id: number;
+  fase: FaseNutricional;
+  fecha_inicio: string;
+  semanas_duracion: number;
+  motivo: string | null;
+  activo: boolean;
+};
+
+export type ActiveNutritionPlan = {
+  plan: NutritionPlan;
+  fecha_fin: string;
+  dias_restantes: number;
+  expirado: boolean;
+};
+
+export type NutritionPhaseRecommendation = {
+  fase_recomendada: FaseNutricional;
+  accion: "sin_cambios" | "nuevo_plan_sugerido";
+  motivo: string;
+  semanas_sugeridas: number | null;
 };
 
 export type ManualReadinessInput = {
@@ -179,34 +230,6 @@ export type Exercise = {
   equipamiento: string[];
 };
 
-export type Ingredient = {
-  id: number;
-  nombre: string;
-  kcal_100g: number;
-  proteina_100g_g: number;
-  carbohidratos_100g_g: number;
-  grasa_100g_g: number;
-};
-
-export type FoodLogEntry = {
-  ingredient_id: number;
-  nombre: string;
-  amount_grams: number;
-  kcal: number;
-  proteina_g: number;
-  carbohidratos_g: number;
-  grasa_g: number;
-};
-
-export type DailyFoodLog = {
-  entradas: FoodLogEntry[];
-  kcal_total: number;
-  proteina_g_total: number;
-  carbohidratos_g_total: number;
-  grasa_g_total: number;
-  entradas_omitidas: number;
-};
-
 // Catálogo cerrado - debe coincidir exactamente con `_HABITO_VALORES` en
 // backend/models/schema.py (ver docstring de HabitLog para el porqué de
 // un catálogo cerrado en vez de texto libre).
@@ -243,6 +266,50 @@ export type GarminActivity = {
   training_effect: number | null;
 };
 
+// Épica 10 del plan de expansión: un punto de la gráfica de volumen
+// semanal por deporte - distancia_total_m/duracion_total_seg son null
+// si ninguna actividad de esa semana trae ese campo (nunca 0 inventado).
+export type WeeklyVolume = {
+  semana_inicio: string;
+  distancia_total_m: number | null;
+  duracion_total_seg: number | null;
+  num_sesiones: number;
+};
+
+// Épica C/E del plan de expansión (02-roadmap/03-vision-produccion.md):
+// un punto del histórico de recovery de Garmin - un punto por día,
+// deduplicado ya en el backend. Todos los campos son honestos con su
+// ausencia (null) - nunca asumir que un valor null es 0.
+export type GarminHealthDay = {
+  fecha: string;
+  hrv_value: number | null;
+  hrv_status: string | null;
+  body_battery_am: number | null;
+  training_readiness: string | null;
+  sleep_score: number | null;
+  stress_avg: number | null;
+  resting_hr: number | null;
+  vo2max: number | null;
+};
+
+// Serie minuto a minuto (petición explícita del usuario: "el ritmo
+// cardiaco, body battery, etc son valores que cambian cada minuto,
+// quiero todo ese histórico, no me vale que cojas la media del día").
+export type GarminIntradayMetrica = "heart_rate" | "body_battery" | "stress";
+
+export type GarminIntradayPoint = {
+  timestamp_utc: string;
+  valor: number;
+};
+
+// Épica H del plan de expansión: explicación conversacional (Capa 3)
+// del estado de recovery de un día - text/source son null cuando la
+// Capa 1 aún no ha calculado ningún ReadinessLog para esa fecha.
+export type HealthNarrative = {
+  text: string | null;
+  source: "llm" | "template" | null;
+};
+
 export type PeriodicSummary = {
   dias_con_checkin_readiness: number;
   distribucion_readiness: { green: number; yellow: number; red: number };
@@ -258,6 +325,8 @@ export const api = {
   createUser: (data: UserCreateInput) =>
     request<User>("/users", { method: "POST", body: JSON.stringify(data) }),
   getUser: (id: number) => request<User>(`/users/${id}`),
+  connectGarmin: (data: GarminConnectInput) =>
+    request<User>("/users/garmin-connect", { method: "POST", body: JSON.stringify(data) }),
 
   createBodyMeasurement: (userId: number, data: BodyMeasurementInput) =>
     request<BodyMeasurement>(`/users/${userId}/body-measurements`, {
@@ -269,6 +338,25 @@ export const api = {
     request<NutritionTarget>(`/users/${userId}/nutrition/daily-target`, {
       method: "POST",
       body: JSON.stringify({ target_date: targetDate, factor_actividad: factorActividad }),
+    }),
+
+  getActiveNutritionPlan: (userId: number, asOf = todayLocalDate()) =>
+    request<ActiveNutritionPlan | null>(
+      `/users/${userId}/nutrition/plans/active?as_of=${asOf}`
+    ),
+
+  getNutritionPhaseRecommendation: (userId: number, asOf = todayLocalDate()) =>
+    request<NutritionPhaseRecommendation>(
+      `/users/${userId}/nutrition/plans/recommendation?as_of=${asOf}`
+    ),
+
+  createNutritionPlan: (
+    userId: number,
+    data: { fase: FaseNutricional; semanas_duracion: number; fecha_inicio: string; motivo?: string }
+  ) =>
+    request<NutritionPlan>(`/users/${userId}/nutrition/plans`, {
+      method: "POST",
+      body: JSON.stringify(data),
     }),
 
   manualReadinessCheckin: (userId: number, data: ManualReadinessInput) =>
@@ -299,26 +387,6 @@ export const api = {
       `/exercises/search?category_id=${categoryId}&language=${language}&limit=${limit}`
     ),
 
-  saveWgerToken: (userId: number, token: string) =>
-    request<void>(`/users/${userId}/nutrition/wger-token`, {
-      method: "POST",
-      body: JSON.stringify({ token }),
-    }),
-
-  searchIngredients: (userId: number, query: string, language = 2, limit = 20) =>
-    request<Ingredient[]>(
-      `/users/${userId}/nutrition/ingredients/search?query=${encodeURIComponent(query)}&language=${language}&limit=${limit}`
-    ),
-
-  createFoodLogEntry: (userId: number, ingredientId: number, amountGrams: number) =>
-    request<void>(`/users/${userId}/nutrition/food-log`, {
-      method: "POST",
-      body: JSON.stringify({ ingredient_id: ingredientId, amount_grams: amountGrams }),
-    }),
-
-  getFoodLog: (userId: number, targetDate = todayLocalDate()) =>
-    request<DailyFoodLog>(`/users/${userId}/nutrition/food-log?date=${targetDate}`),
-
   getBodyMeasurementHistory: (userId: number, days = 90) =>
     request<BodyMeasurement[]>(
       `/users/${userId}/body-measurements/history?days=${days}`
@@ -338,10 +406,38 @@ export const api = {
       `/users/${userId}/habits/correlation?habito=${habito}&as_of=${asOf}`
     ),
 
-  getGarminActivities: (userId: number, days = 90, asOf = todayLocalDate()) =>
+  getGarminActivities: (
+    userId: number,
+    days = 90,
+    asOf = todayLocalDate(),
+    categoria?: "running" | "ciclismo" | "gimnasio"
+  ) =>
     request<GarminActivity[]>(
-      `/users/${userId}/garmin/activities?days=${days}&as_of=${asOf}`
+      `/users/${userId}/garmin/activities?days=${days}&as_of=${asOf}${
+        categoria ? `&categoria=${categoria}` : ""
+      }`
     ),
+
+  getGarminWeeklyVolume: (
+    userId: number,
+    categoria: "running" | "ciclismo" | "gimnasio",
+    weeks = 12,
+    asOf = todayLocalDate()
+  ) =>
+    request<WeeklyVolume[]>(
+      `/users/${userId}/garmin/activities/volume?categoria=${categoria}&weeks=${weeks}&as_of=${asOf}`
+    ),
+
+  getGarminHealthHistory: (userId: number, days = 90) =>
+    request<GarminHealthDay[]>(`/users/${userId}/garmin/health-history?days=${days}`),
+
+  getGarminIntradayHistory: (userId: number, metrica: GarminIntradayMetrica, fecha = todayLocalDate()) =>
+    request<GarminIntradayPoint[]>(
+      `/users/${userId}/garmin/intraday?metrica=${metrica}&fecha=${fecha}`
+    ),
+
+  getGarminHealthNarrative: (userId: number, fecha = todayLocalDate()) =>
+    request<HealthNarrative>(`/users/${userId}/garmin/health-narrative?fecha=${fecha}`),
 
   getPeriodicSummary: (userId: number, days = 7, asOf = todayLocalDate()) =>
     request<PeriodicSummary>(

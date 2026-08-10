@@ -69,7 +69,7 @@ class Base(DeclarativeBase):
 _SEXO_VALORES = ("M", "F")
 _FASE_PESO_VALORES = ("cut", "maintenance", "recomp", "surplus")
 _ANGULO_FOTO_VALORES = ("frontal", "lateral", "espalda")
-_METODO_BODYFAT_VALORES = ("navy", "navy_pose", "manual")
+_METODO_BODYFAT_VALORES = ("navy", "navy_pose", "manual", "feelfit_bioimpedance")
 _READINESS_VALORES = ("red", "yellow", "green")
 _ROL_CONVERSACION_VALORES = ("user", "coach")
 _FUENTE_NUTRICION_VALORES = ("manual", "foto_ia", "barcode_off")
@@ -138,34 +138,30 @@ class GarminCredentials(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
-class WgerCredentials(Base):
-    """Token permanente de la API de wger del usuario (mismo mecanismo
-    documentado en la guía oficial: el usuario lo genera él mismo desde
-    la página "API key" de su propio wger, Pulse nunca ve ni almacena
-    su contraseña - solo este token). Habilita escritura autenticada
-    (diario de nutrición, `nutritiondiary`) además del catálogo público
-    de solo lectura ya usado por `wger_client`.
+class FeelfitCredentials(Base):
+    """Referencia al token cacheado de la báscula Feelfit (Qingniu/
+    Yolanda) - MISMO criterio de seguridad que `GarminCredentials`:
+    NUNCA guarda la contraseña. `token_store_dir` apunta a un JSON
+    local (`FeelfitClient._cargar_token_cacheado`) con el bearer token
+    y su expiración devueltos por el login.
 
-    DEUDA DE SEGURIDAD DOCUMENTADA EXPLÍCITAMENTE (no ocultar el hueco):
-    a diferencia de `GarminCredentials.token_store_dir` (una simple
-    ruta, no un secreto en sí), `token` AQUÍ SÍ es un secreto real -
-    quien lo tenga puede actuar como el usuario contra su wger. Este
-    proyecto todavía no tiene ninguna infraestructura de cifrado en
-    reposo (ver `ProgressPhoto.ruta_cifrada_local`, con el mismo
-    problema, sin resolver). Antes de producción real, cifrar esta
-    columna (p.ej. `cryptography.fernet`) o moverla a un secret
-    manager - se documenta aquí en vez de fingir que ya está resuelto.
-    Mientras tanto: nunca se devuelve en ninguna respuesta de la API
-    (ver `api/schemas.py`), nunca se loguea (ver `wger_client.client`,
-    que ya evita registrar tokens en sus mensajes de error)."""
+    A diferencia de Garmin (donde `python-garminconnect`/garth cachea
+    una sesión OAuth de larga duración en disco), la API no oficial de
+    Feelfit (`https://feelfit.qnclouds.com/api/v4`, ver
+    `feelfit_client.client`) solo expone un token con expiración corta
+    conocida (`remaining_time` del login). Cuando ese token expira, el
+    sync simplemente falla de forma aislada (mismo patrón que un fallo
+    de Garmin en `scheduler_service`) y el usuario debe reconectar su
+    cuenta (POST /users/{id}/feelfit-connect) - la contraseña jamás se
+    persiste para poder re-loguear automáticamente sin intervención."""
 
-    __tablename__ = "wger_credentials"
+    __tablename__ = "feelfit_credentials"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(
         ForeignKey("user_profile.id"), unique=True, index=True
     )
-    token: Mapped[str] = mapped_column(String(500))
+    token_store_dir: Mapped[str] = mapped_column(String(500))
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
@@ -188,6 +184,58 @@ class GarminDailyMetrics(Base):
     vo2max: Mapped[float | None] = mapped_column(default=None)
     stress_avg: Mapped[int | None] = mapped_column(default=None)
     resting_hr: Mapped[int | None] = mapped_column(default=None)
+    ingested_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+_METRICA_INTRADIA_VALORES = ("heart_rate", "body_battery", "stress")
+
+
+class GarminIntradayMetric(Base):
+    """Serie de tiempo minuto a minuto (petición explícita del usuario:
+    "el ritmo cardiaco, body battery, etc son valores que cambian cada
+    minuto, quiero todo ese histórico, no me vale que cojas la media
+    del día") - complementa a `GarminDailyMetrics` (que solo guarda UN
+    valor agregado por día, ej. `body_battery_am` = el valor de la
+    mañana). Verificado contra el JSON real de una cuenta Garmin real:
+    `get_heart_rates`/`get_body_battery`/`get_stress_data` devuelven un
+    array de `[timestamp_ms, valor]` con un punto cada ~2-3 minutos.
+
+    UNIQUE(user_id, metrica, timestamp_utc) - a diferencia de
+    `GarminDailyMetrics` (append-only, sin UNIQUE), aquí SÍ hace falta
+    unicidad real: la ingesta es idempotente por diseño (una
+    resincronización del mismo día no debe duplicar cada punto de la
+    serie, que ya son cientos por día).
+
+    "unknown is not zero": Garmin usa valores centinela negativos
+    (-1/-2) en `stressValuesArray` para "sin datos suficientes ese
+    minuto" - esos puntos se DESCARTAN en la extracción
+    (`garmin_sync.client`), nunca se persisten como si fueran un valor
+    real. Un hueco en la serie es honesto; un -1 mostrado en una
+    gráfica como si fuera estrés real no lo es."""
+
+    __tablename__ = "garmin_intraday_metric"
+    __table_args__ = (
+        Index("ix_garmin_intraday_user_metrica_fecha", "user_id", "metrica", "fecha"),
+        UniqueConstraint(
+            "user_id", "metrica", "timestamp_utc", name="uq_garmin_intraday_user_metrica_ts"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user_profile.id"), index=True)
+    # `fecha` es el día calendario que se le pidió a Garmin (el mismo
+    # `date_str` de `GarminClient.get_intraday_series_raw`), NUNCA
+    # derivada del timestamp UTC de cada punto - Garmin ya agrupa la
+    # serie por día calendario de la cuenta/dispositivo al responder;
+    # recalcularla a partir de UTC desplazaba los puntos de madrugada
+    # (23:00-01:00 hora local) al día UTC equivocado (hallazgo de
+    # code-review).
+    fecha: Mapped[date] = mapped_column(Date, index=True)
+    metrica: Mapped[str] = mapped_column(
+        Enum(*_METRICA_INTRADIA_VALORES, name="garmin_intraday_metrica_enum", create_constraint=True)
+    )
+    timestamp_utc: Mapped[datetime] = mapped_column(DateTime, index=True)
+    valor: Mapped[float] = mapped_column()
     ingested_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
@@ -224,10 +272,25 @@ class GarminActivity(Base):
 class BodyMeasurements(Base):
     """Append-only. `bodyfat_pct_rango_min/max` en vez de un único
     número: nunca se muestra una precisión falsa al usuario (ver
-    00-research/05-analisis-corporal-foto.md)."""
+    00-research/05-analisis-corporal-foto.md).
+
+    `fuente_externa_id` es el ID de medición propio de una fuente
+    externa (ej. `measurement_id` de Feelfit) - permite idempotencia
+    real en la sincronización (mismo criterio que
+    `uq_garmin_activity_user_activity` en `GarminActivity`: sin esto,
+    resincronizar el mismo día duplicaría filas). Queda `None` para
+    mediciones manuales (que SÍ pueden repetirse el mismo día a
+    propósito, ver docstring de `services.body_composition_service`) -
+    varios `NULL` conviven sin problema bajo un UNIQUE de dos columnas
+    en SQLite/Postgres, solo los valores no-NULL se exigen únicos."""
 
     __tablename__ = "body_measurements"
-    __table_args__ = (Index("ix_body_measurements_user_fecha", "user_id", "fecha"),)
+    __table_args__ = (
+        Index("ix_body_measurements_user_fecha", "user_id", "fecha"),
+        UniqueConstraint(
+            "user_id", "fuente_externa_id", name="uq_body_measurements_user_fuente_externa"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("user_profile.id"), index=True)
@@ -241,6 +304,7 @@ class BodyMeasurements(Base):
     metodo: Mapped[str] = mapped_column(
         Enum(*_METODO_BODYFAT_VALORES, name="metodo_bodyfat_enum", create_constraint=True), default="manual"
     )
+    fuente_externa_id: Mapped[str | None] = mapped_column(String(100), default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
@@ -398,6 +462,43 @@ class HabitCheckin(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("user_profile.id"), index=True)
     fecha: Mapped[date] = mapped_column(Date, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class NutritionPlan(Base):
+    """Plan de fase de peso con DURACIÓN determinada (petición explícita
+    del usuario: "planes de deficit, superhabit y mantenimiento
+    dedicados, con duración determinada" - "como tu nutricionista
+    personal"). Sustituye a `UserProfile.fase_peso_actual` como campo
+    estático sin fecha: ese campo se mantiene en sincronía (se
+    actualiza al crear un plan nuevo) para no tener que tocar
+    `services.nutrition_service.compute_daily_nutrition_target`, que ya
+    lee de ahí.
+
+    `fecha_fin` NO se almacena (se calcula: `fecha_inicio +
+    semanas_duracion` semanas) - evita que quede desincronizada de
+    `semanas_duracion` si algún día se permite editar la duración.
+
+    Solo un plan `activo=True` por usuario a la vez: crear uno nuevo
+    desactiva el anterior (mismo patrón append-only con "flag activo"
+    que ya usa `GarminCredentials`/`WgerCredentials`)."""
+
+    __tablename__ = "nutrition_plan"
+    __table_args__ = (Index("ix_nutrition_plan_user_activo", "user_id", "activo"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user_profile.id"), index=True)
+    fase: Mapped[str] = mapped_column(
+        Enum(*_FASE_PESO_VALORES, name="nutrition_plan_fase_enum", create_constraint=True)
+    )
+    fecha_inicio: Mapped[date] = mapped_column(Date)
+    semanas_duracion: Mapped[int] = mapped_column(Integer)
+    # Motivo de creación (recomendación del sistema citada tal cual, o
+    # "elegido por el usuario" si se creó sin pasar por la
+    # recomendación) - para que el historial de planes sea auditable,
+    # mismo principio que `AuditLog`.
+    motivo: Mapped[str | None] = mapped_column(String(300), default=None)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 

@@ -51,14 +51,14 @@ export function AreaTrendChart({
           <Tooltip
             cursor={{ stroke: color, strokeOpacity: 0.3 }}
             contentStyle={{
-              background: "#1a1f23",
-              border: "1px solid #2c3338",
+              background: "var(--surface)",
+              border: "1px solid var(--surface-border)",
               borderRadius: 8,
               fontSize: 12,
               padding: "6px 10px",
             }}
-            labelStyle={{ color: "#a9b2b8" }}
-            itemStyle={{ color: "#f2f4f5" }}
+            labelStyle={{ color: "var(--text-secondary)" }}
+            itemStyle={{ color: "var(--foreground)" }}
             formatter={(value) => [`${Number(value).toFixed(decimales)}${unidad}`, ""]}
           />
           <Area

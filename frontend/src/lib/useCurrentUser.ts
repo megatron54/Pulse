@@ -59,5 +59,14 @@ export function useCurrentUser() {
     }
   }, []);
 
-  return { user, loading, error, createUser };
+  // Usado por GarminConnectForm: el usuario ya se creó en el backend
+  // (services.garmin_onboarding_service.connect_new_user_via_garmin) -
+  // esta función solo registra la sesión local (localStorage + estado),
+  // mismo mecanismo que createUser pero sin volver a llamar a la API.
+  const loginUser = useCallback((usuario: User) => {
+    localStorage.setItem(STORAGE_KEY, String(usuario.id));
+    setUser(usuario);
+  }, []);
+
+  return { user, loading, error, createUser, loginUser };
 }

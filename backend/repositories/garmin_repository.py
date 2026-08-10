@@ -26,14 +26,25 @@ def save_daily_metrics(
 ) -> GarminDailyMetrics:
     """Persiste una fila append-only con los campos normalizados del
     payload de garmin_sync.client.get_daily_recovery_raw. Nunca
-    sobreescribe una sincronización previa del mismo día."""
+    sobreescribe una sincronización previa del mismo día.
+
+    Épica A del plan de expansión (02-roadmap/03-vision-produccion.md):
+    hrv_status/vo2max/stress_avg/resting_hr existían como columnas
+    desde el modelo original pero nunca se rellenaban porque el
+    cliente nunca los pedía - `.get(...)` con default None mantiene el
+    comportamiento "unknown is not zero" para raws antiguos/parciales
+    que todavía no traigan estas claves."""
     fila = GarminDailyMetrics(
         user_id=user_id,
         fecha=fecha,
         hrv_value=raw.get("hrv_today"),
+        hrv_status=raw.get("hrv_status"),
         training_readiness=raw.get("training_readiness"),
         body_battery_am=raw.get("body_battery_am"),
         sleep_score=raw.get("sleep_score"),
+        stress_avg=raw.get("stress_avg"),
+        resting_hr=raw.get("resting_hr"),
+        vo2max=raw.get("vo2max"),
     )
     session.add(fila)
     session.commit()
@@ -134,16 +145,83 @@ def save_activity_if_new(session: Session, user_id: int, actividad: dict[str, An
 
 
 def get_activity_history(
-    session: Session, user_id: int, as_of: date, days: int = _DIAS_HISTORIAL_ACTIVIDADES_POR_DEFECTO
+    session: Session,
+    user_id: int,
+    as_of: date,
+    days: int = _DIAS_HISTORIAL_ACTIVIDADES_POR_DEFECTO,
+    tipos: list[str] | None = None,
 ) -> list[GarminActivity]:
     """Actividades del usuario en `[as_of-days+1, as_of]`, más recientes
-    primero - para el listado de la página Garmin del frontend."""
+    primero - para el listado de la página Garmin del frontend.
+
+    `tipos`: filtro opcional por una LISTA de `typeKey` de Garmin (no
+    un único valor exacto) - Épica D del plan de expansión
+    (02-roadmap/03-vision-produccion.md): las páginas por deporte
+    (running/ciclismo/gimnasio) agrupan varias variantes reales de
+    Garmin bajo una misma categoría (ej. "running" +
+    "trail_running" + "treadmill_running" son todas "running" para el
+    usuario), la agrupación exacta vive en la capa de servicio, este
+    repositorio solo filtra por el conjunto ya resuelto."""
     fecha_inicio = as_of - timedelta(days=days - 1)
     stmt = (
         select(GarminActivity)
         .where(GarminActivity.user_id == user_id)
         .where(GarminActivity.fecha >= fecha_inicio)
         .where(GarminActivity.fecha <= as_of)
-        .order_by(GarminActivity.fecha.desc())
     )
+    if tipos:
+        stmt = stmt.where(GarminActivity.tipo.in_(tipos))
+    stmt = stmt.order_by(GarminActivity.fecha.desc())
     return list(session.execute(stmt).scalars().all())
+
+
+_DIAS_HISTORIAL_METRICAS_POR_DEFECTO = 90
+
+
+def get_daily_metrics_history(
+    session: Session, user_id: int, as_of: date, days: int = _DIAS_HISTORIAL_METRICAS_POR_DEFECTO
+) -> list[GarminDailyMetrics]:
+    """Historial completo de recovery (HRV, hrv_status, body battery,
+    training readiness, sleep score, stress, resting HR, VO2max) del
+    usuario en `[as_of-days+1, as_of]`, más recientes primero,
+    DEDUPLICADO a una fila por día (gana el `id` más alto = la
+    sincronización más reciente de ese día).
+
+    Épica C del plan de expansión (02-roadmap/03-vision-produccion.md):
+    alimenta tanto la página nueva de Salud/Recovery como el resumen
+    del dashboard "Hoy". Usa el criterio de ventana CORRECTO desde el
+    principio (`days` exactos) - el punto 10 del doc vivo advierte que
+    `get_readiness_history`/`get_weight_history` arrastran un
+    off-by-one (`days+1`) que aquí NO se replica a propósito.
+
+    Deduplicación: `GarminDailyMetrics` es append-only SIN
+    UNIQUE(user_id, fecha) - un mismo día puede tener varias filas
+    (observado en datos reales: scheduler + una sincronización manual
+    el mismo día). Un endpoint de HISTORIAL PARA GRÁFICA debe devolver
+    un único punto por día - hallazgo de @code-reviewer: dejarlo crudo
+    obligaría a cada consumidor nuevo a recordar deduplicar (como ya
+    hace el frontend hoy con `dedupeUltimaPorDia` para
+    peso/readiness), propagando la misma deuda. Se deduplica aquí una
+    sola vez, en el origen; el histórico completo sin deduplicar sigue
+    intacto en la tabla para auditoría, esta función solo cambia lo
+    que se PROYECTA para lectura.
+
+    Cada campo se devuelve tal cual está en la fila (None si no hay
+    dato ese día) - "unknown is not zero": nunca se interpola ni se
+    rellena un hueco con un valor inventado."""
+    fecha_inicio = as_of - timedelta(days=days - 1)
+    stmt = (
+        select(GarminDailyMetrics)
+        .where(GarminDailyMetrics.user_id == user_id)
+        .where(GarminDailyMetrics.fecha >= fecha_inicio)
+        .where(GarminDailyMetrics.fecha <= as_of)
+        .order_by(GarminDailyMetrics.fecha.desc(), GarminDailyMetrics.id.desc())
+    )
+    filas = session.execute(stmt).scalars().all()
+
+    vista_por_fecha: dict[date, GarminDailyMetrics] = {}
+    for fila in filas:
+        # Ordenado por id desc dentro de cada fecha: la primera fila
+        # vista para una fecha ya es la de mayor id (más reciente).
+        vista_por_fecha.setdefault(fila.fecha, fila)
+    return list(vista_por_fecha.values())

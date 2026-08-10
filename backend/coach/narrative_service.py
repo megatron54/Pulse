@@ -12,7 +12,9 @@ Principios (ver docs/00-research/07-arquitectura-coach-ia.md):
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
+from typing import Any
 
 from coach.gemini_client import GeminiClient, GeminiError
 from engine.periodization import ReadinessLevel, SessionRecommendation, SessionType
@@ -139,4 +141,162 @@ def generate_session_narrative(
 
     return NarrativeResult(
         text=_plantilla_determinista(recomendacion, readiness), source="template"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Épica H del plan de expansión (02-roadmap/03-vision-produccion.md):
+# generaliza la Capa 3 a más contextos (salud, por deporte, nutrición)
+# SIN reabrir generate_session_narrative (ya probada y en producción) -
+# servicio HERMANO con la misma garantía: la decisión (`decision_label`)
+# y los datos reales (`datos`) ya vienen calculados por capas
+# anteriores, esta función solo redacta.
+# ---------------------------------------------------------------------------
+
+_MAX_LONGITUD_TEXTO_CONTEXTO = 500
+_PATRON_NUMERO = re.compile(r"-?\d+(?:\.\d+)?")
+
+# Defensa adicional (hallazgo de @code-reviewer sobre la Épica H): el
+# regex de dígitos NO detecta un número inventado si el LLM lo escribe
+# en palabras ("sesenta" en vez de "60") - un caso plausible en
+# redacción en español, y el vector de invención de cifras más
+# preocupante de esta barrera. No se intenta parsear/convertir estas
+# palabras a un valor (sería un parser de números completo, fuera de
+# alcance) - más simple y conservador: si aparece CUALQUIER palabra
+# numérica española (de dos en adelante), se rechaza el texto
+# directamente (cae a plantilla), sin intentar decidir si esa palabra
+# citaba un dato real o no. "uno"/"una" se EXCLUYEN a propósito: son
+# artículos indefinidos omnipresentes en español ("una recuperación
+# buena") - incluirlos rechazaría casi cualquier texto del LLM,
+# inutilizando la ruta LLM por completo. Lista no exhaustiva a
+# propósito (mismo criterio que `_FRASES_CONTRADICTORIAS_CON_ENTRENAR`):
+# cubre las unidades/decenas/centenas más comunes, no es un diccionario
+# numeral completo.
+_PALABRAS_NUMERICAS_ES = re.compile(
+    r"\b("
+    r"cero|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|"
+    r"once|doce|trece|catorce|quince|dieci(?:s[ée]is|siete|ocho|nueve)|"
+    r"veinti?(?:un[oa]?|d[oó]s|tr[eé]s|cuatro|cinco|s[eé]is|siete|ocho|nueve)?|"
+    r"treinta|cuarenta|cincuenta|sesenta|setenta|ochenta|noventa|"
+    r"cien(?:to)?s?|mil(?:es)?|mill[oó]n(?:es)?"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+@dataclass(frozen=True)
+class ContextNarrativeResult:
+    text: str
+    source: str  # "llm" | "template"
+
+
+def _formatear_datos_legibles(datos: dict[str, Any]) -> list[str]:
+    """Solo los pares con valor real (nunca None) - "unknown is not
+    zero": un dato ausente no aparece en absoluto, nunca como "None" ni
+    como 0 inventado."""
+    return [
+        f"{clave.replace('_', ' ')}: {valor}"
+        for clave, valor in datos.items()
+        if valor is not None
+    ]
+
+
+def _plantilla_generica_contexto(
+    contexto: str, decision_label: str, datos: dict[str, Any]
+) -> str:
+    partes = _formatear_datos_legibles(datos)
+    base = f"Tu estado de {contexto} hoy: {decision_label}."
+    if not partes:
+        return base
+    return f"{base} ({', '.join(partes)})"
+
+
+def _construir_prompt_contexto(
+    contexto: str, decision_label: str, datos: dict[str, Any]
+) -> str:
+    lineas_datos = "\n".join(f"- {linea}" for linea in _formatear_datos_legibles(datos))
+    return (
+        "Eres el coach de una app de salud y entrenamiento personal. "
+        f"El motor de reglas ya decidió el estado de {contexto}; tu única tarea es "
+        "explicarlo en 1-2 frases, en español, tono cercano y directo. "
+        "Cita ÚNICAMENTE los datos reales de abajo - nunca inventes ninguna "
+        "cifra que no aparezca en esta lista, ni sugieras un estado distinto "
+        "al ya decidido.\n\n"
+        f"Estado decidido: {decision_label}\n"
+        f"Datos reales:\n{lineas_datos if lineas_datos else '(sin datos numéricos disponibles)'}\n"
+    )
+
+
+def _numeros_permitidos(datos: dict[str, Any]) -> set[str]:
+    """Todas las representaciones textuales razonables de los valores
+    numéricos reales de `datos` - un float que es un entero exacto
+    (60.0) debe aceptar tanto "60.0" como "60" (formas típicas en que
+    un LLM redondearía al citarlo), sin por ello aceptar un número
+    arbitrario que no venga de aquí."""
+    permitidos: set[str] = set()
+    for valor in datos.values():
+        if isinstance(valor, bool) or valor is None:
+            continue
+        if isinstance(valor, (int, float)):
+            permitidos.add(str(valor))
+            if isinstance(valor, float) and valor == int(valor):
+                permitidos.add(str(int(valor)))
+    return permitidos
+
+
+def _es_texto_llm_coherente_contexto(texto: str, datos: dict[str, Any]) -> bool:
+    """Barrera arquitectónica de esta épica: el LLM no puede citar
+    ninguna cifra que no venga de `datos` ya calculados. Defensa barata
+    por regex (no un parser semántico completo, mismo criterio que
+    `_es_texto_llm_coherente` para la narrativa de sesión) - deliberadamente
+    estricta: ante la duda, se prefiere caer a la plantilla determinista
+    (siempre honesta) antes que arriesgar un número inventado.
+
+    Dos comprobaciones independientes, ambas deben pasar:
+    1. Los números en DÍGITOS del texto deben ser subconjunto de los
+       valores reales de `datos`.
+    2. El texto no debe contener NINGUNA palabra numérica en español
+       (ver `_PALABRAS_NUMERICAS_ES`) - un LLM que escriba "sesenta" en
+       vez de "60" evadiría por completo la comprobación 1, así que se
+       rechaza cualquier redacción en palabras sin excepción (no se
+       intenta verificar si esa palabra citaba un dato real)."""
+    if _PALABRAS_NUMERICAS_ES.search(texto):
+        return False
+    numeros_en_texto = set(_PATRON_NUMERO.findall(texto))
+    if not numeros_en_texto:
+        return True
+    return numeros_en_texto.issubset(_numeros_permitidos(datos))
+
+
+def generate_context_narrative(
+    contexto: str,
+    decision_label: str,
+    datos: dict[str, Any],
+    gemini_client: GeminiClient | None,
+) -> ContextNarrativeResult:
+    """Genera la explicación en lenguaje natural de un estado/decisión
+    ya calculado para `contexto` (ej. "salud", "running", "nutrición"),
+    citando `datos` reales. Mismo patrón de robustez que
+    `generate_session_narrative`: ante cualquier fallo o respuesta que
+    no pase la validación (forma + coherencia numérica), cae a la
+    plantilla determinista - el usuario SIEMPRE recibe una explicación,
+    nunca un error de la capa conversacional."""
+    if gemini_client is not None:
+        try:
+            texto_llm = gemini_client.generate(
+                _construir_prompt_contexto(contexto, decision_label, datos)
+            )
+        except GeminiError:
+            texto_llm = None
+
+        if (
+            texto_llm is not None
+            and _es_texto_llm_valido(texto_llm)
+            and len(texto_llm.strip()) <= _MAX_LONGITUD_TEXTO_CONTEXTO
+            and _es_texto_llm_coherente_contexto(texto_llm, datos)
+        ):
+            return ContextNarrativeResult(text=texto_llm.strip(), source="llm")
+
+    return ContextNarrativeResult(
+        text=_plantilla_generica_contexto(contexto, decision_label, datos), source="template"
     )

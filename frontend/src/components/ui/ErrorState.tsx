@@ -14,7 +14,7 @@ import { Button } from "./Button";
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <div role="alert" className="flex flex-col items-start gap-2">
-      <p className="text-red-400 text-sm text-pretty">{message}</p>
+      <p className="text-recovery-low text-sm text-pretty">{message}</p>
       {onRetry && (
         <Button variant="ghost" onClick={onRetry} className="px-0 normal-case tracking-normal">
           Reintentar

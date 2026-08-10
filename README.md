@@ -1,5 +1,13 @@
 # Pulse — Entrenador personal con IA (multi-deporte, multi-objetivo)
 
+![Python](https://img.shields.io/badge/-Python-3776AB?style=flat-square&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/-FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
+![Next.js](https://img.shields.io/badge/-Next.js-000000?style=flat-square&logo=nextdotjs&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/-PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/-Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
+![Playwright](https://img.shields.io/badge/-Playwright-2EAD33?style=flat-square&logo=playwright&logoColor=white)
+![TDD](https://img.shields.io/badge/tests-TDD%20~100%25%20engine-success?style=flat-square)
+
 > App personal (móvil + escritorio) que actúa como entrenador y nutricionista, integrando datos reales de Garmin, wger (ejercicios/nutrición) y objetivos múltiples (fuerza, hipertrofia, running, artes marciales, composición corporal, cortes de peso).
 
 ## Estado del proyecto
@@ -18,7 +26,7 @@ Detalle completo en [`01-arquitectura/`](01-arquitectura/).
 
 ## Qué funciona hoy
 
-- **Garmin Connect real**: emparejamiento seguro (`backend/scripts/garmin_pair.py`), sincronización nocturna automática de recovery (HRV/Body Battery/sleep/training readiness, cuando el dispositivo lo soporta) y actividades.
+- **Garmin Connect real**: emparejamiento seguro (`backend/scripts/garmin_pair.py`), sincronización nocturna automática de recovery (HRV/Body Battery/sleep/training readiness, cuando el dispositivo lo soporta) y actividades — corre como servicio Docker propio (`scheduler`), no depende de dejar un terminal manual abierto.
 - **wger**: catálogo de ejercicios, diario de comidas real (vía el propio wger del usuario, token permanente).
 - **Motor de reglas**: nutrición (TDEE + macros por fase), progresión (1RM, doble progresión, autorregulación RIR/APRE), periodización (readiness diario, ACWR real), guardrails (deload forzado, pausa de déficit por mala recuperación sostenida).
 - **Diario de hábitos** correlacionado con recovery (estilo WHOOP Journal), resumen periódico de tendencias.
@@ -29,12 +37,14 @@ Detalle completo en [`01-arquitectura/`](01-arquitectura/).
 ```powershell
 cp .env.example .env
 docker compose up -d --build
+# o, equivalente y con espera automatica a que todo quede listo + apertura del navegador:
+.\start.ps1
 ```
 
 - Backend: http://localhost:8000 (docs interactivas en `/docs`)
 - Frontend: http://localhost:3000
 
-Ver [`DEPLOYMENT.md`](DEPLOYMENT.md) para variables de entorno y verificación. Para desarrollo local sin Docker del backend/frontend (solo Postgres en Docker), ver [`backend/README.md`](backend/README.md) y [`frontend/README.md`](frontend/README.md).
+Esto levanta los 4 servicios (Postgres, backend, frontend, y el scheduler nocturno de Garmin) — `docker compose ps` debe mostrar los 4 como `healthy`. Ver [`DEPLOYMENT.md`](DEPLOYMENT.md) para variables de entorno y verificación. Para desarrollo local sin Docker del backend/frontend (solo Postgres en Docker), ver [`backend/README.md`](backend/README.md) y [`frontend/README.md`](frontend/README.md).
 
 ## Índice de documentación
 
@@ -46,6 +56,8 @@ Ver [`DEPLOYMENT.md`](DEPLOYMENT.md) para variables de entorno y verificación. 
 5. [05-analisis-corporal-foto.md](00-research/05-analisis-corporal-foto.md) — Estimación de composición corporal por foto
 6. [06-periodizacion-ciencia-deportiva.md](00-research/06-periodizacion-ciencia-deportiva.md) — Ciencia de periodización multi-objetivo
 7. [07-arquitectura-coach-ia.md](00-research/07-arquitectura-coach-ia.md) — Patrones de arquitectura para el coach conversacional
+8. [08-nutricion-recovery-ciencia.md](00-research/08-nutricion-recovery-ciencia.md) — Evidencia científica sobre sueño/HRV y ajuste de calorías/macros (Épica I)
+9. [09-app-nativa-escritorio.md](00-research/09-app-nativa-escritorio.md) — Comparación Tauri/Electron/Capacitor para migrar a app nativa de escritorio (Épica K)
 
 ### 🏗️ 01-arquitectura/ — Diseño técnico
 1. [01-arquitectura-general.md](01-arquitectura/01-arquitectura-general.md) — Las 3 capas del sistema
@@ -67,3 +79,8 @@ Ver [`DEPLOYMENT.md`](DEPLOYMENT.md) para variables de entorno y verificación. 
 - **Nunca falsa precisión**: rangos donde el dominio es incierto, categorías donde el motor es categórico. Ninguna métrica se fabrica cuando faltan datos ("unknown is not zero").
 - **La IA nunca decide**, solo explica una decisión ya tomada por reglas deterministas auditables.
 - **Reutilizar antes que reinventar**: wger antes que una integración externa nueva; cuando ni eso sirve, se documenta honestamente que no hay integración viable en vez de prometerla.
+
+## Autor
+
+**Miguel Serra Ferrando** — Telecommunications Engineer
+[GitHub](https://github.com/megatron54) · [LinkedIn](https://www.linkedin.com/in/miguel-serra-ferrando) · [Email](mailto:miguel.serra.ferrando@gmail.com)

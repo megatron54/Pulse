@@ -24,6 +24,7 @@ from engine.periodization import ReadinessLevel
 from engine.guardrails import (
     should_force_deload,
     should_pause_calorie_deficit,
+    should_pause_calorie_deficit_for_poor_sleep,
     should_force_full_rest_pre_competition,
     validate_same_day_sessions,
 )
@@ -119,6 +120,93 @@ class TestShouldPauseCalorieDeficit:
         with pytest.raises(ValueError):
             should_pause_calorie_deficit(
                 weight_phase="cut", readiness_history=[ReadinessLevel.RED] * 3
+            )
+
+
+class TestShouldPauseCalorieDeficitForPoorSleep:
+    """Épica I del plan de expansión (02-roadmap/03-vision-produccion.md):
+    extensión CONSERVADORA de la regla ya existente
+    (should_pause_calorie_deficit), usando sleep_score crudo en vez del
+    semáforo categórico - misma filosofía (pausar, nunca "aflojar" el
+    déficit), mismos 3 días consecutivos que la regla hermana, para no
+    introducir un criterio temporal nuevo sin justificación.
+
+    Umbrales confirmados explícitamente por el usuario tras revisar
+    00-research/08-nutricion-recovery-ciencia.md (nunca inventados
+    unilateralmente por el agente): sleep_score < 60 (categoría "poor"
+    oficial de Garmin) durante 3 noches consecutivas."""
+
+    def test_cut_con_tres_noches_de_sleep_score_bajo_pausa_deficit(self):
+        assert (
+            should_pause_calorie_deficit_for_poor_sleep(
+                weight_phase=WeightPhase.CUT, sleep_scores=[55, 58, 50]
+            )
+            is True
+        )
+
+    def test_cut_con_dos_noches_bajas_no_pausa_aun(self):
+        assert (
+            should_pause_calorie_deficit_for_poor_sleep(
+                weight_phase=WeightPhase.CUT, sleep_scores=[55, 58]
+            )
+            is False
+        )
+
+    def test_sleep_score_exactamente_60_no_cuenta_como_bajo(self):
+        # Umbral estrictamente menor que 60 (categoría "poor" de Garmin
+        # es <60) - 60 exacto ya es "fair", no debe disparar la pausa.
+        assert (
+            should_pause_calorie_deficit_for_poor_sleep(
+                weight_phase=WeightPhase.CUT, sleep_scores=[60, 60, 60]
+            )
+            is False
+        )
+
+    def test_una_sola_noche_buena_en_la_racha_no_pausa(self):
+        assert (
+            should_pause_calorie_deficit_for_poor_sleep(
+                weight_phase=WeightPhase.CUT, sleep_scores=[55, 70, 50]
+            )
+            is False
+        )
+
+    def test_un_dato_ausente_en_la_racha_no_pausa(self):
+        # "unknown is not zero": un día sin sleep_score (None, no
+        # sincronizado o el dispositivo no lo calculó) NUNCA se trata
+        # como si fuera un dato malo - se necesitan 3 noches CONFIRMADAS
+        # por debajo del umbral, no 2 malas + 1 desconocida.
+        assert (
+            should_pause_calorie_deficit_for_poor_sleep(
+                weight_phase=WeightPhase.CUT, sleep_scores=[55, None, 50]
+            )
+            is False
+        )
+
+    def test_fase_distinta_de_cut_nunca_pausa_nada(self):
+        for fase in (WeightPhase.MAINTENANCE, WeightPhase.RECOMP, WeightPhase.SURPLUS):
+            assert (
+                should_pause_calorie_deficit_for_poor_sleep(
+                    weight_phase=fase, sleep_scores=[55, 58, 50]
+                )
+                is False
+            )
+
+    def test_rechaza_lista_vacia(self):
+        with pytest.raises(ValueError):
+            should_pause_calorie_deficit_for_poor_sleep(
+                weight_phase=WeightPhase.CUT, sleep_scores=[]
+            )
+
+    def test_rechaza_weight_phase_invalido(self):
+        with pytest.raises(ValueError):
+            should_pause_calorie_deficit_for_poor_sleep(
+                weight_phase="cut", sleep_scores=[55, 58, 50]
+            )
+
+    def test_rechaza_elemento_de_tipo_invalido_en_sleep_scores(self):
+        with pytest.raises(ValueError):
+            should_pause_calorie_deficit_for_poor_sleep(
+                weight_phase=WeightPhase.CUT, sleep_scores=["55", 58, 50]
             )
 
 

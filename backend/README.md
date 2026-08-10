@@ -12,7 +12,7 @@ pip install -r requirements.txt
 pytest
 ```
 
-Requiere Postgres corriendo (ver `infra/docker-compose.pulse.yml` en la raíz, o el `docker compose up` completo desde la raíz del repo) - los tests usan su propio SQLite en memoria y no necesitan Postgres real.
+Requiere Postgres corriendo (ver `docker-compose.yml` en la raíz - `docker compose up -d db`, o el stack completo `docker compose up -d --build`) - los tests usan su propio SQLite en memoria y no necesitan Postgres real.
 
 ## Estructura
 
@@ -22,7 +22,7 @@ Requiere Postgres corriendo (ver `infra/docker-compose.pulse.yml` en la raíz, o
 - `repositories/` — Acceso a datos (SQLAlchemy), un módulo por agregado (readiness, garmin, habits, training blocks, wger credentials...).
 - `services/` — Capa 2: orquesta repositorios + `engine/` + clientes externos. Un servicio por caso de uso (readiness, food log, habit correlation, periodic summary, garmin pairing/activity sync, scheduler...).
 - `coach/` — **Capa 3**: explicación conversacional (Gemini free tier + fallback determinista por plantilla) de una decisión ya tomada por la Capa 1 - nunca decide por su cuenta.
-- `api/` — API REST (FastAPI). Auth v1 = API key simple (`X-API-Key`, fail-closed fuera de `PULSE_ENV=dev`). Routers: `users`, `readiness`, `session`, `nutrition`, `food_log`, `body_composition`, `training_blocks`, `exercises`, `habits`, `garmin`, `summary`.
+- `api/` — API REST (FastAPI). Auth v1 = API key simple (`X-API-Key`, fail-closed fuera de `PULSE_ENV=dev`). Routers: `users`, `readiness`, `session`, `nutrition`, `body_composition`, `training_blocks`, `exercises`, `habits`, `garmin`, `summary`.
 - `scheduler/` — Job nocturno (APScheduler) que sincroniza recovery y actividades de Garmin para todos los usuarios con credenciales activas.
 - `scripts/` — `ensure_schema.py` (crea/verifica el esquema, idempotente, se ejecuta antes de arrancar la API), `garmin_pair.py` (emparejamiento inicial interactivo de una cuenta Garmin real - **nunca** pasa la contraseña por un chat de IA ni por la API, se ejecuta a mano en terminal).
 - `tests/` — TDD real: se escriben antes que la implementación. ~500 tests, ~97% cobertura (gate de CI: 85%).
@@ -41,12 +41,19 @@ Docs interactivas (OpenAPI/Swagger) en `http://127.0.0.1:8000/docs`.
 ## Emparejar una cuenta Garmin real
 
 ```powershell
+# Local (venv):
 python -m scripts.garmin_pair --user-id <id>
+
+# O si el stack corre en Docker (ver docker-compose.yml en la raíz -
+# backend y scheduler comparten el volumen nombrado `garmin-tokens`):
+docker compose exec backend python -m scripts.garmin_pair --user-id <id>
 ```
 
 Pide email/contraseña por terminal (nunca se guardan, solo se usan para un login en memoria); soporta verificación en dos pasos. Tras emparejar, el scheduler nocturno sincroniza automáticamente - ver `services/scheduler_service.py`.
 
 ## Ejecutar el scheduler nocturno
+
+Ya corre como su propio servicio Docker (`scheduler` en `docker-compose.yml` de la raíz) al hacer `docker compose up -d --build` - no hace falta lanzarlo a mano si usas Docker. Para desarrollo local sin Docker:
 
 ```powershell
 python -m scheduler.app

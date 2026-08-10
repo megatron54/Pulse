@@ -19,6 +19,11 @@ Ejecución:
     cd backend
     .venv\\Scripts\\python.exe -m scripts.garmin_pair --user-id 1
 
+    # O, si el stack corre en Docker (ver docker-compose.yml, servicios
+    # `backend`/`scheduler` comparten el volumen nombrado `garmin-tokens`
+    # montado en /data/garmin-tokens):
+    docker compose run --rm backend python -m scripts.garmin_pair --user-id 1
+
 Tras un emparejamiento exitoso, el scheduler nocturno
 (`services.scheduler_service`) ya puede sincronizar recovery y
 actividades reales para ese usuario sin volver a pedir la contraseña.
@@ -27,6 +32,7 @@ from __future__ import annotations
 
 import argparse
 import getpass
+import os
 from pathlib import Path
 
 from garmin_sync.client import GarminAuthError, GarminRateLimitedError
@@ -34,7 +40,20 @@ from models.database import get_session
 from services.errors import EntityNotFoundError
 from services.garmin_pairing_service import pair_garmin_account
 
-_DIRECTORIO_TOKENS_POR_DEFECTO = Path.home() / ".garminconnect"
+# `PULSE_GARMIN_TOKENS_DIR` permite fijar el directorio base fuera del
+# home del usuario del sistema - necesario en Docker (`docker-compose.yml`
+# monta el volumen nombrado `garmin-tokens` en `/data/garmin-tokens`,
+# compartido entre los servicios `backend` y `scheduler`; el home del
+# contenedor, p.ej. `/root`, no persistiría entre reconstrucciones de
+# imagen del mismo modo que un volumen nombrado). Sin la variable, cae al
+# mismo `~/.garminconnect` de siempre para uso local sin Docker.
+#
+# Se lee DENTRO de una función (no como constante de módulo) a propósito:
+# así los tests pueden usar `monkeypatch.setenv` sin necesitar
+# `importlib.reload` del módulo (que dejaría el valor cacheado filtrado
+# entre tests si alguno olvida recargarlo de vuelta).
+def _directorio_tokens_por_defecto() -> Path:
+    return Path(os.environ.get("PULSE_GARMIN_TOKENS_DIR", str(Path.home() / ".garminconnect")))
 
 
 def _parse_args() -> argparse.Namespace:
@@ -48,7 +67,7 @@ def _parse_args() -> argparse.Namespace:
         default=None,
         help=(
             "Directorio donde cachear el token de Garmin "
-            f"(por defecto: {_DIRECTORIO_TOKENS_POR_DEFECTO}/pulse-user-<user-id>)"
+            f"(por defecto: {_directorio_tokens_por_defecto()}/pulse-user-<user-id>)"
         ),
     )
     return parser.parse_args()
@@ -57,7 +76,7 @@ def _parse_args() -> argparse.Namespace:
 def main() -> None:
     args = _parse_args()
     token_store_dir = args.token_store_dir or str(
-        _DIRECTORIO_TOKENS_POR_DEFECTO / f"pulse-user-{args.user_id}"
+        _directorio_tokens_por_defecto() / f"pulse-user-{args.user_id}"
     )
 
     print("=== Emparejamiento de cuenta Garmin con Pulse ===")

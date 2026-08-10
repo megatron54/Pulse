@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from models.schema import Base, GarminActivity, GarminDailyMetrics, UserProfile
 from repositories.garmin_repository import (
     get_activity_history,
+    get_daily_metrics_history,
     get_hrv_baseline_28d,
     get_hrv_trend_7d,
     save_activity_if_new,
@@ -55,17 +56,37 @@ class TestSaveDailyMetrics:
     def test_persiste_los_campos_normalizados_del_raw(self, session, usuario):
         raw = {
             "hrv_today": 65.0,
+            "hrv_status": "BALANCED",
             "training_readiness": "high",
             "body_battery_am": 80,
             "sleep_score": 85,
+            "stress_avg": 25,
+            "resting_hr": 54,
+            "vo2max": 47.5,
             "raw_json": {"hrv": {}, "sleep": {}},
         }
         fila = save_daily_metrics(session, usuario.id, date(2026, 8, 2), raw)
         assert fila.id is not None
         assert fila.hrv_value == 65.0
+        assert fila.hrv_status == "BALANCED"
         assert fila.training_readiness == "high"
         assert fila.body_battery_am == 80
         assert fila.sleep_score == 85
+        assert fila.stress_avg == 25
+        assert fila.resting_hr == 54
+        assert fila.vo2max == 47.5
+
+    def test_campos_ausentes_en_el_raw_quedan_none_no_provocan_error(self, session, usuario):
+        # Épica A (02-roadmap/03-vision-produccion.md): hrv_status,
+        # vo2max, stress_avg y resting_hr son campos nuevos - un raw
+        # que todavía no los traiga (p.ej. datos ya sincronizados antes
+        # del fix) no debe romper la persistencia de los demás campos.
+        fila = save_daily_metrics(session, usuario.id, date(2026, 8, 2), {"hrv_today": 60})
+        assert fila.hrv_value == 60
+        assert fila.hrv_status is None
+        assert fila.stress_avg is None
+        assert fila.resting_hr is None
+        assert fila.vo2max is None
 
     def test_es_append_only_no_sobreescribe_sincronizaciones_previas(self, session, usuario):
         fecha = date(2026, 8, 2)
@@ -225,3 +246,188 @@ class TestGetActivityHistory:
         )
         historial = get_activity_history(session, usuario.id, as_of=date(2026, 8, 10), days=30)
         assert historial == []
+
+    def test_filtra_por_lista_de_tipos_cuando_se_indica(self, session, usuario):
+        # Épica D del plan de expansión (02-roadmap/03-vision-produccion.md):
+        # las páginas por deporte necesitan filtrar por un CONJUNTO de
+        # typeKey (ej. "running"/"trail_running"/"treadmill_running"
+        # agrupados bajo la categoría "running"), no solo uno exacto.
+        save_activity_if_new(
+            session,
+            usuario.id,
+            {
+                "activity_id": "1",
+                "fecha": date(2026, 8, 1),
+                "tipo": "running",
+                "duracion_seg": 1800,
+                "distancia_m": 5000.0,
+                "hr_avg": 150,
+                "hr_max": 172,
+                "training_effect": 3.2,
+                "raw_json": {},
+            },
+        )
+        save_activity_if_new(
+            session,
+            usuario.id,
+            {
+                "activity_id": "2",
+                "fecha": date(2026, 8, 2),
+                "tipo": "cycling",
+                "duracion_seg": 3600,
+                "distancia_m": 20000.0,
+                "hr_avg": 140,
+                "hr_max": 160,
+                "training_effect": 2.8,
+                "raw_json": {},
+            },
+        )
+
+        historial = get_activity_history(
+            session, usuario.id, as_of=date(2026, 8, 10), days=30, tipos=["running"]
+        )
+
+        assert len(historial) == 1
+        assert historial[0].activity_id == "1"
+
+    def test_sin_tipos_devuelve_todas_las_actividades(self, session, usuario):
+        save_activity_if_new(
+            session,
+            usuario.id,
+            {
+                "activity_id": "1",
+                "fecha": date(2026, 8, 1),
+                "tipo": "running",
+                "duracion_seg": 1800,
+                "distancia_m": 5000.0,
+                "hr_avg": 150,
+                "hr_max": 172,
+                "training_effect": 3.2,
+                "raw_json": {},
+            },
+        )
+        save_activity_if_new(
+            session,
+            usuario.id,
+            {
+                "activity_id": "2",
+                "fecha": date(2026, 8, 2),
+                "tipo": "cycling",
+                "duracion_seg": 3600,
+                "distancia_m": 20000.0,
+                "hr_avg": 140,
+                "hr_max": 160,
+                "training_effect": 2.8,
+                "raw_json": {},
+            },
+        )
+
+        historial = get_activity_history(session, usuario.id, as_of=date(2026, 8, 10), days=30)
+
+        assert len(historial) == 2
+
+
+class TestGetDailyMetricsHistory:
+    """Épica C del plan de expansión (02-roadmap/03-vision-produccion.md):
+    endpoint/repositorio de historial completo de recovery para la
+    página de Salud y el resumen del dashboard. Criterio de ventana
+    correcto desde el principio (days exactos, as_of-days+1..as_of) -
+    el hallazgo del punto 10 del doc vivo advierte explícitamente de no
+    copiar el off-by-one de get_readiness_history/get_weight_history."""
+
+    def test_devuelve_los_dias_exactos_de_la_ventana_sin_off_by_one(self, session, usuario):
+        hoy = date(2026, 8, 10)
+        for dias_atras in range(0, 10):
+            session.add(
+                GarminDailyMetrics(
+                    user_id=usuario.id, fecha=hoy - timedelta(days=dias_atras), hrv_value=50.0
+                )
+            )
+        session.commit()
+
+        historial = get_daily_metrics_history(session, usuario.id, as_of=hoy, days=7)
+
+        assert len(historial) == 7
+        assert historial[0].fecha == hoy  # más reciente primero
+        assert historial[-1].fecha == hoy - timedelta(days=6)
+
+    def test_ordena_mas_reciente_primero(self, session, usuario):
+        hoy = date(2026, 8, 10)
+        session.add(GarminDailyMetrics(user_id=usuario.id, fecha=hoy - timedelta(days=2), hrv_value=40.0))
+        session.add(GarminDailyMetrics(user_id=usuario.id, fecha=hoy, hrv_value=60.0))
+        session.add(GarminDailyMetrics(user_id=usuario.id, fecha=hoy - timedelta(days=1), hrv_value=50.0))
+        session.commit()
+
+        historial = get_daily_metrics_history(session, usuario.id, as_of=hoy, days=30)
+
+        assert [f.fecha for f in historial] == [hoy, hoy - timedelta(days=1), hoy - timedelta(days=2)]
+
+    def test_no_incluye_dias_fuera_de_la_ventana(self, session, usuario):
+        hoy = date(2026, 8, 10)
+        session.add(GarminDailyMetrics(user_id=usuario.id, fecha=hoy - timedelta(days=100), hrv_value=99.0))
+        session.commit()
+
+        historial = get_daily_metrics_history(session, usuario.id, as_of=hoy, days=30)
+
+        assert historial == []
+
+    def test_no_mezcla_datos_de_otro_usuario(self, session, usuario):
+        hoy = date(2026, 8, 10)
+        otro = UserProfile(
+            nombre="Otro", altura_cm=170.0, fecha_nacimiento=date(1990, 1, 1), sexo="F"
+        )
+        session.add(otro)
+        session.commit()
+        session.add(GarminDailyMetrics(user_id=otro.id, fecha=hoy, hrv_value=99.0))
+        session.add(GarminDailyMetrics(user_id=usuario.id, fecha=hoy, hrv_value=50.0))
+        session.commit()
+
+        historial = get_daily_metrics_history(session, usuario.id, as_of=hoy, days=7)
+
+        assert len(historial) == 1
+        assert historial[0].hrv_value == 50.0
+
+    def test_campos_none_se_devuelven_honestamente_sin_rellenar(self, session, usuario):
+        # "unknown is not zero": un día sin stress_avg/vo2max debe
+        # seguir viniendo como None, nunca interpolado ni puesto a 0.
+        hoy = date(2026, 8, 10)
+        session.add(GarminDailyMetrics(user_id=usuario.id, fecha=hoy, hrv_value=50.0))
+        session.commit()
+
+        historial = get_daily_metrics_history(session, usuario.id, as_of=hoy, days=1)
+
+        assert historial[0].stress_avg is None
+        assert historial[0].vo2max is None
+        assert historial[0].resting_hr is None
+
+    def test_deduplica_quedandose_con_la_ultima_sincronizacion_del_dia(self, session, usuario):
+        # La tabla es append-only sin UNIQUE(user_id, fecha) - un mismo
+        # día puede tener varias filas (escenario real observado: el
+        # scheduler + una sincronización manual el mismo día generaron
+        # 3 filas para la misma fecha). El histórico de UNA gráfica de
+        # tendencia debe entregar UN punto por día - "última gana" (id
+        # más alto), mismo criterio que dedupeUltimaPorDia del frontend
+        # aplica hoy a WeightTrendCard/ReadinessTrendCard, para no
+        # obligar a cada consumidor nuevo a recordar deduplicar.
+        hoy = date(2026, 8, 10)
+        session.add(GarminDailyMetrics(user_id=usuario.id, fecha=hoy, hrv_value=40.0))
+        session.add(GarminDailyMetrics(user_id=usuario.id, fecha=hoy, hrv_value=45.0))
+        session.add(GarminDailyMetrics(user_id=usuario.id, fecha=hoy, hrv_value=50.0))
+        session.commit()
+
+        historial = get_daily_metrics_history(session, usuario.id, as_of=hoy, days=1)
+
+        assert len(historial) == 1
+        assert historial[0].hrv_value == 50.0
+
+    def test_border_exacto_dias_dentro_dias_mas_uno_fuera(self, session, usuario):
+        hoy = date(2026, 8, 10)
+        session.add(GarminDailyMetrics(user_id=usuario.id, fecha=hoy - timedelta(days=6), hrv_value=1.0))
+        session.add(GarminDailyMetrics(user_id=usuario.id, fecha=hoy - timedelta(days=7), hrv_value=2.0))
+        session.commit()
+
+        historial = get_daily_metrics_history(session, usuario.id, as_of=hoy, days=7)
+
+        fechas = [f.fecha for f in historial]
+        assert hoy - timedelta(days=6) in fechas
+        assert hoy - timedelta(days=7) not in fechas

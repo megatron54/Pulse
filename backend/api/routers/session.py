@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from datetime import date
 
 from fastapi import APIRouter, Depends, Query
@@ -8,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from api.dependencies import get_db, verify_api_key
 from api.schemas import DailySessionOut, DailySessionRequest, TrainingLoadOut
-from coach.gemini_client import GeminiClient
+from coach.gemini_client import build_gemini_client_if_configured
 from coach.narrative_service import generate_session_narrative
 from engine.periodization import SessionType
 from repositories.readiness_log_repository import get_latest_readiness_level
@@ -20,17 +19,6 @@ router = APIRouter(
     tags=["session"],
     dependencies=[Depends(verify_api_key)],
 )
-
-
-def _build_gemini_client_if_configured() -> GeminiClient | None:
-    """La IA es opcional y no autoritativa (ver docs/00-research/
-    07-arquitectura-coach-ia.md): si no hay GEMINI_API_KEY configurada,
-    la Capa 3 usa su plantilla determinista de respaldo sin que el
-    endpoint falle ni se degrade la decisión estructurada."""
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        return None
-    return GeminiClient(api_key=api_key)
 
 
 @router.post("/daily", response_model=DailySessionOut)
@@ -58,7 +46,7 @@ def get_daily_session(
         )
 
     narrativa = generate_session_narrative(
-        recomendacion, readiness=readiness, gemini_client=_build_gemini_client_if_configured()
+        recomendacion, readiness=readiness, gemini_client=build_gemini_client_if_configured()
     )
 
     return DailySessionOut(

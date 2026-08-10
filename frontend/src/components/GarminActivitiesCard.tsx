@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Watch } from "lucide-react";
 import { api, ApiError, type GarminActivity } from "@/lib/api";
+import { formatDistancia, formatDuracion } from "@/lib/activityFormat";
 import { Card, CardTitle } from "./ui/Card";
 import { EmptyState } from "./ui/EmptyState";
 import { ErrorState } from "./ui/ErrorState";
@@ -18,16 +19,6 @@ import { LoadingState } from "./ui/LoadingState";
  * ese estado con honestidad (mismo principio que el resto de la app),
  * nunca una maqueta de actividades fabricadas.
  */
-function formatDuracion(seg: number | null): string {
-  if (seg === null) return "—";
-  const minutos = Math.round(seg / 60);
-  return `${minutos} min`;
-}
-
-function formatDistancia(m: number | null): string {
-  if (m === null) return "—";
-  return `${(m / 1000).toFixed(1)} km`;
-}
 
 export function GarminActivitiesCard({ userId }: { userId: number }) {
   const [actividades, setActividades] = useState<GarminActivity[] | null>(null);
@@ -74,15 +65,15 @@ export function GarminActivitiesCard({ userId }: { userId: number }) {
           {actividades.map((act) => (
             <div
               key={act.activity_id}
-              className="flex items-center justify-between rounded-lg bg-black/30 px-3 py-2 text-sm"
+              className="flex items-center justify-between rounded-lg bg-surface-muted px-3 py-2 text-sm"
             >
               <div>
-                <p className="text-white capitalize">{act.tipo.replace(/_/g, " ")}</p>
-                <p className="text-gray-400 text-xs">{act.fecha}</p>
+                <p className="text-foreground capitalize">{act.tipo.replace(/_/g, " ")}</p>
+                <p className="text-text-secondary text-xs">{act.fecha}</p>
               </div>
-              <div className="text-right text-gray-300">
+              <div className="text-right text-text-secondary">
                 <p>{formatDuracion(act.duracion_seg)}</p>
-                <p className="text-xs text-gray-400">{formatDistancia(act.distancia_m)}</p>
+                <p className="text-xs text-text-secondary">{formatDistancia(act.distancia_m)}</p>
               </div>
             </div>
           ))}

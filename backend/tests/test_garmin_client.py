@@ -152,18 +152,27 @@ class TestGetDailyRecoveryRaw:
 
     def test_combina_los_cuatro_campos_de_recuperacion(self):
         fake_api = MagicMock()
-        fake_api.get_hrv_data.return_value = {"hrvSummary": {"lastNightAvg": 65}}
+        fake_api.get_hrv_data.return_value = {"hrvSummary": {"lastNightAvg": 65, "status": "BALANCED"}}
         fake_api.get_training_readiness.return_value = [{"level": "HIGH"}]
         fake_api.get_body_battery.return_value = [{"charged": 80, "drained": 10}]
         fake_api.get_sleep_data.return_value = {"dailySleepDTO": {"sleepScores": {"overall": {"value": 85}}}}
+        fake_api.get_stress_data.return_value = {"avgStressLevel": 25}
+        fake_api.get_rhr_day.return_value = {
+            "allMetrics": {"metricsMap": {"WELLNESS_RESTING_HEART_RATE": [{"value": 54.0}]}}
+        }
+        fake_api.get_max_metrics.return_value = [{"generic": {"vo2MaxPreciseValue": 47.5}}]
 
         client = self._client_logueado(fake_api)
         raw = client.get_daily_recovery_raw("2026-08-02")
 
         assert raw["hrv_today"] == 65
+        assert raw["hrv_status"] == "BALANCED"
         assert raw["training_readiness"] == "high"
         assert raw["body_battery_am"] == 80
         assert raw["sleep_score"] == 85
+        assert raw["stress_avg"] == 25
+        assert raw["resting_hr"] == 54
+        assert raw["vo2max"] == 47.5
         fake_api.get_hrv_data.assert_called_once_with("2026-08-02")
 
     def test_un_campo_fallido_no_tumba_a_los_demas(self):
@@ -174,14 +183,23 @@ class TestGetDailyRecoveryRaw:
         fake_api.get_training_readiness.return_value = [{"level": "MODERATE"}]
         fake_api.get_body_battery.return_value = [{"charged": 55, "drained": 5}]
         fake_api.get_sleep_data.return_value = {"dailySleepDTO": {"sleepScores": {"overall": {"value": 70}}}}
+        fake_api.get_stress_data.side_effect = Exception("temporalmente caído")
+        fake_api.get_rhr_day.return_value = {
+            "allMetrics": {"metricsMap": {"WELLNESS_RESTING_HEART_RATE": [{"value": 60.0}]}}
+        }
+        fake_api.get_max_metrics.return_value = []
 
         client = self._client_logueado(fake_api)
         raw = client.get_daily_recovery_raw("2026-08-02")
 
         assert raw["hrv_today"] is None
+        assert raw["hrv_status"] is None
         assert raw["training_readiness"] == "moderate"
         assert raw["body_battery_am"] == 55
         assert raw["sleep_score"] == 70
+        assert raw["stress_avg"] is None
+        assert raw["resting_hr"] == 60
+        assert raw["vo2max"] is None
 
     def test_payload_vacio_o_inesperado_da_none_en_vez_de_lanzar(self):
         fake_api = MagicMock()
@@ -189,14 +207,21 @@ class TestGetDailyRecoveryRaw:
         fake_api.get_training_readiness.return_value = []
         fake_api.get_body_battery.return_value = None
         fake_api.get_sleep_data.return_value = {"dailySleepDTO": {}}
+        fake_api.get_stress_data.return_value = {}
+        fake_api.get_rhr_day.return_value = {"allMetrics": {"metricsMap": {}}}
+        fake_api.get_max_metrics.return_value = None
 
         client = self._client_logueado(fake_api)
         raw = client.get_daily_recovery_raw("2026-08-02")
 
         assert raw["hrv_today"] is None
+        assert raw["hrv_status"] is None
         assert raw["training_readiness"] is None
         assert raw["body_battery_am"] is None
         assert raw["sleep_score"] is None
+        assert raw["stress_avg"] is None
+        assert raw["resting_hr"] is None
+        assert raw["vo2max"] is None
 
     def test_conserva_el_payload_crudo_para_auditoria_y_reprocesado(self):
         fake_api = MagicMock()
@@ -204,12 +229,18 @@ class TestGetDailyRecoveryRaw:
         fake_api.get_training_readiness.return_value = [{"level": "LOW"}]
         fake_api.get_body_battery.return_value = [{"charged": 40, "drained": 20}]
         fake_api.get_sleep_data.return_value = {"dailySleepDTO": {"sleepScores": {"overall": {"value": 55}}}}
+        fake_api.get_stress_data.return_value = {"avgStressLevel": 30}
+        fake_api.get_rhr_day.return_value = {}
+        fake_api.get_max_metrics.return_value = []
 
         client = self._client_logueado(fake_api)
         raw = client.get_daily_recovery_raw("2026-08-02")
 
         assert "raw_json" in raw
         assert raw["raw_json"]["hrv"] == {"hrvSummary": {"lastNightAvg": 60}}
+        assert raw["raw_json"]["stress"] == {"avgStressLevel": 30}
+        assert raw["raw_json"]["rhr"] == {}
+        assert raw["raw_json"]["max_metrics"] == []
 
     def test_rechaza_fecha_con_formato_invalido(self):
         fake_api = MagicMock()
@@ -220,6 +251,27 @@ class TestGetDailyRecoveryRaw:
             client.get_daily_recovery_raw("no-es-una-fecha")
         # No debe haber llegado a llamar a la API con una fecha inválida.
         fake_api.get_hrv_data.assert_not_called()
+
+    def test_resting_hr_cero_o_negativo_se_trata_como_ausente(self):
+        # No se pudo confirmar contra un payload real si Garmin usa un
+        # centinela negativo aquí (como sí confirmado en stress) - por
+        # prudencia se descarta igual, un pulso en reposo real nunca es
+        # <=0 (ver docstring de _extraer_resting_hr).
+        fake_api = MagicMock()
+        fake_api.get_hrv_data.return_value = {}
+        fake_api.get_training_readiness.return_value = []
+        fake_api.get_body_battery.return_value = None
+        fake_api.get_sleep_data.return_value = {}
+        fake_api.get_stress_data.return_value = {}
+        fake_api.get_rhr_day.return_value = {
+            "allMetrics": {"metricsMap": {"WELLNESS_RESTING_HEART_RATE": [{"value": 0}]}}
+        }
+        fake_api.get_max_metrics.return_value = []
+
+        client = self._client_logueado(fake_api)
+        raw = client.get_daily_recovery_raw("2026-08-02")
+
+        assert raw["resting_hr"] is None
 
 
 class TestGetActivitiesRaw:
@@ -277,3 +329,78 @@ class TestGetActivitiesRaw:
         with pytest.raises(ValueError):
             client.get_activities_raw("2026-08-01", "no-es-una-fecha")
         fake_api.get_activities_by_date.assert_not_called()
+
+
+class TestGetUserProfileRaw:
+    """Épica de conexión Garmin desde la propia app (petición explícita
+    del usuario: "sin cuenta local, que al conectar Garmin se saquen
+    esos datos de ahí"). Verificado contra el JSON real de una cuenta
+    Garmin real (docker exec pulse-scheduler-1, sesión de esta épica):
+    `get_user_profile()` expone `userData.{gender,weight,height,birthDate}`,
+    y `get_full_name()` expone el nombre para mostrar."""
+
+    def _client_logueado(self, fake_api):
+        client = GarminClient(
+            token_store_dir="C:/fake/.garminconnect",
+            api_factory=_fake_api_factory(fake_api),
+        )
+        client.login()
+        return client
+
+    def test_devuelve_nombre_altura_peso_fecha_nacimiento_y_sexo(self):
+        fake_api = MagicMock()
+        fake_api.get_full_name.return_value = "Miguel"
+        fake_api.get_user_profile.return_value = {
+            "userData": {
+                "gender": "MALE",
+                "weight": 77100.0,
+                "height": 176.0,
+                "birthDate": "2002-11-28",
+            }
+        }
+        client = self._client_logueado(fake_api)
+
+        perfil = client.get_user_profile_raw()
+
+        assert perfil == {
+            "nombre": "Miguel",
+            "sexo": "M",
+            "altura_cm": 176.0,
+            "peso_kg": 77.1,
+            "fecha_nacimiento": "2002-11-28",
+        }
+
+    def test_sexo_female_se_mapea_a_f(self):
+        fake_api = MagicMock()
+        fake_api.get_full_name.return_value = "Ana"
+        fake_api.get_user_profile.return_value = {
+            "userData": {"gender": "FEMALE", "weight": 60000.0, "height": 165.0, "birthDate": "1990-01-01"}
+        }
+        client = self._client_logueado(fake_api)
+
+        assert client.get_user_profile_raw()["sexo"] == "F"
+
+    def test_campos_ausentes_o_none_quedan_none_no_inventados(self):
+        # "unknown is not zero": si Garmin no da un campo (cuenta nueva
+        # sin configurar peso/altura, p.ej.), nunca se inventa un 0.
+        fake_api = MagicMock()
+        fake_api.get_full_name.return_value = "Sin Datos"
+        fake_api.get_user_profile.return_value = {
+            "userData": {"gender": None, "weight": None, "height": None, "birthDate": None}
+        }
+        client = self._client_logueado(fake_api)
+
+        perfil = client.get_user_profile_raw()
+        assert perfil["sexo"] is None
+        assert perfil["altura_cm"] is None
+        assert perfil["peso_kg"] is None
+        assert perfil["fecha_nacimiento"] is None
+
+    def test_operar_sin_login_previo_lanza_runtime_error(self):
+        fake_api = MagicMock()
+        client = GarminClient(
+            token_store_dir="C:/fake/.garminconnect",
+            api_factory=_fake_api_factory(fake_api),
+        )
+        with pytest.raises(RuntimeError):
+            client.get_user_profile_raw()

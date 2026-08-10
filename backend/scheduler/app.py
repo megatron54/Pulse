@@ -24,6 +24,7 @@ from apscheduler.triggers.cron import CronTrigger
 from models.database import get_session
 from services.scheduler_service import (
     run_daily_activity_sync_for_all_users,
+    run_daily_feelfit_sync_for_all_users,
     run_daily_sync_for_all_users,
 )
 
@@ -35,6 +36,11 @@ _MINUTO_POR_DEFECTO = "0"
 # mismo usuario, sin necesidad real de paralelismo entre ambos jobs).
 _HORA_ACTIVIDADES_POR_DEFECTO = "4"
 _MINUTO_ACTIVIDADES_POR_DEFECTO = "15"
+# Feelfit corre 30 min después (fuente independiente de Garmin, sin
+# relación de orden real con los otros dos jobs - solo se espacia para
+# no competir por conexión a la base de datos en el mismo instante).
+_HORA_FEELFIT_POR_DEFECTO = "4"
+_MINUTO_FEELFIT_POR_DEFECTO = "30"
 
 
 def job_sincronizacion_diaria() -> None:
@@ -79,6 +85,26 @@ def job_sincronizacion_actividades() -> None:
         session.close()
 
 
+def job_sincronizacion_feelfit() -> None:
+    """Mismo patrón de aislamiento que los jobs de Garmin, para la
+    báscula Feelfit (petición explícita del usuario, ver docstring de
+    `run_daily_feelfit_sync_for_all_users`) - fuente totalmente
+    independiente de Garmin, con su propia tabla de credenciales."""
+    session = get_session()
+    try:
+        resultado = run_daily_feelfit_sync_for_all_users(session)
+        logger.info(
+            "sync de Feelfit completado: exitosos=%s fallidos=%s omitidos=%s",
+            resultado.exitosos,
+            resultado.fallidos,
+            resultado.omitidos,
+        )
+    except Exception:  # noqa: BLE001 - el proceso del scheduler debe sobrevivir
+        logger.exception("Fallo inesperado en el batch de sincronización de Feelfit")
+    finally:
+        session.close()
+
+
 def build_scheduler() -> BlockingScheduler:
     hora = os.environ.get("PULSE_SCHEDULER_HORA", _HORA_POR_DEFECTO)
     minuto = os.environ.get("PULSE_SCHEDULER_MINUTO", _MINUTO_POR_DEFECTO)
@@ -87,6 +113,10 @@ def build_scheduler() -> BlockingScheduler:
     )
     minuto_actividades = os.environ.get(
         "PULSE_SCHEDULER_ACTIVIDADES_MINUTO", _MINUTO_ACTIVIDADES_POR_DEFECTO
+    )
+    hora_feelfit = os.environ.get("PULSE_SCHEDULER_FEELFIT_HORA", _HORA_FEELFIT_POR_DEFECTO)
+    minuto_feelfit = os.environ.get(
+        "PULSE_SCHEDULER_FEELFIT_MINUTO", _MINUTO_FEELFIT_POR_DEFECTO
     )
 
     scheduler = BlockingScheduler()
@@ -100,6 +130,12 @@ def build_scheduler() -> BlockingScheduler:
         job_sincronizacion_actividades,
         trigger=CronTrigger(hour=hora_actividades, minute=minuto_actividades),
         id="sync_actividades_garmin",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        job_sincronizacion_feelfit,
+        trigger=CronTrigger(hour=hora_feelfit, minute=minuto_feelfit),
+        id="sync_feelfit",
         replace_existing=True,
     )
     return scheduler
