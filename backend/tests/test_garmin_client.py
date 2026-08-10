@@ -329,3 +329,78 @@ class TestGetActivitiesRaw:
         with pytest.raises(ValueError):
             client.get_activities_raw("2026-08-01", "no-es-una-fecha")
         fake_api.get_activities_by_date.assert_not_called()
+
+
+class TestGetUserProfileRaw:
+    """Épica de conexión Garmin desde la propia app (petición explícita
+    del usuario: "sin cuenta local, que al conectar Garmin se saquen
+    esos datos de ahí"). Verificado contra el JSON real de una cuenta
+    Garmin real (docker exec pulse-scheduler-1, sesión de esta épica):
+    `get_user_profile()` expone `userData.{gender,weight,height,birthDate}`,
+    y `get_full_name()` expone el nombre para mostrar."""
+
+    def _client_logueado(self, fake_api):
+        client = GarminClient(
+            token_store_dir="C:/fake/.garminconnect",
+            api_factory=_fake_api_factory(fake_api),
+        )
+        client.login()
+        return client
+
+    def test_devuelve_nombre_altura_peso_fecha_nacimiento_y_sexo(self):
+        fake_api = MagicMock()
+        fake_api.get_full_name.return_value = "Miguel"
+        fake_api.get_user_profile.return_value = {
+            "userData": {
+                "gender": "MALE",
+                "weight": 77100.0,
+                "height": 176.0,
+                "birthDate": "2002-11-28",
+            }
+        }
+        client = self._client_logueado(fake_api)
+
+        perfil = client.get_user_profile_raw()
+
+        assert perfil == {
+            "nombre": "Miguel",
+            "sexo": "M",
+            "altura_cm": 176.0,
+            "peso_kg": 77.1,
+            "fecha_nacimiento": "2002-11-28",
+        }
+
+    def test_sexo_female_se_mapea_a_f(self):
+        fake_api = MagicMock()
+        fake_api.get_full_name.return_value = "Ana"
+        fake_api.get_user_profile.return_value = {
+            "userData": {"gender": "FEMALE", "weight": 60000.0, "height": 165.0, "birthDate": "1990-01-01"}
+        }
+        client = self._client_logueado(fake_api)
+
+        assert client.get_user_profile_raw()["sexo"] == "F"
+
+    def test_campos_ausentes_o_none_quedan_none_no_inventados(self):
+        # "unknown is not zero": si Garmin no da un campo (cuenta nueva
+        # sin configurar peso/altura, p.ej.), nunca se inventa un 0.
+        fake_api = MagicMock()
+        fake_api.get_full_name.return_value = "Sin Datos"
+        fake_api.get_user_profile.return_value = {
+            "userData": {"gender": None, "weight": None, "height": None, "birthDate": None}
+        }
+        client = self._client_logueado(fake_api)
+
+        perfil = client.get_user_profile_raw()
+        assert perfil["sexo"] is None
+        assert perfil["altura_cm"] is None
+        assert perfil["peso_kg"] is None
+        assert perfil["fecha_nacimiento"] is None
+
+    def test_operar_sin_login_previo_lanza_runtime_error(self):
+        fake_api = MagicMock()
+        client = GarminClient(
+            token_store_dir="C:/fake/.garminconnect",
+            api_factory=_fake_api_factory(fake_api),
+        )
+        with pytest.raises(RuntimeError):
+            client.get_user_profile_raw()

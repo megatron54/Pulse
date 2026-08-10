@@ -348,3 +348,40 @@ class GarminClient:
 
         actividades = self._api.get_activities_by_date(start_date_str, end_date_str)
         return actividades or []
+
+    def get_user_profile_raw(self) -> dict[str, Any]:
+        """Perfil básico del usuario (nombre, altura, peso, fecha de
+        nacimiento, sexo) - Épica de conexión Garmin desde la propia app
+        (petición explícita del usuario: "sin cuenta local, que al
+        conectar Garmin se saquen esos datos de ahí" en vez de un
+        formulario manual de onboarding).
+
+        Verificado contra el JSON real de una cuenta Garmin real (no solo
+        contra la firma pública de la librería): `get_user_profile()`
+        expone estos campos bajo `userData`, en gramos/cm/ISO-date;
+        `get_full_name()` es una llamada aparte para el nombre a mostrar.
+        Gramos -> kg dividiendo entre 1000 (mismo criterio que el resto
+        de la app, que trabaja en kg).
+
+        "unknown is not zero": cualquier campo ausente o `None` en el
+        payload de Garmin se propaga como `None`, nunca como un 0/fecha
+        inventada - la capa llamante (onboarding) decide qué hacer con
+        un perfil incompleto (pedir el campo que falte, nunca los que sí
+        vinieron)."""
+        if self._api is None:
+            raise RuntimeError("login() debe llamarse antes de sincronizar datos")
+
+        nombre = self._api.get_full_name()
+        datos = (self._api.get_user_profile() or {}).get("userData") or {}
+
+        genero = datos.get("gender")
+        sexo = {"MALE": "M", "FEMALE": "F"}.get(genero) if genero else None
+        peso_g = datos.get("weight")
+
+        return {
+            "nombre": nombre,
+            "sexo": sexo,
+            "altura_cm": datos.get("height"),
+            "peso_kg": (peso_g / 1000) if peso_g is not None else None,
+            "fecha_nacimiento": datos.get("birthDate"),
+        }

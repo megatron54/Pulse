@@ -21,7 +21,7 @@ describe("AppShell", () => {
       user: null,
       loading: true,
       error: null,
-      createUser: vi.fn(),
+      loginUser: vi.fn(),
     });
     render(
       <AppShell>
@@ -37,14 +37,14 @@ describe("AppShell", () => {
       user: null,
       loading: false,
       error: null,
-      createUser: vi.fn(),
+      loginUser: vi.fn(),
     });
     render(
       <AppShell>
         <p>Contenido de la página</p>
       </AppShell>
     );
-    expect(screen.getByText("Configura tu perfil")).toBeInTheDocument();
+    expect(screen.getByText("Conecta tu cuenta de Garmin")).toBeInTheDocument();
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
     expect(screen.queryByText("Contenido de la página")).not.toBeInTheDocument();
   });
@@ -54,7 +54,7 @@ describe("AppShell", () => {
       user: null,
       loading: false,
       error: "fallo al crear usuario",
-      createUser: vi.fn(),
+      loginUser: vi.fn(),
     });
     render(
       <AppShell>
@@ -76,7 +76,7 @@ describe("AppShell", () => {
       },
       loading: false,
       error: null,
-      createUser: vi.fn(),
+      loginUser: vi.fn(),
     });
     render(
       <AppShell>
