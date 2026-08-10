@@ -1,36 +1,45 @@
 # Pulse — Entrenador personal con IA (multi-deporte, multi-objetivo)
 
+<img src="docs/assets/pulse-logo-128.png" alt="Logo de Pulse: mancuerna blanca sobre fondo negro" width="80" align="right" />
+
+![Version](https://img.shields.io/badge/version-0.2.0-success?style=flat-square)
 ![Python](https://img.shields.io/badge/-Python-3776AB?style=flat-square&logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/-FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
 ![Next.js](https://img.shields.io/badge/-Next.js-000000?style=flat-square&logo=nextdotjs&logoColor=white)
+![Tauri](https://img.shields.io/badge/-Tauri-FFC131?style=flat-square&logo=tauri&logoColor=black)
 ![PostgreSQL](https://img.shields.io/badge/-PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/-Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
 ![Playwright](https://img.shields.io/badge/-Playwright-2EAD33?style=flat-square&logo=playwright&logoColor=white)
 ![TDD](https://img.shields.io/badge/tests-TDD%20~100%25%20engine-success?style=flat-square)
 
-> App personal (móvil + escritorio) que actúa como entrenador y nutricionista, integrando datos reales de Garmin, wger (ejercicios/nutrición) y objetivos múltiples (fuerza, hipertrofia, running, artes marciales, composición corporal, cortes de peso).
+> App personal (móvil + escritorio) que actúa como entrenador y nutricionista, integrando datos reales de Garmin, báscula Feelfit, wger (ejercicios) y objetivos múltiples (fuerza, hipertrofia, running, artes marciales, composición corporal, cortes de peso).
+
+## Descargar
+
+La build de escritorio (Windows) se publica en [**GitHub Releases**](https://github.com/megatron54/Pulse/releases) — ver [`CHANGELOG.md`](CHANGELOG.md) para el detalle de cada versión. Es una app nativa (Tauri) que empaqueta el backend como sidecar + SQLite local, pensada para un único usuario en su propia máquina (no un producto multiusuario).
 
 ## Estado del proyecto
 
-**Fase actual:** aplicación funcional en uso real (mono-usuario), con Garmin Connect real emparejado y sincronizando. Backend (FastAPI) + frontend (Next.js) + Postgres, todo en Docker o local. Desarrollo continuo con TDD estricto, revisión de código antes de cada merge, y verificación manual real (Playwright) además de tests automatizados.
+**Fase actual (v0.2.0):** aplicación funcional en uso real (mono-usuario), con Garmin Connect y báscula Feelfit reales conectados y sincronizando automáticamente. Backend (FastAPI) + frontend (Next.js) + Postgres, todo en Docker o local — más una build de escritorio nativa (Tauri) en marcha. Desarrollo continuo con TDD estricto, revisión de código antes de cada merge, y verificación manual real (Playwright) además de tests automatizados.
 
 **Documento vivo de seguimiento:** [`02-roadmap/03-vision-produccion.md`](02-roadmap/03-vision-produccion.md) — épicas hechas/pendientes, hallazgos de investigación, decisiones de diseño. Léelo antes de retomar el trabajo para no repetir investigación ya hecha.
 
 ## Arquitectura en 3 capas
 
 1. **Capa 1 — Motor de reglas determinista** (`backend/engine/`): decide nutrición, progresión, periodización, readiness (semáforo RED/YELLOW/GREEN) y guardrails de seguridad. Sin llamadas a red ni a IA. Cobertura de tests ~100% — es la capa que toma decisiones que importan.
-2. **Capa 2 — Servicios/API** (`backend/services/`, `backend/api/`): orquesta la Capa 1 con datos reales (Garmin, wger) y los expone vía REST.
+2. **Capa 2 — Servicios/API** (`backend/services/`, `backend/api/`): orquesta la Capa 1 con datos reales (Garmin, Feelfit, wger) y los expone vía REST.
 3. **Capa 3 — Coach conversacional** (`backend/coach/`): IA (Gemini, con fallback determinista) que **explica** las decisiones ya tomadas por la Capa 1 — nunca decide por su cuenta.
 
 Detalle completo en [`01-arquitectura/`](01-arquitectura/).
 
 ## Qué funciona hoy
 
-- **Garmin Connect real**: emparejamiento seguro (`backend/scripts/garmin_pair.py`), sincronización nocturna automática de recovery (HRV/Body Battery/sleep/training readiness, cuando el dispositivo lo soporta) y actividades — corre como servicio Docker propio (`scheduler`), no depende de dejar un terminal manual abierto.
-- **wger**: catálogo de ejercicios, diario de comidas real (vía el propio wger del usuario, token permanente).
-- **Motor de reglas**: nutrición (TDEE + macros por fase), progresión (1RM, doble progresión, autorregulación RIR/APRE), periodización (readiness diario, ACWR real), guardrails (deload forzado, pausa de déficit por mala recuperación sostenida).
+- **Garmin Connect real**: único mecanismo de alta de usuario (sin onboarding manual), backfill histórico automático, sincronización nocturna de recovery (HRV/Body Battery/sleep/training readiness/estrés minuto a minuto) y actividades — corre como servicio Docker propio (`scheduler`).
+- **Báscula Feelfit real**: conexión custom vía la API de la báscula, sincronización nocturna automática de peso/composición corporal.
+- **wger**: catálogo de ejercicios (el diario de comidas ya no usa wger, ver más abajo).
+- **Motor de reglas**: nutrición (TDEE + macros por fase), planes de fase de peso con duración determinada (déficit/mantenimiento/recomposición/superávit — el sistema recomienda, el usuario confirma), progresión (1RM, doble progresión, autorregulación RIR/APRE), periodización (readiness diario, ACWR real), guardrails (deload forzado, pausa de déficit por mala recuperación sostenida).
 - **Diario de hábitos** correlacionado con recovery (estilo WHOOP Journal), resumen periódico de tendencias.
-- **Frontend**: dashboard visual (gráficas reales, no listados) estilo WHOOP/Apple Health/Samsung Health — ver [`frontend/README.md`](frontend/README.md).
+- **Frontend**: dashboard visual (gráficas reales, no listados), design system propio Apple-clean con tema claro/oscuro real — ver [`frontend/README.md`](frontend/README.md).
 
 ## Quickstart
 
@@ -44,7 +53,17 @@ docker compose up -d --build
 - Backend: http://localhost:8000 (docs interactivas en `/docs`)
 - Frontend: http://localhost:3000
 
-Esto levanta los 4 servicios (Postgres, backend, frontend, y el scheduler nocturno de Garmin) — `docker compose ps` debe mostrar los 4 como `healthy`. Ver [`DEPLOYMENT.md`](DEPLOYMENT.md) para variables de entorno y verificación. Para desarrollo local sin Docker del backend/frontend (solo Postgres en Docker), ver [`backend/README.md`](backend/README.md) y [`frontend/README.md`](frontend/README.md).
+Esto levanta los 4 servicios (Postgres, backend, frontend, y el scheduler nocturno de Garmin/Feelfit) — `docker compose ps` debe mostrar los 4 como `healthy`. Ver [`DEPLOYMENT.md`](DEPLOYMENT.md) para variables de entorno y verificación. Para desarrollo local sin Docker del backend/frontend (solo Postgres en Docker), ver [`backend/README.md`](backend/README.md) y [`frontend/README.md`](frontend/README.md).
+
+### App de escritorio (Tauri)
+
+Prueba de concepto funcional: backend empaquetado como sidecar + SQLite local, sin depender de Docker/Postgres. Ver [`frontend/src-tauri/`](frontend/src-tauri/) y [`00-research/09-app-nativa-escritorio.md`](00-research/09-app-nativa-escritorio.md). Para generar el instalable localmente:
+
+```powershell
+cd frontend
+npm run tauri build
+# instaladores en frontend/src-tauri/target/release/bundle/{msi,nsis}/
+```
 
 ## Índice de documentación
 
@@ -78,7 +97,7 @@ Esto levanta los 4 servicios (Postgres, backend, frontend, y el scheduler noctur
 - **TDD real**: tests antes que implementación, revisión de código antes de cada merge.
 - **Nunca falsa precisión**: rangos donde el dominio es incierto, categorías donde el motor es categórico. Ninguna métrica se fabrica cuando faltan datos ("unknown is not zero").
 - **La IA nunca decide**, solo explica una decisión ya tomada por reglas deterministas auditables.
-- **Reutilizar antes que reinventar**: wger antes que una integración externa nueva; cuando ni eso sirve, se documenta honestamente que no hay integración viable en vez de prometerla.
+- **Reutilizar antes que reinventar**: wger antes que una integración externa nueva; cuando ni eso sirve (ej. diario de comidas, báscula Feelfit), se construye un motor/cliente propio en vez de forzar un encaje que no tiene sentido, y se documenta la decisión.
 
 ## Autor
 
