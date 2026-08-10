@@ -4,18 +4,18 @@ import { motion, useReducedMotion } from "motion/react";
 import { PALETA } from "@/lib/theme";
 
 /**
- * Anillo circular de recovery, estilo WHOOP (ver guía oficial de marca
- * "WHOOP - Brand & Design Guidelines" - colores exactos, no aproximados):
- * - Verde #16EC06: recovery alta (67-100%).
- * - Amarillo #FFDE00: recovery media (34-66%).
- * - Rojo #FF0026: recovery baja (0-33%).
+ * Anillo circular de recovery (colores de la paleta activa, ver
+ * `lib/theme.ts` - rediseño estilo Apple, systemGreen/Yellow/Red):
+ * - Verde: recovery alta (67-100%).
+ * - Amarillo: recovery media (34-66%).
+ * - Rojo: recovery baja (0-33%).
  *
  * El color se puede fijar explícitamente (`zone`) - útil cuando el
  * dato ya viene clasificado por el motor de reglas del backend
  * (verde/amarillo/rojo) - o derivarse del porcentaje con los mismos
- * umbrales que documenta WHOOP, para reutilizar este componente con
- * cualquier métrica 0-100 que necesite su propio anillo (Sleep,
- * Strain normalizado, etc.).
+ * umbrales de zona, para reutilizar este componente con cualquier
+ * métrica 0-100 que necesite su propio anillo (Sleep, Strain
+ * normalizado, etc.).
  *
  * Accesibilidad (WCAG 1.4.1): el significado nunca depende solo del
  * color - el propio `aria-label` del SVG describe la etiqueta, el
@@ -45,9 +45,9 @@ const RADIO = 54;
 const CIRCUNFERENCIA = 2 * Math.PI * RADIO;
 
 // Punto representativo del ARCO (nunca mostrado como número) para el
-// modo categórico - mismos puntos medios de zona que documenta la
-// guía de marca de WHOOP, usados SOLO para dar lenguaje visual al
-// relleno del anillo, nunca como una cifra visible al usuario.
+// modo categórico - punto medio de cada tercio de zona, usado SOLO
+// para dar lenguaje visual al relleno del anillo, nunca como una cifra
+// visible al usuario.
 const PERCENT_REPRESENTATIVO_POR_ZONA: Record<Zone, number> = {
   green: 83,
   yellow: 50,

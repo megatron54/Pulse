@@ -11,8 +11,7 @@ import { ErrorState } from "./ui/ErrorState";
 import { LoadingState } from "./ui/LoadingState";
 import { springs } from "@/lib/motion-tokens";
 
-// Colores exactos de la guía de marca de WHOOP para zonas de recovery
-// ("WHOOP - Brand & Design Guidelines"), vía los tokens de tema
+// Colores semánticos de zona de recovery, vía los tokens de tema
 // definidos una sola vez en globals.css (--color-recovery-*) - no
 // arbitrary values `bg-[#hex]` duplicados por componente (code-review
 // M1: evita que el mismo hex viva repetido en N archivos).

@@ -21,7 +21,7 @@ export default function GimnasioPage() {
   return (
     <main className="p-6 md:p-8 max-w-5xl mx-auto w-full">
       <header className="mb-8">
-        <h1 className="font-display text-2xl font-bold tracking-wide text-white">Gimnasio</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-white">Gimnasio</h1>
         <p className="text-gray-400 mt-1">Tus sesiones de fuerza, sacadas de Garmin.</p>
       </header>
       <div className="grid grid-cols-1 gap-6 items-start">

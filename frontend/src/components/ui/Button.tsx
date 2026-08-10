@@ -23,12 +23,17 @@ import { motionTokens, springs } from "@/lib/motion-tokens";
 const BASE =
   "inline-flex items-center justify-center gap-2 rounded-lg font-semibold " +
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal " +
-  "focus-visible:ring-offset-2 focus-visible:ring-offset-surface " +
+  "focus-visible:ring-offset-2 focus-visible:ring-offset-surface-solid " +
   "disabled:cursor-not-allowed disabled:opacity-60";
 
 const VARIANTES = {
-  primary: `${BASE} bg-teal text-black px-4 py-2.5 text-sm disabled:bg-surface disabled:text-gray-400`,
-  strain: `${BASE} bg-strain text-white px-4 py-2.5 text-sm disabled:bg-surface disabled:text-gray-400`,
+  primary: `${BASE} bg-teal text-black px-4 py-2.5 text-sm disabled:bg-surface-solid disabled:text-gray-400`,
+  // text-black (no text-white): code-review del rediseño Apple detectó
+  // que el nuevo azul de sistema (#0A84FF) con texto blanco encima cae
+  // a ~3.6:1, por debajo de AA (4.5:1) para texto normal - con negro
+  // sube a ~5.9:1. El teal viejo de WHOOP (#0093E7, más oscuro) sí
+  // pasaba con blanco; el azul de sistema Apple es más claro.
+  strain: `${BASE} bg-strain text-black px-4 py-2.5 text-sm disabled:bg-surface-solid disabled:text-gray-400`,
   ghost:
     `${BASE} min-h-11 min-w-11 px-3 text-teal text-xs font-semibold uppercase tracking-wide ` +
     "hover:bg-teal/10 disabled:hover:bg-transparent",
