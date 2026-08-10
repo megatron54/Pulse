@@ -39,6 +39,31 @@ class UserOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class GarminConnectRequest(BaseModel):
+    """Alta de un usuario nuevo conectando su cuenta de Garmin
+    (services.garmin_onboarding_service.connect_new_user_via_garmin).
+    `email`/`password` nunca se persisten - solo viven en memoria
+    durante esta petición HTTP, igual que en `garmin_pair.py`.
+    `overrides` rellena ÚNICAMENTE los campos que Garmin no expuso
+    (petición explícita del usuario: nunca sobreescribir un dato real
+    de Garmin con uno introducido a mano)."""
+
+    email: str
+    password: str
+    nombre: str | None = None
+    altura_cm: float | None = Field(default=None, gt=0)
+    fecha_nacimiento: date | None = None
+    sexo: str | None = Field(default=None, pattern="^[MF]$")
+
+
+class GarminConnectIncompleteOut(BaseModel):
+    """422: Garmin no expuso todos los campos requeridos. El cliente
+    debe re-enviar la misma petición con `overrides` rellenando
+    SOLO estos campos - nunca los que ya vinieron de Garmin."""
+
+    campos_faltantes: list[str]
+
+
 class BodyMeasurementCreateRequest(BaseModel):
     target_date: date
     peso_kg: float = Field(gt=0)

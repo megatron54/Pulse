@@ -9,7 +9,15 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(
+    public status: number,
+    message: string,
+    // Detalle crudo del backend (`detail`) antes de aplanarlo a texto -
+    // necesario para 422 estructurados como
+    // GarminConnectIncompleteOut (`{campos_faltantes: [...]}`), donde
+    // el mensaje de texto por sí solo pierde la lista exacta de campos.
+    public detail?: unknown
+  ) {
     super(message);
     this.name = "ApiError";
   }
@@ -24,14 +32,15 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     },
   });
   if (!res.ok) {
-    let detail = res.statusText;
+    let detail: unknown = res.statusText;
     try {
       const body = await res.json();
       detail = body.detail ?? detail;
     } catch {
       // respuesta sin JSON (ej. 500 sin body) - se usa statusText
     }
-    throw new ApiError(res.status, detail);
+    const mensaje = typeof detail === "string" ? detail : res.statusText;
+    throw new ApiError(res.status, mensaje, detail);
   }
   // 204 / respuestas vacías
   const text = await res.text();
@@ -63,6 +72,19 @@ export type User = {
 };
 
 export type UserCreateInput = Omit<User, "id">;
+
+// Alta conectando Garmin (sustituye al formulario manual de perfil -
+// petición explícita del usuario). `overrides` solo debe incluir los
+// campos que el 422 previo (GarminConnectIncompleteOut) listó como
+// faltantes - nunca sobreescribir un dato que Garmin ya dio.
+export type GarminConnectInput = {
+  email: string;
+  password: string;
+  nombre?: string;
+  altura_cm?: number;
+  fecha_nacimiento?: string;
+  sexo?: "M" | "F";
+};
 
 export type BodyMeasurement = {
   id: number;
@@ -292,6 +314,8 @@ export const api = {
   createUser: (data: UserCreateInput) =>
     request<User>("/users", { method: "POST", body: JSON.stringify(data) }),
   getUser: (id: number) => request<User>(`/users/${id}`),
+  connectGarmin: (data: GarminConnectInput) =>
+    request<User>("/users/garmin-connect", { method: "POST", body: JSON.stringify(data) }),
 
   createBodyMeasurement: (userId: number, data: BodyMeasurementInput) =>
     request<BodyMeasurement>(`/users/${userId}/body-measurements`, {
