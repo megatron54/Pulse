@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 
 /**
- * Superficie de tarjeta oscura compartida (rediseño estilo WHOOP): fondo
- * ligeramente más claro que el degradado de la página, borde sutil,
- * esquinas redondeadas generosas. Reemplaza el `border rounded-lg p-6`
- * plano en blanco que usaban todas las tarjetas antes del rediseño.
+ * Superficie de tarjeta compartida (Design System v2 -
+ * 01-arquitectura/04-design-system-v2.md): un solo nivel de
+ * separación (borde sutil + sombra suave), sin materiales
+ * translúcidos decorativos. Funciona en claro/oscuro vía las
+ * variables de `globals.css`.
  */
 export function Card({
   children,
@@ -15,19 +16,16 @@ export function Card({
 }) {
   return (
     <div
-      className={`rounded-2xl border border-surface-border bg-surface p-6 shadow-lg shadow-black/20 ${className}`}
+      className={`rounded-2xl border border-surface-border bg-surface p-6 shadow-sm ${className}`}
     >
       {children}
     </div>
   );
 }
 
-/** Título de sección: mayúsculas + letter-spacing, como los headlines
- * de la guía de marca de WHOOP (Proxima Nova Bold, 10% tracking). */
+/** Título de sección: jerarquía discreta (tamaño pequeño, peso medio,
+ * color secundario) - no "small caps" agresivo, coherente con el resto
+ * de la tipografía de sistema. */
 export function CardTitle({ children }: { children: ReactNode }) {
-  return (
-    <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-300 mb-4">
-      {children}
-    </h2>
-  );
+  return <h2 className="text-sm font-semibold text-foreground mb-4">{children}</h2>;
 }

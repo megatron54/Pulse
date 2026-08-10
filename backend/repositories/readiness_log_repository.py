@@ -34,6 +34,24 @@ def get_latest_readiness_level(
     return ReadinessLevel(log.resultado) if log is not None else None
 
 
+def get_readiness_log_for_date(
+    session: Session, user_id: int, target_date: date
+) -> ReadinessLog | None:
+    """La fila COMPLETA de ReadinessLog más reciente para `user_id` en
+    `target_date` (mismo criterio "la última gana" que
+    `get_latest_readiness_level`, que solo devuelve el `resultado`
+    aislado). Épica H del plan de expansión (02-roadmap/
+    03-vision-produccion.md): el coach de salud necesita más campos
+    estructurados (`sesion_recomendada`, `hrv_delta_pct`...) para poder
+    explicar la decisión, no solo el semáforo."""
+    return (
+        session.query(ReadinessLog)
+        .filter_by(user_id=user_id, fecha=target_date)
+        .order_by(ReadinessLog.created_at.desc(), ReadinessLog.id.desc())
+        .first()
+    )
+
+
 def get_recent_readiness_levels(
     session: Session, user_id: int, as_of: date, n: int
 ) -> list[ReadinessLevel]:
@@ -56,13 +74,22 @@ def get_recent_readiness_levels(
 def get_readiness_history(
     session: Session, user_id: int, as_of: date, days: int
 ) -> list[ReadinessLog]:
-    """Historial de ReadinessLog de los últimos `days` días, INCLUYENDO
-    `as_of` - para dashboards de tendencia (Fase I). A diferencia de
-    `get_recent_readiness_levels` (usado por guardrails, que excluye
-    el día actual a propósito porque ese aún se está calculando en el
-    momento de la consulta), aquí sí interesa el dato de hoy si ya existe.
-    """
-    fecha_inicio = as_of - timedelta(days=days)
+    """Historial de ReadinessLog de los últimos `days` días EXACTOS,
+    INCLUYENDO `as_of` - para dashboards de tendencia (Fase I). A
+    diferencia de `get_recent_readiness_levels` (usado por guardrails,
+    que excluye el día actual a propósito porque ese aún se está
+    calculando en el momento de la consulta), aquí sí interesa el dato
+    de hoy si ya existe.
+
+    Corregido el off-by-one histórico (hallazgo #10 del doc vivo,
+    02-roadmap/03-vision-produccion.md): antes devolvía `days+1` días
+    (límites inclusivos por ambos lados sobre `as_of - timedelta(days)`)
+    - ahora la ventana es exactamente `[as_of-days+1, as_of]`, mismo
+    criterio que `get_activity_history`/`get_daily_metrics_history`.
+    `services.periodic_summary_service` ya filtraba explícitamente para
+    compensar esta inconsistencia; ese filtro queda ahora redundante
+    pero inofensivo (no cambia ningún resultado)."""
+    fecha_inicio = as_of - timedelta(days=days - 1)
     stmt = (
         select(ReadinessLog)
         .where(ReadinessLog.user_id == user_id)

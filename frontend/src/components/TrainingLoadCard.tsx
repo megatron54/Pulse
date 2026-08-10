@@ -92,8 +92,8 @@ export function TrainingLoadCard({ userId }: { userId: number }) {
             label="ACWR"
           />
           <div>
-            <p className="text-sm text-gray-300">{riesgoPorAcwr(resultado.acwr)}</p>
-            <p className="text-sm text-gray-400 mt-1">
+            <p className="text-sm text-text-secondary">{riesgoPorAcwr(resultado.acwr)}</p>
+            <p className="text-sm text-text-secondary mt-1">
               Agudo (7d): {resultado.acute_avg_7d?.toFixed(0)}%
               <br />
               Crónico (28d): {resultado.chronic_avg_28d?.toFixed(0)}%

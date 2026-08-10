@@ -18,7 +18,7 @@ import { Card, CardTitle } from "./ui/Card";
  * como trabajo futuro explícito.
  */
 const inputClass =
-  "border border-white/10 bg-black/30 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal";
+  "border border-surface-border bg-surface-muted rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-accent";
 
 export function ExercisePicker() {
   const [categorias, setCategorias] = useState<ExerciseCategory[] | null>(null);
@@ -80,12 +80,12 @@ export function ExercisePicker() {
     <Card>
       <CardTitle>Catálogo de ejercicios</CardTitle>
       {error && (
-        <p role="alert" className="text-red-400 text-sm mb-3">
+        <p role="alert" className="text-recovery-low text-sm mb-3">
           {error}
         </p>
       )}
       {!error && categorias === null && (
-        <p role="status" className="text-sm text-gray-400 italic">
+        <p role="status" className="text-sm text-text-secondary italic">
           Cargando categorías...
         </p>
       )}
@@ -105,21 +105,21 @@ export function ExercisePicker() {
       )}
       <div className="mt-4 flex flex-col gap-2">
         {cargando && (
-          <p role="status" className="text-sm text-gray-400 italic">
+          <p role="status" className="text-sm text-text-secondary italic">
             Buscando ejercicios...
           </p>
         )}
         {!cargando && ejercicios && ejercicios.length === 0 && (
-          <p className="text-sm text-gray-400 italic">
+          <p className="text-sm text-text-secondary italic">
             No se encontraron ejercicios en esta categoría.
           </p>
         )}
         {!cargando &&
           ejercicios?.map((ej) => (
-            <div key={ej.id} className="rounded-lg bg-black/30 px-3 py-2 text-sm">
-              <p className="text-white font-medium">{ej.nombre}</p>
+            <div key={ej.id} className="rounded-lg bg-surface-muted px-3 py-2 text-sm">
+              <p className="text-foreground font-medium">{ej.nombre}</p>
               {ej.equipamiento.length > 0 && (
-                <p className="text-gray-400 text-xs mt-0.5">{ej.equipamiento.join(", ")}</p>
+                <p className="text-text-secondary text-xs mt-0.5">{ej.equipamiento.join(", ")}</p>
               )}
             </div>
           ))}

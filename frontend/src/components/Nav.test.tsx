@@ -7,11 +7,27 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("Nav", () => {
-  it("renderiza un enlace a cada sección principal en el sidebar de escritorio", () => {
+  it("renderiza un enlace a cada una de las 7 secciones (reconstruccion v2)", () => {
     render(<Nav />);
     const sidebar = screen.getByRole("navigation", { name: "Navegación principal" });
-    for (const nombre of ["Hoy", "Entrenamiento", "Nutrición", "Cuerpo", "Garmin"]) {
+    for (const nombre of [
+      "Hoy",
+      "Entrenamiento",
+      "Recuperación",
+      "Análisis",
+      "Coach",
+      "Nutrición",
+      "Cuerpo",
+    ]) {
       expect(within(sidebar).getByText(nombre)).toBeInTheDocument();
+    }
+  });
+
+  it("ya no muestra Running/Ciclismo/Gimnasio/Garmin como secciones de primer nivel", () => {
+    render(<Nav />);
+    const sidebar = screen.getByRole("navigation", { name: "Navegación principal" });
+    for (const nombre of ["Running", "Ciclismo", "Gimnasio", "Garmin"]) {
+      expect(within(sidebar).queryByText(nombre)).not.toBeInTheDocument();
     }
   });
 
@@ -32,7 +48,7 @@ describe("Nav", () => {
   it("la barra de pestañas móvil también marca la ruta activa", () => {
     render(<Nav />);
     const barraMovil = screen.getByRole("navigation", { name: "Navegación principal (móvil)" });
-    const enlaceActivo = within(barraMovil).getByRole("link", { name: /entreno/i });
+    const enlaceActivo = within(barraMovil).getByRole("link", { name: /entrenamiento/i });
     expect(enlaceActivo).toHaveAttribute("aria-current", "page");
   });
 });

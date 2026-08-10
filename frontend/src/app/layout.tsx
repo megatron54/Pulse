@@ -1,22 +1,15 @@
 import type { Metadata, Viewport } from "next";
-import { Geist_Mono, Inter, Oswald } from "next/font/google";
+import { Geist_Mono } from "next/font/google";
 import { AppShell } from "@/components/AppShell";
 import "./globals.css";
 
-// Sustitutas libres de Proxima Nova (texto) y DINPro (números) - las
-// fuentes reales de la guía de marca de WHOOP son de pago. Ver
-// globals.css para el razonamiento completo de la elección.
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-});
-
-const oswald = Oswald({
-  variable: "--font-oswald",
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-});
-
+// Rediseño estilo Apple (a petición del usuario, skill `apple-design`
+// de github.com/emilkowalski/skills): fuera Inter/Oswald de Google
+// Fonts - "default to the platform's system font before a custom
+// face; it already ships optical sizing, tracking tables, and
+// legibility tuning" (§15). La pila `-apple-system` (globals.css)
+// cubre texto y titulares por igual, así que solo queda la fuente
+// monoespaciada (sin equivalente de sistema fiable multiplataforma).
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
@@ -40,10 +33,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="es"
-      className={`${inter.variable} ${oswald.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="es" className={`${geistMono.variable} h-full antialiased`}>
       <body className="h-full flex flex-col">
         <AppShell>{children}</AppShell>
       </body>

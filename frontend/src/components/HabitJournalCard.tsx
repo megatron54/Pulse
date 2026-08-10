@@ -59,12 +59,12 @@ function HabitCheckboxes({ userId }: { userId: number }) {
 
   return (
     <div>
-      <p className="text-sm text-gray-400 mb-3">¿Ocurrió hoy alguno de estos?</p>
+      <p className="text-sm text-text-secondary mb-3">¿Ocurrió hoy alguno de estos?</p>
       <div className="grid grid-cols-2 gap-2">
         {HABITOS.map((habito) => (
           <label
             key={habito}
-            className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer"
+            className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer"
           >
             <input
               type="checkbox"
@@ -77,7 +77,7 @@ function HabitCheckboxes({ userId }: { userId: number }) {
         ))}
       </div>
       {error && (
-        <p role="alert" className="text-red-400 text-sm mt-2">
+        <p role="alert" className="text-recovery-low text-sm mt-2">
           {error}
         </p>
       )}
@@ -115,13 +115,13 @@ function HabitCorrelationView({ userId }: { userId: number }) {
   }
 
   return (
-    <div className="mt-6 pt-6 border-t border-white/10">
-      <label className="flex flex-col gap-1 text-sm text-gray-300">
+    <div className="mt-6 pt-6 border-t border-surface-border">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         Ver correlación con recovery
         <select
           value={habitoElegido}
           onChange={(e) => onSelect(e.target.value)}
-          className="border border-white/10 bg-black/30 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal"
+          className="border border-surface-border bg-surface-muted rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
         >
           <option value="">Elige un hábito...</option>
           {HABITOS.map((habito) => (
@@ -132,28 +132,28 @@ function HabitCorrelationView({ userId }: { userId: number }) {
         </select>
       </label>
       {error && (
-        <p role="alert" className="text-red-400 text-sm mt-2">
+        <p role="alert" className="text-recovery-low text-sm mt-2">
           {error}
         </p>
       )}
       {correlacion && !correlacion.datos_suficientes && (
-        <p className="text-sm text-gray-400 mt-3 italic">
+        <p className="text-sm text-text-secondary mt-3 italic">
           Todavía no hay suficientes datos para este hábito ({correlacion.dias_con_habito_con_dato}{" "}
           días con, {correlacion.dias_sin_habito_con_dato} sin). Necesitamos al menos 5 de cada.
         </p>
       )}
       {correlacion?.datos_suficientes && (
         <div className="mt-3 flex flex-col gap-1 text-sm">
-          <p className="text-gray-300">
+          <p className="text-text-secondary">
             Días RED tras marcarlo:{" "}
             <span className="text-recovery-low font-semibold">
               {Math.round((correlacion.pct_red_con_habito ?? 0) * 100)}%
             </span>{" "}
             ({correlacion.dias_con_habito_con_dato} muestras)
           </p>
-          <p className="text-gray-300">
+          <p className="text-text-secondary">
             Días RED sin marcarlo:{" "}
-            <span className="text-gray-400 font-semibold">
+            <span className="text-text-secondary font-semibold">
               {Math.round((correlacion.pct_red_sin_habito ?? 0) * 100)}%
             </span>{" "}
             ({correlacion.dias_sin_habito_con_dato} muestras)

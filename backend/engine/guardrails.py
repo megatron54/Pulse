@@ -36,6 +36,19 @@ _ACWR_DELOAD_DIAS_CONSECUTIVOS = 2
 # Guardrail 2: CUT + RED sostenido.
 _CUT_PAUSA_DIAS_RED_CONSECUTIVOS = 3
 
+# Guardrail 2b (Épica I, 02-roadmap/03-vision-produccion.md): CUT +
+# sueño crudo pobre sostenido - extensión conservadora de la guardrail
+# 2, usando sleep_score en vez del semáforo categórico. Umbrales
+# confirmados explícitamente por el usuario tras revisar
+# 00-research/08-nutricion-recovery-ciencia.md (evidencia hormonal
+# débil/contradictoria, pero un RCT controlado - Nedeltcheva/Penev
+# 2010 - muestra que el sueño pobre sostenido en déficit empeora la
+# partición grasa/músculo, aunque el peso total perdido sea el mismo) -
+# NUNCA inventados unilateralmente. sleep_score < 60 es la categoría
+# "poor" oficial de Garmin (no un número inventado por este proyecto).
+_CUT_PAUSA_SLEEP_SCORE_UMBRAL = 60
+_CUT_PAUSA_DIAS_SLEEP_CONSECUTIVOS = 3
+
 # Guardrail 3: proximidad de competición.
 _HORAS_PRE_COMPETICION_CRITICAS = 72
 _DIAS_PRE_COMPETICION_CRITICOS = _HORAS_PRE_COMPETICION_CRITICAS // 24  # 3
@@ -107,6 +120,53 @@ def should_pause_calorie_deficit(
     if len(ultimos) < _CUT_PAUSA_DIAS_RED_CONSECUTIVOS:
         return False
     return all(nivel == ReadinessLevel.RED for nivel in ultimos)
+
+
+def should_pause_calorie_deficit_for_poor_sleep(
+    weight_phase: WeightPhase, sleep_scores: list[int | None]
+) -> bool:
+    """Guardrail 2b (Épica I del plan de expansión): si el usuario está
+    en fase CUT y lleva >=3 noches CONSECUTIVAS CONFIRMADAS con
+    `sleep_score` por debajo del umbral "poor" de Garmin (<60), se
+    pausa el déficit igual que la guardrail 2 (readiness categórico) -
+    misma acción (subir a MAINTENANCE), señal adicional distinta.
+
+    Nota de asimetría INTENCIONAL con la guardrail 2 (hallazgo de
+    @code-reviewer, documentado explícitamente para no repetir la
+    duda): la ventana de días que consume esta guardrail en la capa de
+    servicio SÍ incluye la fecha de hoy (`target_date`), a diferencia
+    de `get_recent_readiness_levels` que la excluye. Esto es correcto
+    y deliberado, no un descuido de "misma ventana temporal": el
+    `sleep_score` de la noche anterior ya está disponible por la
+    mañana del día que se está calculando (Garmin lo sincroniza al
+    despertar), mientras que el readiness de HOY normalmente aún no se
+    ha calculado en el momento en que se consulta este historial. Esta
+    función en sí misma es agnóstica a esa ventana - solo mira los
+    últimos 3 valores de la lista que se le pasan.
+
+    "unknown is not zero": un `None` en la ventana (día sin sincronizar,
+    dispositivo sin ese dato) NUNCA cuenta como "malo" - rompe la racha
+    de días confirmados, no la sostiene. Solo dispara con 3 valores
+    NUMÉRICOS reales, todos por debajo del umbral.
+
+    Solo aplica a WeightPhase.CUT, igual que la guardrail 2 - las demás
+    fases no tienen un déficit que pausar."""
+    if not sleep_scores:
+        raise ValueError("sleep_scores no puede estar vacío")
+    if not isinstance(weight_phase, WeightPhase):
+        raise ValueError("weight_phase debe ser un WeightPhase")
+    for valor in sleep_scores:
+        if valor is not None and (isinstance(valor, bool) or not isinstance(valor, int)):
+            raise ValueError("sleep_scores solo puede contener int o None")
+    if weight_phase != WeightPhase.CUT:
+        return False
+
+    ultimos = sleep_scores[-_CUT_PAUSA_DIAS_SLEEP_CONSECUTIVOS:]
+    if len(ultimos) < _CUT_PAUSA_DIAS_SLEEP_CONSECUTIVOS:
+        return False
+    return all(
+        valor is not None and valor < _CUT_PAUSA_SLEEP_SCORE_UMBRAL for valor in ultimos
+    )
 
 
 def should_force_full_rest_pre_competition(

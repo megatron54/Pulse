@@ -2,7 +2,7 @@
 
 import { useCurrentUser } from "@/lib/useCurrentUser";
 import { UserProvider } from "@/lib/UserContext";
-import { OnboardingForm } from "@/components/OnboardingForm";
+import { GarminConnectForm } from "@/components/GarminConnectForm";
 import { Nav } from "@/components/Nav";
 import { Skeleton } from "@/components/ui/Skeleton";
 
@@ -15,7 +15,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
  * usuario todavía".
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { user, loading, error, createUser } = useCurrentUser();
+  const { user, loading, error, loginUser } = useCurrentUser();
 
   if (loading) {
     // Hallazgo H1 de la auditoría UI/UX: esta es la PRIMERA pantalla
@@ -40,11 +40,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (!user) {
     return (
       <main className="flex-1 flex flex-col justify-center p-8">
-        <h1 className="font-display text-3xl font-bold text-center mb-8 tracking-wide text-white">
-          PULSE
+        <h1 className="text-3xl font-semibold text-center mb-8 tracking-tight text-foreground">
+          Pulse
         </h1>
-        {error && <p className="text-red-400 text-sm text-center mb-4">{error}</p>}
-        <OnboardingForm onCreate={createUser} />
+        {error && <p className="text-recovery-low text-sm text-center mb-4">{error}</p>}
+        <GarminConnectForm onConnected={loginUser} />
       </main>
     );
   }

@@ -47,6 +47,14 @@ def _garmin_client_logueado(hrv=65.0, readiness="high", body_battery=80, sleep=8
     fake_api.get_sleep_data.return_value = {
         "dailySleepDTO": {"sleepScores": {"overall": {"value": sleep}}}
     }
+    # Épica A (02-roadmap/03-vision-produccion.md): estos 3 endpoints
+    # nuevos deben devolver algo "vacío pero válido" - un MagicMock sin
+    # configurar rompería los extractores de garmin_sync.client (no son
+    # dict/list reales, y comparaciones tipo `valor < 0` lanzarían
+    # TypeError contra un MagicMock).
+    fake_api.get_stress_data.return_value = {}
+    fake_api.get_rhr_day.return_value = {}
+    fake_api.get_max_metrics.return_value = []
     client = GarminClient(
         token_store_dir="C:/fake/.garminconnect",
         api_factory=lambda *a, **k: fake_api,
@@ -165,6 +173,9 @@ class TestSyncAndComputeReadiness:
         fake_api.get_training_readiness.return_value = [{"level": "HIGH"}]
         fake_api.get_body_battery.return_value = [{"charged": 80}]
         fake_api.get_sleep_data.return_value = {"dailySleepDTO": {"sleepScores": {"overall": {"value": 85}}}}
+        fake_api.get_stress_data.return_value = {}
+        fake_api.get_rhr_day.return_value = {}
+        fake_api.get_max_metrics.return_value = []
         client = GarminClient(
             token_store_dir="C:/fake", api_factory=lambda *a, **k: fake_api
         )

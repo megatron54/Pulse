@@ -17,7 +17,7 @@ const PADDING_VERTICAL = 8;
 
 export function Sparkline({
   values,
-  strokeColor = PALETA.teal,
+  strokeColor = PALETA.accent,
   label = "Gráfica de tendencia",
 }: {
   values: number[];
@@ -26,7 +26,7 @@ export function Sparkline({
 }) {
   if (values.length < 2) {
     return (
-      <p className="text-sm text-gray-400 italic">
+      <p className="text-sm text-text-secondary italic">
         Sin datos suficientes para mostrar una tendencia.
       </p>
     );

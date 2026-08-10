@@ -14,8 +14,8 @@ import type { LucideIcon } from "lucide-react";
 export function EmptyState({ icon: Icon, message }: { icon: LucideIcon; message: string }) {
   return (
     <div className="flex flex-col items-center gap-2 py-3 text-center">
-      <Icon aria-hidden="true" size={28} className="text-gray-600" />
-      <p className="text-sm text-gray-400 text-pretty">{message}</p>
+      <Icon aria-hidden="true" size={28} className="text-text-secondary" />
+      <p className="text-sm text-text-secondary text-pretty">{message}</p>
     </div>
   );
 }

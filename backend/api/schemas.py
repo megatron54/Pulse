@@ -39,6 +39,45 @@ class UserOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class GarminConnectRequest(BaseModel):
+    """Alta de un usuario nuevo conectando su cuenta de Garmin
+    (services.garmin_onboarding_service.connect_new_user_via_garmin).
+    `email`/`password` nunca se persisten - solo viven en memoria
+    durante esta petición HTTP, igual que en `garmin_pair.py`.
+    `overrides` rellena ÚNICAMENTE los campos que Garmin no expuso
+    (petición explícita del usuario: nunca sobreescribir un dato real
+    de Garmin con uno introducido a mano)."""
+
+    email: str
+    password: str
+    nombre: str | None = None
+    altura_cm: float | None = Field(default=None, gt=0)
+    fecha_nacimiento: date | None = None
+    sexo: str | None = Field(default=None, pattern="^[MF]$")
+
+
+class FeelfitConnectRequest(BaseModel):
+    """Conecta la báscula Feelfit de un usuario YA EXISTENTE
+    (services.feelfit_onboarding_service.connect_feelfit_account).
+    `email`/`password` nunca se persisten - solo viven en memoria
+    durante esta petición HTTP, igual que `GarminConnectRequest`."""
+
+    email: str
+    password: str
+
+
+class FeelfitConnectOut(BaseModel):
+    mediciones_importadas: int
+
+
+class GarminConnectIncompleteOut(BaseModel):
+    """422: Garmin no expuso todos los campos requeridos. El cliente
+    debe re-enviar la misma petición con `overrides` rellenando
+    SOLO estos campos - nunca los que ya vinieron de Garmin."""
+
+    campos_faltantes: list[str]
+
+
 class BodyMeasurementCreateRequest(BaseModel):
     target_date: date
     peso_kg: float = Field(gt=0)
@@ -70,6 +109,51 @@ class NutritionTargetOut(BaseModel):
     grasa_g: float
     fase_aplicada: str
     deficit_pausado_por_guardrail: bool
+
+
+_FaseNutritionPlan = Literal["cut", "maintenance", "recomp", "surplus"]
+
+
+class NutritionPlanRequest(BaseModel):
+    """Alta de un plan de fase de peso con duración determinada
+    (petición explícita del usuario: "planes de deficit, superhabit y
+    mantenimiento dedicados, con duración determinada")."""
+
+    fase: _FaseNutritionPlan
+    semanas_duracion: int = Field(gt=0, le=52)
+    fecha_inicio: date
+    # max_length alineado con la columna motivo=String(300) del modelo
+    # (code-review: sin esto un motivo largo rompía como 500 de DB en
+    # vez de un 422 limpio de validación).
+    motivo: str | None = Field(default=None, max_length=300)
+
+
+class NutritionPlanOut(BaseModel):
+    id: int
+    fase: str
+    fecha_inicio: date
+    semanas_duracion: int
+    motivo: str | None
+    activo: bool
+
+    model_config = {"from_attributes": True}
+
+
+class ActiveNutritionPlanOut(BaseModel):
+    """`None` si no hay ningún plan activo - "unknown is not zero", la
+    ausencia de plan es un estado real, nunca se inventa uno."""
+
+    plan: NutritionPlanOut
+    fecha_fin: date
+    dias_restantes: int
+    expirado: bool
+
+
+class NutritionPhaseRecommendationOut(BaseModel):
+    fase_recomendada: str
+    accion: Literal["sin_cambios", "nuevo_plan_sugerido"]
+    motivo: str
+    semanas_sugeridas: int | None
 
 
 class ManualReadinessRequest(BaseModel):
@@ -160,53 +244,6 @@ class ExerciseOut(BaseModel):
     equipamiento: list[str]
 
 
-class WgerTokenRequest(BaseModel):
-    token: str
-
-
-class IngredientOut(BaseModel):
-    id: int
-    nombre: str
-    kcal_100g: float
-    proteina_100g_g: float
-    carbohidratos_100g_g: float
-    grasa_100g_g: float
-
-
-class FoodLogEntryRequest(BaseModel):
-    ingredient_id: int
-    # gt=0: 0/negativo no tiene sentido para una cantidad de comida.
-    # le=9999: límite real del formato `decimal` que exige el schema de
-    # wger (`^-?\d{0,4}(?:\.\d{0,2})?$`, máx. 4 dígitos enteros) -
-    # hallazgo de code-review: sin este límite, un valor >9999g pasaba
-    # el 422 de Pulse y llegaba a wger como un 400 confuso convertido
-    # en un 502 opaco.
-    amount_grams: float = Field(gt=0, le=9999)
-
-
-class FoodLogEntryOut(BaseModel):
-    ingredient_id: int
-    nombre: str
-    amount_grams: float
-    kcal: float
-    proteina_g: float
-    carbohidratos_g: float
-    grasa_g: float
-
-    model_config = {"from_attributes": True}
-
-
-class DailyFoodLogOut(BaseModel):
-    entradas: list[FoodLogEntryOut]
-    kcal_total: float
-    proteina_g_total: float
-    carbohidratos_g_total: float
-    grasa_g_total: float
-    entradas_omitidas: int
-
-    model_config = {"from_attributes": True}
-
-
 Habito = Literal[
     "alcohol",
     "cafeina_tarde",
@@ -250,6 +287,59 @@ class GarminActivityOut(BaseModel):
     hr_avg: int | None
     hr_max: int | None
     training_effect: float | None
+
+    model_config = {"from_attributes": True}
+
+
+class GarminDailyMetricsOut(BaseModel):
+    """Épica C del plan de expansión (02-roadmap/03-vision-produccion.md):
+    un punto del historial de recovery. Cada campo es honesto sobre su
+    ausencia (None) - "unknown is not zero", nunca se rellena un hueco
+    con 0 ni se interpola."""
+
+    fecha: date
+    hrv_value: float | None
+    hrv_status: str | None
+    body_battery_am: int | None
+    training_readiness: str | None
+    sleep_score: int | None
+    stress_avg: int | None
+    resting_hr: int | None
+    vo2max: float | None
+
+
+class GarminIntradayPointOut(BaseModel):
+    """Un punto de la serie minuto a minuto (petición explícita del
+    usuario: "quiero todo ese histórico, no me vale que cojas la media
+    del día")."""
+
+    timestamp_utc: datetime
+    valor: float
+
+    model_config = {"from_attributes": True}
+
+
+class HealthNarrativeOut(BaseModel):
+    """Épica H del plan de expansión (02-roadmap/03-vision-produccion.md):
+    explicación conversacional (Capa 3) del estado de recovery de un
+    día - `text`/`source` son `None` cuando la Capa 1 todavía no ha
+    calculado ningún ReadinessLog para esa fecha (nunca se inventa un
+    estado de recovery ni una explicación de algo que no se decidió)."""
+
+    text: str | None
+    source: str | None  # "llm" | "template" | None
+
+
+class WeeklyVolumeOut(BaseModel):
+    """Épica 10 del plan de expansión: un punto de la gráfica de
+    volumen semanal por deporte. `distancia_total_m`/`duracion_total_seg`
+    son `None` si ninguna actividad de esa semana trae ese campo -
+    "unknown is not zero", nunca 0 inventado."""
+
+    semana_inicio: date
+    distancia_total_m: float | None
+    duracion_total_seg: int | None
+    num_sesiones: int
 
     model_config = {"from_attributes": True}
 

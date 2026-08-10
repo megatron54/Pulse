@@ -66,7 +66,7 @@ export function PeriodicSummaryCard({
       {!error && resumen !== null && (
         <div className="flex flex-col gap-4">
           <div>
-            <p className="text-sm text-gray-400 mb-2">
+            <p className="text-sm text-text-secondary mb-2">
               {resumen.dias_con_checkin_readiness}{" "}
               {resumen.dias_con_checkin_readiness === 1 ? "día" : "días"} con check-in de
               recuperación
@@ -92,51 +92,51 @@ export function PeriodicSummaryCard({
               )}
               <div className="flex gap-4 text-center">
                 <div>
-                  <p className="font-display text-2xl font-bold text-recovery-high">
+                  <p className="text-2xl font-bold text-recovery-high">
                     {resumen.distribucion_readiness.green}
                   </p>
-                  <p className="text-xs text-gray-400 uppercase">Green</p>
+                  <p className="text-xs text-text-secondary uppercase">Green</p>
                 </div>
                 <div>
-                  <p className="font-display text-2xl font-bold text-recovery-medium">
+                  <p className="text-2xl font-bold text-recovery-medium">
                     {resumen.distribucion_readiness.yellow}
                   </p>
-                  <p className="text-xs text-gray-400 uppercase">Yellow</p>
+                  <p className="text-xs text-text-secondary uppercase">Yellow</p>
                 </div>
                 <div>
-                  <p className="font-display text-2xl font-bold text-recovery-low">
+                  <p className="text-2xl font-bold text-recovery-low">
                     {resumen.distribucion_readiness.red}
                   </p>
-                  <p className="text-xs text-gray-400 uppercase">Red</p>
+                  <p className="text-xs text-text-secondary uppercase">Red</p>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="pt-4 border-t border-white/10">
-            <p className="text-sm text-gray-400 mb-1">Peso</p>
+          <div className="pt-4 border-t border-surface-border">
+            <p className="text-sm text-text-secondary mb-1">Peso</p>
             {resumen.peso_delta_kg === null ? (
-              <p className="text-sm text-gray-500 italic">
+              <p className="text-sm text-text-secondary italic">
                 Sin suficientes mediciones de peso esta semana para calcular una tendencia.
               </p>
             ) : (
-              <p className="text-white">
+              <p className="text-foreground">
                 {resumen.peso_delta_kg > 0 ? "+" : ""}
                 {resumen.peso_delta_kg.toFixed(1)} kg
-                <span className="text-gray-400 text-sm ml-2">
+                <span className="text-text-secondary text-sm ml-2">
                   ({resumen.peso_inicio_kg?.toFixed(1)} → {resumen.peso_fin_kg?.toFixed(1)} kg)
                 </span>
               </p>
             )}
           </div>
 
-          <div className="pt-4 border-t border-white/10">
-            <p className="text-sm text-gray-400 mb-1">Actividades</p>
-            <p className="text-white">
+          <div className="pt-4 border-t border-surface-border">
+            <p className="text-sm text-text-secondary mb-1">Actividades</p>
+            <p className="text-foreground">
               {resumen.actividades_totales}{" "}
               {resumen.actividades_totales === 1 ? "actividad" : "actividades"}
               {resumen.duracion_actividades_total_seg > 0 && (
-                <span className="text-gray-400 text-sm ml-2">
+                <span className="text-text-secondary text-sm ml-2">
                   ({Math.round(resumen.duracion_actividades_total_seg / 60)} min totales)
                 </span>
               )}
