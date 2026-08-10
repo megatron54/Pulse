@@ -15,7 +15,7 @@ import { Card, CardTitle } from "./ui/Card";
 import { Button } from "./ui/Button";
 
 const inputClass =
-  "border border-white/10 bg-black/30 rounded-lg px-3 py-2 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-teal";
+  "border border-surface-border bg-surface-muted rounded-lg px-3 py-2 text-foreground placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-accent";
 
 const DAY_LABELS: Record<DayOfWeek, string> = {
   mon: "Lunes",
@@ -97,12 +97,12 @@ export function WeeklyScheduleForm({
   return (
     <Card>
       <CardTitle>Plan semanal (6 semanas)</CardTitle>
-      <p className="text-sm text-gray-400 mb-4 -mt-2">
+      <p className="text-sm text-text-secondary mb-4 -mt-2">
         Una vez creado, la app decide sola qué toca cada día combinándolo con tu recuperación -
         ya no hace falta elegirlo a mano en &quot;Sesión de hoy&quot;.
       </p>
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1 text-sm text-gray-300">
+        <label className="flex flex-col gap-1 text-sm text-text-secondary">
           Objetivo prioritario del bloque
           <input
             className={inputClass}
@@ -111,7 +111,7 @@ export function WeeklyScheduleForm({
             placeholder="ej. strength, hypertrophy, running, bjj"
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm text-gray-300">
+        <label className="flex flex-col gap-1 text-sm text-text-secondary">
           Fecha de inicio
           <input
             type="date"
@@ -122,7 +122,7 @@ export function WeeklyScheduleForm({
         </label>
         <div className="grid grid-cols-1 gap-2">
           {DAYS_OF_WEEK.map((day) => (
-            <label key={day} className="flex items-center gap-2 text-sm text-gray-300">
+            <label key={day} className="flex items-center gap-2 text-sm text-text-secondary">
               <span className="w-24">{DAY_LABELS[day]}</span>
               <select
                 className={`${inputClass} flex-1`}
@@ -139,7 +139,7 @@ export function WeeklyScheduleForm({
             </label>
           ))}
         </div>
-        {error && <p className="text-red-400 text-sm">{error}</p>}
+        {error && <p className="text-recovery-low text-sm">{error}</p>}
         <Button type="submit" disabled={submitting} className="self-start">
           {submitting ? "Creando..." : "Activar plan semanal"}
         </Button>

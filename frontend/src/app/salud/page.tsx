@@ -19,10 +19,10 @@ export default function SaludPage() {
   const user = useUser();
 
   return (
-    <main className="p-6 md:p-8 max-w-5xl mx-auto w-full">
-      <header className="mb-8">
-        <h1 className="font-display text-2xl font-semibold tracking-tight text-white">Salud</h1>
-        <p className="text-gray-400 mt-1">Histórico de recovery, sacado directamente de Garmin.</p>
+    <main className="content-container py-6 md:py-8">
+      <header className="mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Recuperación</h1>
+        <p className="text-text-secondary mt-1">Histórico de recovery, sacado directamente de Garmin.</p>
       </header>
       <div className="grid grid-cols-1 gap-6 items-start">
         <FadeIn>

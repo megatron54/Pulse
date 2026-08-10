@@ -39,9 +39,9 @@ export function CoachNarrativeBlock({ userId }: { userId: number }) {
   if (!narrativa || !narrativa.text) return null;
 
   return (
-    <div className="flex items-start gap-2 rounded-xl border border-teal/20 bg-teal/5 px-4 py-3">
-      <Sparkles aria-hidden="true" size={16} className="mt-0.5 shrink-0 text-teal" />
-      <p className="text-sm text-gray-200 text-pretty">{narrativa.text}</p>
+    <div className="flex items-start gap-2 rounded-xl border border-accent/20 bg-accent/5 px-4 py-3">
+      <Sparkles aria-hidden="true" size={16} className="mt-0.5 shrink-0 text-accent" />
+      <p className="text-sm text-foreground text-pretty">{narrativa.text}</p>
     </div>
   );
 }

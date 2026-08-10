@@ -67,8 +67,8 @@ export function GarminHealthHistoryCard({ userId }: { userId: number }) {
               aria-checked={dias === rango.dias}
               className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
                 dias === rango.dias
-                  ? "bg-white/10 text-white"
-                  : "text-gray-400 hover:text-gray-200"
+                  ? "bg-surface-muted text-foreground"
+                  : "text-text-secondary hover:text-foreground"
               }`}
             >
               {rango.label}
@@ -102,7 +102,7 @@ export function GarminHealthHistoryCard({ userId }: { userId: number }) {
           <MetricaSeccion
             titulo="Body Battery"
             unidad=""
-            color={PALETA.teal}
+            color={PALETA.accent}
             datos={cronologico}
             campo="body_battery_am"
           />
@@ -123,14 +123,14 @@ export function GarminHealthHistoryCard({ userId }: { userId: number }) {
           <MetricaSeccion
             titulo="Pulso en reposo"
             unidad=" ppm"
-            color={PALETA.strain}
+            color={PALETA.accent}
             datos={cronologico}
             campo="resting_hr"
           />
           <MetricaSeccion
             titulo="VO2max"
             unidad=""
-            color={PALETA.recoveryBlue}
+            color={PALETA.accent}
             datos={cronologico}
             campo="vo2max"
           />
@@ -176,8 +176,8 @@ function MetricaSeccion({
   return (
     <div>
       <div className="flex items-baseline justify-between mb-1">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">{titulo}</h3>
-        <span className="font-display text-sm font-bold text-white">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-text-secondary">{titulo}</h3>
+        <span className="text-sm font-bold text-foreground">
           {ultimo}
           {unidad}
         </span>

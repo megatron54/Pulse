@@ -19,7 +19,7 @@ import { LoadingState } from "./ui/LoadingState";
  * contraseña).
  */
 const inputClass =
-  "border border-white/10 bg-black/30 rounded-lg px-3 py-2 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-teal";
+  "border border-surface-border bg-surface-muted rounded-lg px-3 py-2 text-foreground placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-accent";
 
 function WgerConnectForm({
   userId,
@@ -48,12 +48,12 @@ function WgerConnectForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <p className="text-sm text-gray-400">
+      <p className="text-sm text-text-secondary">
         Conecta tu cuenta de wger para registrar tus comidas reales. Genera un token
         permanente desde la página &quot;API key&quot; de tu wger (nunca pedimos tu
         contraseña).
       </p>
-      <label className="flex flex-col gap-1 text-sm text-gray-300">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         Token de wger
         <input
           type="password"
@@ -64,7 +64,7 @@ function WgerConnectForm({
         />
       </label>
       {error && (
-        <p role="alert" className="text-red-400 text-sm">
+        <p role="alert" className="text-recovery-low text-sm">
           {error}
         </p>
       )}
@@ -119,7 +119,7 @@ function IngredientSearchAndLog({ userId, onRegistrado }: { userId: number; onRe
         </Button>
       </form>
       {error && (
-        <p role="alert" className="text-red-400 text-sm mt-2">
+        <p role="alert" className="text-recovery-low text-sm mt-2">
           {error}
         </p>
       )}
@@ -127,11 +127,11 @@ function IngredientSearchAndLog({ userId, onRegistrado }: { userId: number; onRe
         {resultados?.map((ing) => (
           <div
             key={ing.id}
-            className="flex items-center justify-between rounded-lg bg-black/30 px-3 py-2 text-sm"
+            className="flex items-center justify-between rounded-lg bg-surface-muted px-3 py-2 text-sm"
           >
             <div>
-              <p className="text-white">{ing.nombre}</p>
-              <p className="text-gray-400 text-xs">{ing.kcal_100g.toFixed(0)} kcal/100g</p>
+              <p className="text-foreground">{ing.nombre}</p>
+              <p className="text-text-secondary text-xs">{ing.kcal_100g.toFixed(0)} kcal/100g</p>
             </div>
             <Button
               variant="ghost"
@@ -196,9 +196,9 @@ export function FoodLogCard({ userId }: { userId: number }) {
           {diario.entradas.length === 0 && diario.entradas_omitidas === 0 ? (
             <EmptyState icon={UtensilsCrossed} message="Todavía no has registrado ninguna comida hoy." />
           ) : (
-            <p className="font-display text-3xl font-bold text-white">
+            <p className="text-3xl font-bold text-foreground">
               {Math.round(diario.kcal_total)}
-              <span className="text-base text-gray-400 font-sans font-normal ml-2">
+              <span className="text-base text-text-secondary font-sans font-normal ml-2">
                 kcal hoy
               </span>
             </p>
@@ -211,10 +211,10 @@ export function FoodLogCard({ userId }: { userId: number }) {
           <div className="flex flex-col gap-2 mt-3">
             {diario.entradas.map((entrada, i) => (
               <div key={i} className="flex justify-between text-sm">
-                <span className="text-gray-300">
+                <span className="text-text-secondary">
                   <span>{entrada.nombre}</span> ({entrada.amount_grams.toFixed(0)}g)
                 </span>
-                <span className="text-gray-400">{entrada.kcal.toFixed(0)} kcal</span>
+                <span className="text-text-secondary">{entrada.kcal.toFixed(0)} kcal</span>
               </div>
             ))}
           </div>

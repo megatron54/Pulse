@@ -65,7 +65,7 @@ export function SportActivityHistoryCard({
       <div className="flex items-baseline justify-between mb-4">
         <CardTitle>{titulo}</CardTitle>
         {actividades && actividades.length > 0 && (
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-text-secondary">
             {actividades.length} {actividades.length === 1 ? "sesión" : "sesiones"} (90 días)
           </span>
         )}
@@ -88,15 +88,15 @@ export function SportActivityHistoryCard({
           {actividades.map((act) => (
             <div
               key={act.activity_id}
-              className="flex items-center justify-between rounded-lg bg-black/30 px-3 py-2 text-sm"
+              className="flex items-center justify-between rounded-lg bg-surface-muted px-3 py-2 text-sm"
             >
               <div>
-                <p className="text-white capitalize">{act.tipo.replace(/_/g, " ")}</p>
-                <p className="text-gray-400 text-xs">{act.fecha}</p>
+                <p className="text-foreground capitalize">{act.tipo.replace(/_/g, " ")}</p>
+                <p className="text-text-secondary text-xs">{act.fecha}</p>
               </div>
-              <div className="text-right text-gray-300">
+              <div className="text-right text-text-secondary">
                 <p>{formatDuracion(act.duracion_seg)}</p>
-                <p className="text-xs text-gray-400">{formatDistancia(act.distancia_m)}</p>
+                <p className="text-xs text-text-secondary">{formatDistancia(act.distancia_m)}</p>
               </div>
             </div>
           ))}

@@ -64,10 +64,10 @@ export function WeeklyVolumeChart({
   const ultima = conDatos[conDatos.length - 1];
 
   return (
-    <div className="mt-4 border-t border-white/10 pt-4">
+    <div className="mt-4 border-t border-surface-border pt-4">
       <div className="flex items-baseline justify-between mb-2">
-        <p className="text-xs uppercase tracking-wide text-gray-400">Volumen semanal</p>
-        <p className="text-sm text-gray-200">{formatValor(valorSemana(ultima))}</p>
+        <p className="text-xs uppercase tracking-wide text-text-secondary">Volumen semanal</p>
+        <p className="text-sm text-foreground">{formatValor(valorSemana(ultima))}</p>
       </div>
       <AreaTrendChart
         data={data}

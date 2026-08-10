@@ -3,45 +3,34 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Bike,
+  BarChart3,
   Dumbbell,
   HeartPulse,
-  PersonStanding,
+  MessageCircle,
   Ruler,
   Sun,
   Utensils,
-  Watch,
-  Weight,
 } from "lucide-react";
 
 /**
- * Navegación principal de Pulse (rediseño de arquitectura de
- * información a petición explícita del usuario: "no veo diferentes
- * paginas, menus"). Responsive real, no solo un layout que se encoge:
- * - Desktop (md+): barra lateral fija con las 9 secciones.
- * - Móvil (<md): barra de pestañas fija abajo, patrón estándar de app
- *   de fitness (WHOOP, Strava, etc. usan esto mismo en vez de un menú
- *   hamburguesa, porque la navegación se usa varias veces al día).
- *   Con 9 secciones (Épica G añadió running/ciclismo/gimnasio) se
- *   desliza horizontalmente en vez de repartir el ancho a partes
- *   iguales - un gradiente en el borde derecho (`nav-scroll-fade`,
- *   ver globals.css) da la pista visual de que hay más pestañas fuera
- *   de vista, ya que `overflow-x-auto` por sí solo no lo comunica.
+ * Navegación principal (reconstrucción v2 -
+ * 01-arquitectura/04-design-system-v2.md): 7 secciones con jerarquía
+ * de producto real, en vez de las 9 páginas planas anteriores
+ * (running/ciclismo/gimnasio se pliegan en Entrenamiento→Sesiones como
+ * un filtro `categoria`, Garmin se reparte entre Recuperación/Análisis).
  *
- * Iconos SVG (lucide-react) en vez de emoji (code-review M4): el
- * renderizado de emoji varía entre plataformas (monocromo vs. color,
- * variantes ZWJ) - inaceptable para un diseño pulido tipo WHOOP.
+ * Responsive verificado por redimensionado real (Design System v2,
+ * principio 5): sidebar fluida en desktop, tab bar fija abajo en
+ * móvil - ambos casos sin anchos fijos que corten contenido.
  */
 const SECCIONES = [
-  { href: "/", label: "Hoy", labelCorto: "Hoy", Icono: Sun },
-  { href: "/salud", label: "Salud", labelCorto: "Salud", Icono: HeartPulse },
-  { href: "/entrenamiento", label: "Entrenamiento", labelCorto: "Entreno", Icono: Dumbbell },
-  { href: "/running", label: "Running", labelCorto: "Running", Icono: PersonStanding },
-  { href: "/ciclismo", label: "Ciclismo", labelCorto: "Ciclismo", Icono: Bike },
-  { href: "/gimnasio", label: "Gimnasio", labelCorto: "Gimnasio", Icono: Weight },
-  { href: "/nutricion", label: "Nutrición", labelCorto: "Nutrición", Icono: Utensils },
-  { href: "/cuerpo", label: "Cuerpo", labelCorto: "Cuerpo", Icono: Ruler },
-  { href: "/garmin", label: "Garmin", labelCorto: "Garmin", Icono: Watch },
+  { href: "/", label: "Hoy", Icono: Sun },
+  { href: "/entrenamiento", label: "Entrenamiento", Icono: Dumbbell },
+  { href: "/salud", label: "Recuperación", Icono: HeartPulse },
+  { href: "/analisis", label: "Análisis", Icono: BarChart3 },
+  { href: "/coach", label: "Coach", Icono: MessageCircle },
+  { href: "/nutricion", label: "Nutrición", Icono: Utensils },
+  { href: "/cuerpo", label: "Cuerpo", Icono: Ruler },
 ] as const;
 
 function esRutaActiva(pathname: string, href: string): boolean {
@@ -50,23 +39,21 @@ function esRutaActiva(pathname: string, href: string): boolean {
 }
 
 const focusRing =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-inset";
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset";
 
 export function Nav() {
   const pathname = usePathname();
 
   return (
     <>
-      {/* Sidebar de escritorio: material translúcido (apple-design §12
-          "build nav/toolbars/sheets as translucent layers"), no una
-          columna opaca con borde recto. El borde derecho pasa de un
-          1px sólido a un hairline translúcido (`border-surface-border`
-          ya es rgba tras el repintado de globals.css). */}
+      {/* Sidebar de escritorio */}
       <nav
         aria-label="Navegación principal"
-        className="material-surface hidden md:flex md:flex-col md:w-56 md:shrink-0 md:border-r md:border-surface-border md:p-4 md:gap-1"
+        className="hidden md:flex md:flex-col md:w-56 md:shrink-0 md:border-r md:border-surface-border md:p-4 md:gap-1 md:bg-surface"
       >
-        <span className="text-xl font-semibold tracking-tight text-white mb-6 px-2">Pulse</span>
+        <span className="text-xl font-semibold tracking-tight text-foreground mb-6 px-2">
+          Pulse
+        </span>
         {SECCIONES.map(({ href, label, Icono }) => {
           const activa = esRutaActiva(pathname, href);
           return (
@@ -74,8 +61,10 @@ export function Nav() {
               key={href}
               href={href}
               aria-current={activa ? "page" : undefined}
-              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150 active:scale-[0.98] ${focusRing} ${
-                activa ? "bg-teal/15 text-teal" : "text-gray-400 hover:text-white hover:bg-white/5"
+              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors active:scale-[0.98] ${focusRing} ${
+                activa
+                  ? "bg-accent/10 text-accent"
+                  : "text-text-secondary hover:text-foreground hover:bg-surface-muted"
               }`}
             >
               <Icono aria-hidden="true" size={18} />
@@ -85,43 +74,30 @@ export function Nav() {
         })}
       </nav>
 
-      {/* Barra de pestañas de móvil. Con 9 secciones (Épica G añadió
-          running/ciclismo/gimnasio), repartir el ancho a partes iguales
-          (flex-1) dejaría cada pestaña casi ilegible - se desliza
-          horizontalmente en su lugar (ancho fijo por item, swipe para
-          ver el resto), en vez de comprimir todo para que quepa. El
-          div envolvente + el degradado son solo la PISTA VISUAL de que
-          hay más pestañas fuera de vista (hallazgo de @code-reviewer:
-          `overflow-x-auto` por sí solo no lo comunica) - no afecta a
-          teclado/lectores de pantalla, cada `<Link>` sigue siendo
-          alcanzable con Tab y el navegador auto-desplaza al enfocarlo. */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-10">
-        <nav
-          aria-label="Navegación principal (móvil)"
-          className="material-surface relative flex overflow-x-auto border-t border-surface-border pb-[env(safe-area-inset-bottom)]"
-        >
-          {SECCIONES.map(({ href, labelCorto, Icono }) => {
-            const activa = esRutaActiva(pathname, href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                aria-current={activa ? "page" : undefined}
-                className={`flex w-16 shrink-0 flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium leading-tight transition-transform active:scale-95 ${focusRing} ${
-                  activa ? "text-teal" : "text-gray-400"
-                }`}
-              >
-                <Icono aria-hidden="true" size={20} />
-                <span className="truncate max-w-full px-0.5">{labelCorto}</span>
-              </Link>
-            );
-          })}
-        </nav>
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute right-0 top-0 bottom-[env(safe-area-inset-bottom)] w-8 bg-gradient-to-l from-black to-transparent"
-        />
-      </div>
+      {/* Barra de pestañas de móvil: 7 secciones caben sin scroll
+          horizontal (a diferencia de las 9 anteriores), flex-1 a
+          partes iguales. */}
+      <nav
+        aria-label="Navegación principal (móvil)"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-10 flex border-t border-surface-border bg-surface pb-[env(safe-area-inset-bottom)]"
+      >
+        {SECCIONES.map(({ href, label, Icono }) => {
+          const activa = esRutaActiva(pathname, href);
+          return (
+            <Link
+              key={href}
+              href={href}
+              aria-current={activa ? "page" : undefined}
+              className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium leading-tight transition-transform active:scale-95 ${focusRing} ${
+                activa ? "text-accent" : "text-text-secondary"
+              }`}
+            >
+              <Icono aria-hidden="true" size={20} />
+              <span className="truncate max-w-full px-0.5">{label}</span>
+            </Link>
+          );
+        })}
+      </nav>
     </>
   );
 }

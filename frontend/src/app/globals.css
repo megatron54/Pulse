@@ -1,130 +1,88 @@
 @import "tailwindcss";
 
 /*
- * Paleta y tokens visuales de Pulse (rediseño estilo Apple, a petición
- * explícita del usuario - "quiero algo tipo apple", tras instalar las
- * skills de diseño de github.com/emilkowalski/skills en
- * ~/.config/opencode/skills, ver especialmente `apple-design`).
+ * Design System v2 de Pulse - ÚNICA fuente de verdad:
+ * 01-arquitectura/04-design-system-v2.md (no seguir ninguna decisión
+ * de diseño anterior, incluidos los comentarios que puedan quedar en
+ * componentes todavía no migrados).
  *
- * Reemplaza el rediseño anterior estilo WHOOP (colores neón de marca,
- * Proxima Nova/DINPro sustituidas por Inter/Oswald). Principios de
- * `apple-design` aplicados aquí concretamente:
- * - "Default to the platform's system font" (§15): fuera Inter/Oswald
- *   de Google Fonts, dentro la pila -apple-system/SF - la misma fuente
- *   que macOS/iOS ya renderiza de forma optimizada.
- * - "Materials & depth - translucency conveys hierarchy" (§12): las
- *   superficies (`--color-surface`) pasan de un panel opaco plano a un
- *   material translúcido con `backdrop-filter` (ver Card.tsx/Nav.tsx),
- *   sobre un fondo neutro casi negro (no el degradado azulado de
- *   WHOOP) - así el blur tiene contra qué separar profundidad.
- * - Colores semánticos alineados a la paleta de sistema de Apple
- *   (systemGreen/Yellow/Red/Blue/Indigo/Teal en modo oscuro) en vez de
- *   los neones saturados de la guía de marca de WHOOP - mismo
- *   significado semántico (recovery alto/medio/bajo, strain, sleep),
- *   colores menos "gaming HUD", más "iOS Health app".
- * Los NOMBRES de variable se mantienen idénticos a antes a propósito:
- * decenas de componentes ya usan `bg-teal`/`text-recovery-high`/etc.
- * vía Tailwind - repintar el tema cambiando solo los valores hex aquí
- * evita tocar cada consumidor uno a uno.
+ * Tema Apple-clean: claro/oscuro reales según `prefers-color-scheme`
+ * del sistema (a diferencia de las iteraciones anteriores, que eran
+ * dark-only forzado). Fuente de sistema, superficies con un solo nivel
+ * de separación, color usado con moderación para comunicar estado.
  */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f2f2f7;
+  --foreground: #1c1c1e;
+  --surface: #ffffff;
+  --surface-border: rgba(60, 60, 67, 0.12);
+  --surface-muted: #e5e5ea;
+  --text-secondary: rgba(60, 60, 67, 0.6);
 
-  --color-recovery-high: #30d158;
-  --color-recovery-medium: #ffd60a;
-  --color-recovery-low: #ff453a;
-  --color-strain: #0a84ff;
-  --color-sleep: #5e5ce6;
-  --color-teal: #64d2ff;
-  --color-recovery-blue: #64d2ff;
-  --color-bg-gradient-from: #000000;
-  --color-bg-gradient-to: #1c1c1e;
-  --color-surface: rgba(255, 255, 255, 0.06);
-  --color-surface-border: rgba(255, 255, 255, 0.12);
-  /* Color SÓLIDO (no rgba) para `ring-offset-color`: el navegador
-   * pinta el hueco entre el elemento y el anillo de foco con este
-   * color de forma opaca - un valor translúcido ahí se ve "sucio"
-   * en vez de limpio, así que necesita su propio token en vez de
-   * reutilizar `--color-surface`. */
-  --color-surface-solid: #1c1c1e;
-}
+  --color-recovery-high: #248a3d;
+  --color-recovery-medium: #a05a00;
+  --color-recovery-low: #d70015;
+  --color-accent: #007aff;
+  --color-sleep: #5856d6;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-system);
-  --font-display: var(--font-system);
-  --font-mono: var(--font-geist-mono);
-
-  --color-recovery-high: var(--color-recovery-high);
-  --color-recovery-medium: var(--color-recovery-medium);
-  --color-recovery-low: var(--color-recovery-low);
-  --color-strain: var(--color-strain);
-  --color-sleep: var(--color-sleep);
-  --color-teal: var(--color-teal);
-  --color-recovery-blue: var(--color-recovery-blue);
-  --color-surface: var(--color-surface);
-  --color-surface-solid: var(--color-surface-solid);
-  --color-surface-border: var(--color-surface-border);
-}
-
-/* Pulse sigue siendo dark-mode-first, sin depender de
- * prefers-color-scheme - la app siempre usa el tema oscuro. Negro
- * neutro (no azulado) para que el material translúcido de las
- * tarjetas/nav tenga verdadera profundidad contra la que separarse
- * (apple-design §12: "bigger surfaces should read as thicker"). */
-:root {
-  --background: #000000;
-  --foreground: #f2f4f5;
   --font-system:
     -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", system-ui,
     Roboto, Helvetica, Arial, sans-serif;
 }
 
-body {
-  background: linear-gradient(
-    180deg,
-    var(--color-bg-gradient-from) 0%,
-    var(--color-bg-gradient-to) 100%
-  );
-  background-attachment: fixed;
-  color: var(--foreground);
-  font-family: var(--font-system);
-  /* apple-design §15: leading algo más suelto por defecto en cuerpo
-   * de texto (leading tracks size inversely - tight en titulares
-   * grandes, más suelto en texto normal). */
-  line-height: 1.5;
-}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #000000;
+    --foreground: #f2f2f7;
+    --surface: #1c1c1e;
+    --surface-border: rgba(255, 255, 255, 0.14);
+    --surface-muted: #2c2c2e;
+    --text-secondary: rgba(235, 235, 245, 0.6);
 
-.font-display {
-  font-family: var(--font-system);
-}
-
-/* apple-design §12: material translúcido reutilizable para
- * tarjetas/nav (`backdrop-filter` + fondo semi-transparente, en vez de
- * un panel opaco). Se define como utilidad compartida en vez de
- * repetir `backdrop-blur-xl bg-surface` en cada componente, para que
- * el "peso" del material (cuánto blur/opacidad) sea una única decisión
- * de diseño, no una que cada tarjeta reinvente. */
-.material-surface {
-  background: var(--color-surface);
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
-}
-
-@media (prefers-reduced-transparency: reduce) {
-  .material-surface {
-    background: #1c1c1e;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
+    --color-recovery-high: #30d158;
+    --color-recovery-medium: #ffd60a;
+    --color-recovery-low: #ff453a;
+    --color-accent: #0a84ff;
+    --color-sleep: #5e5ce6;
   }
 }
 
-/* Respeta prefers-reduced-motion (WCAG 2.3.3): neutraliza las
- * transiciones CSS de barras/botones para usuarios con sensibilidad
- * vestibular. Las animaciones de `motion` (FadeIn, RecoveryRing) se
- * gestionan aparte con `useReducedMotion()` en cada componente. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-border: var(--surface-border);
+  --color-surface-muted: var(--surface-muted);
+  --color-text-secondary: var(--text-secondary);
+
+  --color-recovery-high: var(--color-recovery-high);
+  --color-recovery-medium: var(--color-recovery-medium);
+  --color-recovery-low: var(--color-recovery-low);
+  --color-accent: var(--color-accent);
+  --color-sleep: var(--color-sleep);
+
+  --font-sans: var(--font-system);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-system);
+  line-height: 1.5;
+}
+
+/* Contenedor de contenido fluido (Design System v2, principio 3): sin
+ * `max-w-6xl mx-auto` que deja el contenido como una isla centrada -
+ * ancho fluido con un máximo generoso, para que la jerarquía visual
+ * decida cómo se reparte el espacio, no un contenedor arbitrario. */
+.content-container {
+  width: 100%;
+  max-width: 90rem;
+  margin-inline: auto;
+  padding-inline: clamp(1rem, 3vw, 2.5rem);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

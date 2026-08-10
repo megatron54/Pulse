@@ -40,10 +40,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (!user) {
     return (
       <main className="flex-1 flex flex-col justify-center p-8">
-        <h1 className="text-3xl font-semibold text-center mb-8 tracking-tight text-white">
+        <h1 className="text-3xl font-semibold text-center mb-8 tracking-tight text-foreground">
           Pulse
         </h1>
-        {error && <p className="text-red-400 text-sm text-center mb-4">{error}</p>}
+        {error && <p className="text-recovery-low text-sm text-center mb-4">{error}</p>}
         <OnboardingForm onCreate={createUser} />
       </main>
     );

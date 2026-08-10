@@ -5,7 +5,7 @@ import type { User, UserCreateInput } from "@/lib/api";
 import { Card, CardTitle } from "./ui/Card";
 
 const inputClass =
-  "border border-white/10 bg-black/30 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-teal";
+  "border border-surface-border bg-surface-muted rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-accent";
 
 export function OnboardingForm({
   onCreate,
@@ -43,7 +43,7 @@ export function OnboardingForm({
       <Card>
         <CardTitle>Configura tu perfil</CardTitle>
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          <label className="flex flex-col gap-1 text-sm text-gray-300">
+          <label className="flex flex-col gap-1 text-sm text-text-secondary">
             Nombre
             <input
               className={inputClass}
@@ -52,7 +52,7 @@ export function OnboardingForm({
               required
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm text-gray-300">
+          <label className="flex flex-col gap-1 text-sm text-text-secondary">
             Altura (cm)
             <input
               type="number"
@@ -62,7 +62,7 @@ export function OnboardingForm({
               required
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm text-gray-300">
+          <label className="flex flex-col gap-1 text-sm text-text-secondary">
             Fecha de nacimiento
             <input
               type="date"
@@ -72,7 +72,7 @@ export function OnboardingForm({
               required
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm text-gray-300">
+          <label className="flex flex-col gap-1 text-sm text-text-secondary">
             Sexo
             <select
               className={inputClass}
@@ -83,11 +83,11 @@ export function OnboardingForm({
               <option value="F">Femenino</option>
             </select>
           </label>
-          {error && <p className="text-red-400 text-sm">{error}</p>}
+          {error && <p className="text-recovery-low text-sm">{error}</p>}
           <button
             type="submit"
             disabled={submitting}
-            className="bg-teal text-black font-semibold rounded-lg px-4 py-2.5 disabled:bg-surface-solid disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:scale-100 transition-transform hover:scale-[1.02] active:scale-[0.98]"
+            className="bg-accent text-white font-semibold rounded-lg px-4 py-2.5 disabled:bg-surface-muted disabled:text-text-secondary disabled:cursor-not-allowed disabled:hover:scale-100 transition-transform hover:scale-[1.02] active:scale-[0.98]"
           >
             {submitting ? "Creando..." : "Crear perfil"}
           </button>

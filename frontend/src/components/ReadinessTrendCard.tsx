@@ -100,7 +100,7 @@ export function ReadinessTrendCard({
         <>
           {/* Barra de proporción: la distribución general de un vistazo,
               antes del detalle día a día del heatmap de abajo. */}
-          <div className="flex h-2 w-full rounded-full overflow-hidden mb-4 bg-white/5">
+          <div className="flex h-2 w-full rounded-full overflow-hidden mb-4 bg-surface-muted">
             {(["green", "yellow", "red"] as const).map((zona) =>
               totales[zona] ? (
                 <motion.div

@@ -18,7 +18,7 @@ export function RadialGauge({
   label,
   size = 120,
   decimals = 0,
-  valueClassName = "text-white",
+  valueClassName = "text-foreground",
 }: {
   value: number;
   max: number;
@@ -63,9 +63,9 @@ export function RadialGauge({
         <AnimatedNumber
           value={value}
           decimals={decimals}
-          className={`font-display text-2xl font-bold ${valueClassName}`}
+          className={`text-2xl font-bold ${valueClassName}`}
         />
-        <span className="text-[10px] uppercase tracking-wide text-gray-400" aria-hidden="true">
+        <span className="text-[10px] uppercase tracking-wide text-text-secondary" aria-hidden="true">
           {label}
         </span>
       </div>
