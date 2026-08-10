@@ -69,7 +69,7 @@ class Base(DeclarativeBase):
 _SEXO_VALORES = ("M", "F")
 _FASE_PESO_VALORES = ("cut", "maintenance", "recomp", "surplus")
 _ANGULO_FOTO_VALORES = ("frontal", "lateral", "espalda")
-_METODO_BODYFAT_VALORES = ("navy", "navy_pose", "manual")
+_METODO_BODYFAT_VALORES = ("navy", "navy_pose", "manual", "feelfit_bioimpedance")
 _READINESS_VALORES = ("red", "yellow", "green")
 _ROL_CONVERSACION_VALORES = ("user", "coach")
 _FUENTE_NUTRICION_VALORES = ("manual", "foto_ia", "barcode_off")
@@ -128,6 +128,34 @@ class GarminCredentials(Base):
     falta de una cuenta Garmin de prueba)."""
 
     __tablename__ = "garmin_credentials"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("user_profile.id"), unique=True, index=True
+    )
+    token_store_dir: Mapped[str] = mapped_column(String(500))
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class FeelfitCredentials(Base):
+    """Referencia al token cacheado de la báscula Feelfit (Qingniu/
+    Yolanda) - MISMO criterio de seguridad que `GarminCredentials`:
+    NUNCA guarda la contraseña. `token_store_dir` apunta a un JSON
+    local (`FeelfitClient._cargar_token_cacheado`) con el bearer token
+    y su expiración devueltos por el login.
+
+    A diferencia de Garmin (donde `python-garminconnect`/garth cachea
+    una sesión OAuth de larga duración en disco), la API no oficial de
+    Feelfit (`https://feelfit.qnclouds.com/api/v4`, ver
+    `feelfit_client.client`) solo expone un token con expiración corta
+    conocida (`remaining_time` del login). Cuando ese token expira, el
+    sync simplemente falla de forma aislada (mismo patrón que un fallo
+    de Garmin en `scheduler_service`) y el usuario debe reconectar su
+    cuenta (POST /users/{id}/feelfit-connect) - la contraseña jamás se
+    persiste para poder re-loguear automáticamente sin intervención."""
+
+    __tablename__ = "feelfit_credentials"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(
@@ -244,10 +272,25 @@ class GarminActivity(Base):
 class BodyMeasurements(Base):
     """Append-only. `bodyfat_pct_rango_min/max` en vez de un único
     número: nunca se muestra una precisión falsa al usuario (ver
-    00-research/05-analisis-corporal-foto.md)."""
+    00-research/05-analisis-corporal-foto.md).
+
+    `fuente_externa_id` es el ID de medición propio de una fuente
+    externa (ej. `measurement_id` de Feelfit) - permite idempotencia
+    real en la sincronización (mismo criterio que
+    `uq_garmin_activity_user_activity` en `GarminActivity`: sin esto,
+    resincronizar el mismo día duplicaría filas). Queda `None` para
+    mediciones manuales (que SÍ pueden repetirse el mismo día a
+    propósito, ver docstring de `services.body_composition_service`) -
+    varios `NULL` conviven sin problema bajo un UNIQUE de dos columnas
+    en SQLite/Postgres, solo los valores no-NULL se exigen únicos."""
 
     __tablename__ = "body_measurements"
-    __table_args__ = (Index("ix_body_measurements_user_fecha", "user_id", "fecha"),)
+    __table_args__ = (
+        Index("ix_body_measurements_user_fecha", "user_id", "fecha"),
+        UniqueConstraint(
+            "user_id", "fuente_externa_id", name="uq_body_measurements_user_fuente_externa"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("user_profile.id"), index=True)
@@ -261,6 +304,7 @@ class BodyMeasurements(Base):
     metodo: Mapped[str] = mapped_column(
         Enum(*_METODO_BODYFAT_VALORES, name="metodo_bodyfat_enum", create_constraint=True), default="manual"
     )
+    fuente_externa_id: Mapped[str | None] = mapped_column(String(100), default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 

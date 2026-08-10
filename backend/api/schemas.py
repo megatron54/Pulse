@@ -56,6 +56,20 @@ class GarminConnectRequest(BaseModel):
     sexo: str | None = Field(default=None, pattern="^[MF]$")
 
 
+class FeelfitConnectRequest(BaseModel):
+    """Conecta la báscula Feelfit de un usuario YA EXISTENTE
+    (services.feelfit_onboarding_service.connect_feelfit_account).
+    `email`/`password` nunca se persisten - solo viven en memoria
+    durante esta petición HTTP, igual que `GarminConnectRequest`."""
+
+    email: str
+    password: str
+
+
+class FeelfitConnectOut(BaseModel):
+    mediciones_importadas: int
+
+
 class GarminConnectIncompleteOut(BaseModel):
     """422: Garmin no expuso todos los campos requeridos. El cliente
     debe re-enviar la misma petición con `overrides` rellenando

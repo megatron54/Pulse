@@ -35,8 +35,10 @@ from typing import Any, Callable
 
 from sqlalchemy.orm import Session
 
+from feelfit_client.client import FeelfitClient
 from garmin_sync.client import GarminClient
-from models.schema import AuditLog, GarminCredentials
+from models.schema import AuditLog, FeelfitCredentials, GarminCredentials
+from services.feelfit_sync_service import sync_feelfit_measurements
 from services.garmin_activity_service import sync_activities
 from services.garmin_intraday_service import sync_intraday_metrics
 from services.readiness_service import sync_and_compute_readiness
@@ -205,6 +207,64 @@ def run_daily_activity_sync_for_all_users(
                 )
                 session.commit()
             except Exception:  # noqa: BLE001 - misma salvaguarda que la auditoría de recovery
+                session.rollback()
+            fallidos += 1
+
+    return SyncBatchResult(exitosos=exitosos, fallidos=fallidos, omitidos=omitidos)
+
+
+def run_daily_feelfit_sync_for_all_users(
+    session: Session,
+    client_factory: Callable[..., Any] | None = None,
+) -> SyncBatchResult:
+    """Sincroniza mediciones nuevas de báscula para cada usuario con
+    `FeelfitCredentials` activas (petición explícita del usuario:
+    conexión custom con su báscula FeelFit).
+
+    A diferencia de Garmin, el token de Feelfit dura ~180 días (ver
+    `feelfit_client.client`) - si expiró y no se pasan credenciales
+    (que el scheduler nunca tiene, por diseño: nunca se persisten),
+    `FeelfitClient.login()` lanza `FeelfitAuthError` explícito, que
+    aquí se trata igual que cualquier otro fallo aislado por usuario:
+    se cuenta como fallido y se audita, sin tumbar el resto del batch.
+    El usuario deberá reconectar manualmente (POST /feelfit-connect)
+    cuando esto ocurra - no hay forma de relogear sola sin contraseña,
+    por diseño (ver docstring de `FeelfitCredentials`).
+
+    `last_updated_at=0` siempre: a diferencia de Garmin, la ingesta es
+    barata y totalmente idempotente vía `fuente_externa_id`, así que no
+    hace falta llevar la cuenta de la última sincronización exitosa
+    para acotar la ventana - simplifica el job a costa de traer más
+    datos de los estrictamente nuevos en cada pasada (mediciones de una
+    báscula personal son, en la práctica, unas pocas al día)."""
+    factory = client_factory or FeelfitClient
+    credenciales_activas = session.query(FeelfitCredentials).filter_by(activo=True).all()
+
+    exitosos = 0
+    fallidos = 0
+    omitidos = session.query(FeelfitCredentials).filter_by(activo=False).count()
+
+    for cred in credenciales_activas:
+        try:
+            feelfit_client = factory(token_store_dir=cred.token_store_dir)
+            feelfit_client.login()
+            sync_feelfit_measurements(session, cred.user_id, feelfit_client)
+            exitosos += 1
+        except Exception as exc:  # noqa: BLE001 - aislamiento intencional por usuario
+            session.rollback()
+            try:
+                session.add(
+                    AuditLog(
+                        user_id=cred.user_id,
+                        modulo="scheduler_feelfit",
+                        inputs_json={},
+                        regla_disparada="sync_feelfit_fallido",
+                        output="error",
+                        decision_final=str(exc)[:200],
+                    )
+                )
+                session.commit()
+            except Exception:  # noqa: BLE001 - misma salvaguarda que el resto del scheduler
                 session.rollback()
             fallidos += 1
 
