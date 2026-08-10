@@ -138,38 +138,6 @@ class GarminCredentials(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
-class WgerCredentials(Base):
-    """Token permanente de la API de wger del usuario (mismo mecanismo
-    documentado en la guía oficial: el usuario lo genera él mismo desde
-    la página "API key" de su propio wger, Pulse nunca ve ni almacena
-    su contraseña - solo este token). Habilita escritura autenticada
-    (diario de nutrición, `nutritiondiary`) además del catálogo público
-    de solo lectura ya usado por `wger_client`.
-
-    DEUDA DE SEGURIDAD DOCUMENTADA EXPLÍCITAMENTE (no ocultar el hueco):
-    a diferencia de `GarminCredentials.token_store_dir` (una simple
-    ruta, no un secreto en sí), `token` AQUÍ SÍ es un secreto real -
-    quien lo tenga puede actuar como el usuario contra su wger. Este
-    proyecto todavía no tiene ninguna infraestructura de cifrado en
-    reposo (ver `ProgressPhoto.ruta_cifrada_local`, con el mismo
-    problema, sin resolver). Antes de producción real, cifrar esta
-    columna (p.ej. `cryptography.fernet`) o moverla a un secret
-    manager - se documenta aquí en vez de fingir que ya está resuelto.
-    Mientras tanto: nunca se devuelve en ninguna respuesta de la API
-    (ver `api/schemas.py`), nunca se loguea (ver `wger_client.client`,
-    que ya evita registrar tokens en sus mensajes de error)."""
-
-    __tablename__ = "wger_credentials"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("user_profile.id"), unique=True, index=True
-    )
-    token: Mapped[str] = mapped_column(String(500))
-    activo: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-
-
 class GarminDailyMetrics(Base):
     """Append-only: sin UNIQUE(user_id, fecha) a propósito - permite
     múltiples sincronizaciones del mismo día sin perder histórico."""

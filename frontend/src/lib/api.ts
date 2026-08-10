@@ -201,34 +201,6 @@ export type Exercise = {
   equipamiento: string[];
 };
 
-export type Ingredient = {
-  id: number;
-  nombre: string;
-  kcal_100g: number;
-  proteina_100g_g: number;
-  carbohidratos_100g_g: number;
-  grasa_100g_g: number;
-};
-
-export type FoodLogEntry = {
-  ingredient_id: number;
-  nombre: string;
-  amount_grams: number;
-  kcal: number;
-  proteina_g: number;
-  carbohidratos_g: number;
-  grasa_g: number;
-};
-
-export type DailyFoodLog = {
-  entradas: FoodLogEntry[];
-  kcal_total: number;
-  proteina_g_total: number;
-  carbohidratos_g_total: number;
-  grasa_g_total: number;
-  entradas_omitidas: number;
-};
-
 // Catálogo cerrado - debe coincidir exactamente con `_HABITO_VALORES` en
 // backend/models/schema.py (ver docstring de HabitLog para el porqué de
 // un catálogo cerrado en vez de texto libre).
@@ -366,26 +338,6 @@ export const api = {
     request<Exercise[]>(
       `/exercises/search?category_id=${categoryId}&language=${language}&limit=${limit}`
     ),
-
-  saveWgerToken: (userId: number, token: string) =>
-    request<void>(`/users/${userId}/nutrition/wger-token`, {
-      method: "POST",
-      body: JSON.stringify({ token }),
-    }),
-
-  searchIngredients: (userId: number, query: string, language = 2, limit = 20) =>
-    request<Ingredient[]>(
-      `/users/${userId}/nutrition/ingredients/search?query=${encodeURIComponent(query)}&language=${language}&limit=${limit}`
-    ),
-
-  createFoodLogEntry: (userId: number, ingredientId: number, amountGrams: number) =>
-    request<void>(`/users/${userId}/nutrition/food-log`, {
-      method: "POST",
-      body: JSON.stringify({ ingredient_id: ingredientId, amount_grams: amountGrams }),
-    }),
-
-  getFoodLog: (userId: number, targetDate = todayLocalDate()) =>
-    request<DailyFoodLog>(`/users/${userId}/nutrition/food-log?date=${targetDate}`),
 
   getBodyMeasurementHistory: (userId: number, days = 90) =>
     request<BodyMeasurement[]>(

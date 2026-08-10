@@ -22,7 +22,7 @@ Requiere Postgres corriendo (ver `docker-compose.yml` en la raíz - `docker comp
 - `repositories/` — Acceso a datos (SQLAlchemy), un módulo por agregado (readiness, garmin, habits, training blocks, wger credentials...).
 - `services/` — Capa 2: orquesta repositorios + `engine/` + clientes externos. Un servicio por caso de uso (readiness, food log, habit correlation, periodic summary, garmin pairing/activity sync, scheduler...).
 - `coach/` — **Capa 3**: explicación conversacional (Gemini free tier + fallback determinista por plantilla) de una decisión ya tomada por la Capa 1 - nunca decide por su cuenta.
-- `api/` — API REST (FastAPI). Auth v1 = API key simple (`X-API-Key`, fail-closed fuera de `PULSE_ENV=dev`). Routers: `users`, `readiness`, `session`, `nutrition`, `food_log`, `body_composition`, `training_blocks`, `exercises`, `habits`, `garmin`, `summary`.
+- `api/` — API REST (FastAPI). Auth v1 = API key simple (`X-API-Key`, fail-closed fuera de `PULSE_ENV=dev`). Routers: `users`, `readiness`, `session`, `nutrition`, `body_composition`, `training_blocks`, `exercises`, `habits`, `garmin`, `summary`.
 - `scheduler/` — Job nocturno (APScheduler) que sincroniza recovery y actividades de Garmin para todos los usuarios con credenciales activas.
 - `scripts/` — `ensure_schema.py` (crea/verifica el esquema, idempotente, se ejecuta antes de arrancar la API), `garmin_pair.py` (emparejamiento inicial interactivo de una cuenta Garmin real - **nunca** pasa la contraseña por un chat de IA ni por la API, se ejecuta a mano en terminal).
 - `tests/` — TDD real: se escriben antes que la implementación. ~500 tests, ~97% cobertura (gate de CI: 85%).
