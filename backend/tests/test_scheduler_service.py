@@ -24,6 +24,7 @@ from models.schema import (
     Base,
     GarminCredentials,
     GarminDailyMetrics,
+    GarminIntradayMetric,
     ReadinessLog,
     UserProfile,
 )
@@ -63,6 +64,7 @@ def _fake_api_factory(hrv=65.0, readiness="high", body_battery=80, sleep=85):
     fake_api.get_stress_data.return_value = {}
     fake_api.get_rhr_day.return_value = {}
     fake_api.get_max_metrics.return_value = []
+    fake_api.get_heart_rates.return_value = {}
     return lambda *a, **k: fake_api
 
 
@@ -221,3 +223,66 @@ class TestRunDailySyncForAllUsers:
         assert resultado.fallidos == 1
         assert resultado.exitosos == 1
         assert session.query(ReadinessLog).filter_by(user_id=u_ok.id).count() == 1
+
+
+class TestSincronizaTambienLaSerieIntradia:
+    """Petición explícita del usuario: "el ritmo cardiaco, body
+    battery, etc son valores que cambian cada minuto, quiero todo ese
+    histórico" - el scheduler debe ingerir la serie minuto a minuto en
+    la misma pasada que el recovery diario, no solo el agregado."""
+
+    def test_persiste_la_serie_minuto_a_minuto_junto_al_recovery_diario(self, session):
+        u = _crear_usuario_con_credenciales(session, nombre="Test")
+        fake_api = MagicMock()
+        fake_api.get_hrv_data.return_value = {"hrvSummary": {"lastNightAvg": 65.0}}
+        fake_api.get_training_readiness.return_value = [{"level": "HIGH"}]
+        fake_api.get_body_battery.return_value = [
+            {
+                "charged": 80,
+                "drained": 10,
+                "bodyBatteryValuesArray": [[1786226400000, 50], [1786226520000, 52]],
+            }
+        ]
+        fake_api.get_sleep_data.return_value = {
+            "dailySleepDTO": {"sleepScores": {"overall": {"value": 85}}}
+        }
+        fake_api.get_stress_data.return_value = {}
+        fake_api.get_rhr_day.return_value = {}
+        fake_api.get_max_metrics.return_value = []
+        fake_api.get_heart_rates.return_value = {
+            "heartRateValues": [[1786226400000, 60], [1786226520000, 62]]
+        }
+
+        run_daily_sync_for_all_users(
+            session, target_date=date(2026, 8, 2), api_factory=lambda *a, **k: fake_api
+        )
+
+        puntos_hr = session.query(GarminIntradayMetric).filter_by(
+            user_id=u.id, metrica="heart_rate"
+        ).all()
+        puntos_bb = session.query(GarminIntradayMetric).filter_by(
+            user_id=u.id, metrica="body_battery"
+        ).all()
+        assert len(puntos_hr) == 2
+        assert len(puntos_bb) == 2
+
+    def test_un_fallo_de_intradia_no_hace_fallar_el_recovery_ya_exitoso(self, session):
+        u = _crear_usuario_con_credenciales(session, nombre="Test")
+        fake_api = MagicMock()
+        fake_api.get_hrv_data.return_value = {"hrvSummary": {"lastNightAvg": 65.0}}
+        fake_api.get_training_readiness.return_value = [{"level": "HIGH"}]
+        fake_api.get_body_battery.return_value = [{"charged": 80, "drained": 10}]
+        fake_api.get_sleep_data.return_value = {
+            "dailySleepDTO": {"sleepScores": {"overall": {"value": 85}}}
+        }
+        fake_api.get_stress_data.return_value = {}
+        fake_api.get_rhr_day.return_value = {}
+        fake_api.get_max_metrics.return_value = []
+        fake_api.get_heart_rates.side_effect = Exception("fallo puntual de Garmin")
+
+        resultado = run_daily_sync_for_all_users(
+            session, target_date=date(2026, 8, 2), api_factory=lambda *a, **k: fake_api
+        )
+
+        assert resultado.exitosos == 1
+        assert session.query(ReadinessLog).filter_by(user_id=u.id).count() == 1

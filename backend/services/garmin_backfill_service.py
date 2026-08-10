@@ -34,6 +34,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from services.garmin_activity_service import sync_activities
+from services.garmin_intraday_service import sync_intraday_metrics
 from services.readiness_service import sync_and_compute_readiness
 
 _ACWR_NEUTRAL_POR_DEFECTO = 1.0
@@ -46,6 +47,8 @@ class BackfillResult:
     actividades_fallo: bool
     dias_recovery_exitosos: int
     dias_recovery_fallidos: int
+    puntos_intradia_nuevos: int
+    dias_intradia_fallidos: int
 
 
 def backfill_full_history(
@@ -68,6 +71,8 @@ def backfill_full_history(
 
     dias_recovery_exitosos = 0
     dias_recovery_fallidos = 0
+    puntos_intradia_nuevos = 0
+    dias_intradia_fallidos = 0
     dia = start_date
     while dia <= end_date:
         try:
@@ -90,6 +95,20 @@ def backfill_full_history(
         except Exception:  # noqa: BLE001 - aislamiento día a día, ver docstring del módulo
             session.rollback()
             dias_recovery_fallidos += 1
+
+        # Serie minuto a minuto (petición explícita del usuario:
+        # "quiero todo ese histórico, no me vale que cojas la media
+        # del día") - preocupación INDEPENDIENTE del agregado diario de
+        # arriba: un fallo aquí no debe afectar al conteo de recovery
+        # ni viceversa, cada uno hace su propio commit/rollback.
+        try:
+            resultado_intradia = sync_intraday_metrics(session, user_id, garmin_client, dia)
+            session.commit()
+            puntos_intradia_nuevos += resultado_intradia.total_puntos_nuevos
+        except Exception:  # noqa: BLE001 - aislamiento día a día, igual que arriba
+            session.rollback()
+            dias_intradia_fallidos += 1
+
         dia += timedelta(days=1)
 
     return BackfillResult(
@@ -97,4 +116,6 @@ def backfill_full_history(
         actividades_fallo=actividades_fallo,
         dias_recovery_exitosos=dias_recovery_exitosos,
         dias_recovery_fallidos=dias_recovery_fallidos,
+        puntos_intradia_nuevos=puntos_intradia_nuevos,
+        dias_intradia_fallidos=dias_intradia_fallidos,
     )

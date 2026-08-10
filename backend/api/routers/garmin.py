@@ -8,18 +8,26 @@ añadirlo."""
 from __future__ import annotations
 
 from datetime import date
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_db, verify_api_key
-from api.schemas import GarminActivityOut, GarminDailyMetricsOut, HealthNarrativeOut, WeeklyVolumeOut
+from api.schemas import (
+    GarminActivityOut,
+    GarminDailyMetricsOut,
+    GarminIntradayPointOut,
+    HealthNarrativeOut,
+    WeeklyVolumeOut,
+)
 from coach.gemini_client import build_gemini_client_if_configured
 from coach.health_narrative_service import generate_health_narrative_for_user
 from services.garmin_query_service import (
     CategoriaDeporte,
     get_activity_history_for_user,
     get_daily_metrics_history_for_user,
+    get_intraday_history_for_user,
     get_weekly_volume_for_user,
 )
 
@@ -106,3 +114,23 @@ def get_weekly_volume(
         db, user_id, as_of=as_of or date.today(), categoria=categoria, weeks=weeks
     )
     return [WeeklyVolumeOut.model_validate(s, from_attributes=True) for s in semanas]
+
+
+@router.get("/intraday", response_model=list[GarminIntradayPointOut])
+def get_intraday_history(
+    user_id: int,
+    metrica: Literal["heart_rate", "body_battery", "stress"] = Query(
+        ..., description="Qué serie minuto a minuto consultar."
+    ),
+    fecha: date | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> list[GarminIntradayPointOut]:
+    """Serie minuto a minuto de `metrica` para `fecha` (por defecto
+    hoy) - petición explícita del usuario: "el ritmo cardiaco, body
+    battery, etc son valores que cambian cada minuto, quiero todo ese
+    histórico, no me vale que cojas la media del día". Complementa a
+    `/health-history` (un solo valor agregado por día). Devuelve lista
+    vacía si el scheduler todavía no ha sincronizado ese día - "unknown
+    is not zero", nunca se interpola ni se rellena un hueco."""
+    puntos = get_intraday_history_for_user(db, user_id, metrica, fecha or date.today())
+    return [GarminIntradayPointOut.model_validate(p, from_attributes=True) for p in puntos]

@@ -38,6 +38,7 @@ from sqlalchemy.orm import Session
 from garmin_sync.client import GarminClient
 from models.schema import AuditLog, GarminCredentials
 from services.garmin_activity_service import sync_activities
+from services.garmin_intraday_service import sync_intraday_metrics
 from services.readiness_service import sync_and_compute_readiness
 
 _ACWR_NEUTRAL_POR_DEFECTO = 1.0
@@ -95,6 +96,32 @@ def run_daily_sync_for_all_users(
                 joint_pain_flag=_JOINT_PAIN_FLAG_POR_DEFECTO,
             )
             exitosos += 1
+            # Serie minuto a minuto (petición explícita del usuario:
+            # "quiero todo ese histórico, no me vale que cojas la media
+            # del día") - preocupación INDEPENDIENTE del agregado diario
+            # de arriba: un fallo aquí no debe invalidar un sync de
+            # recovery ya exitoso, así que se aísla en su propio
+            # try/except y su propio commit, sin afectar a
+            # `exitosos`/`fallidos`.
+            try:
+                sync_intraday_metrics(session, cred.user_id, garmin_client, target_date)
+                session.commit()
+            except Exception as exc_intradia:  # noqa: BLE001 - aislamiento intencional
+                session.rollback()
+                try:
+                    session.add(
+                        AuditLog(
+                            user_id=cred.user_id,
+                            modulo="scheduler",
+                            inputs_json={"target_date": target_date.isoformat()},
+                            regla_disparada="sync_intradia_fallido",
+                            output="error",
+                            decision_final=str(exc_intradia)[:200],
+                        )
+                    )
+                    session.commit()
+                except Exception:  # noqa: BLE001 - misma salvaguarda que la auditoría de recovery
+                    session.rollback()
         except Exception as exc:  # noqa: BLE001 - aislamiento intencional por usuario
             session.rollback()
             try:

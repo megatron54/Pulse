@@ -206,6 +206,46 @@ def _extraer_vo2max(payload: Any) -> float | None:
         return None
 
 
+def _extraer_serie(
+    payload: Any, clave_array: str, *, descartar_negativos: bool = False
+) -> list[tuple[int, float]]:
+    """Extrae una serie `[timestamp_ms, valor]` de un payload dict de
+    Garmin (`heartRateValues`/`stressValuesArray`) a una lista de
+    tuplas `(timestamp_ms, valor)`. `descartar_negativos` filtra los
+    centinelas negativos que Garmin usa en `stressValuesArray` para
+    "sin datos suficientes ese minuto" ("unknown is not zero": un
+    hueco en la serie es honesto, un -1/-2 mostrado como valor real
+    no lo es). Cualquier forma inesperada da lista vacía, nunca
+    lanza."""
+    if not payload:
+        return []
+    try:
+        puntos = payload.get(clave_array) or []
+        resultado = []
+        for punto in puntos:
+            timestamp_ms, valor = punto[0], punto[1]
+            if valor is None:
+                continue
+            if descartar_negativos and valor < 0:
+                continue
+            resultado.append((timestamp_ms, valor))
+        return resultado
+    except (AttributeError, TypeError, IndexError):
+        return []
+
+
+def _extraer_serie_body_battery(payload: Any) -> list[tuple[int, float]]:
+    """`get_body_battery(date)` devuelve una LISTA (no un dict) de un
+    elemento por día - forma real verificada contra una cuenta Garmin
+    real, distinta de `get_heart_rates`/`get_stress_data`."""
+    if not payload:
+        return []
+    try:
+        return _extraer_serie(payload[0], "bodyBatteryValuesArray")
+    except (KeyError, TypeError, IndexError):
+        return []
+
+
 class GarminClient:
     """Wrapper fino sobre `garminconnect.Garmin` con la política de
     autenticación y extracción de datos descrita en el docstring del
@@ -233,6 +273,19 @@ class GarminClient:
         self._api_factory = api_factory or _default_api_factory()
         self._mfa_code_prompt = mfa_code_prompt
         self._api: Any = None
+        # Caché por-fecha de `get_body_battery`/`get_stress_data`
+        # (hallazgo de code-review): `get_daily_recovery_raw` y
+        # `get_intraday_series_raw` piden estas DOS llamadas para el
+        # MISMO día (el payload trae tanto el agregado como el array
+        # intradía) - sin esta caché, una misma pasada del scheduler
+        # duplicaba 2 de las 3 llamadas nuevas de intradía, aumentando
+        # innecesariamente el volumen de peticiones contra la API no
+        # oficial de Garmin (riesgo de rate-limit ya documentado en
+        # este módulo). Vive en la instancia porque el mismo
+        # `GarminClient` (misma sesión logueada) se reutiliza para
+        # ambas llamadas dentro de una pasada de sync.
+        self._cache_body_battery: dict[str, Any] = {}
+        self._cache_stress: dict[str, Any] = {}
 
     def login(self) -> None:
         """Un único intento de login, reutilizando el token cacheado.
@@ -287,9 +340,9 @@ class GarminClient:
         raw_readiness = self._llamada_segura(
             self._api.get_training_readiness, date_str
         )
-        raw_body_battery = self._llamada_segura(self._api.get_body_battery, date_str)
+        raw_body_battery = self._get_body_battery_raw_cacheado(date_str)
         raw_sleep = self._llamada_segura(self._api.get_sleep_data, date_str)
-        raw_stress = self._llamada_segura(self._api.get_stress_data, date_str)
+        raw_stress = self._get_stress_raw_cacheado(date_str)
         raw_rhr = self._llamada_segura(self._api.get_rhr_day, date_str)
         raw_max_metrics = self._llamada_segura(self._api.get_max_metrics, date_str)
 
@@ -321,6 +374,21 @@ class GarminClient:
             return metodo(date_str)
         except Exception:
             return None
+
+    def _get_body_battery_raw_cacheado(self, date_str: str) -> Any:
+        """Ver comentario de `_cache_body_battery` en `__init__`: evita
+        una segunda llamada de red idéntica cuando `get_daily_recovery_raw`
+        y `get_intraday_series_raw` piden el mismo día."""
+        if date_str not in self._cache_body_battery:
+            self._cache_body_battery[date_str] = self._llamada_segura(
+                self._api.get_body_battery, date_str
+            )
+        return self._cache_body_battery[date_str]
+
+    def _get_stress_raw_cacheado(self, date_str: str) -> Any:
+        if date_str not in self._cache_stress:
+            self._cache_stress[date_str] = self._llamada_segura(self._api.get_stress_data, date_str)
+        return self._cache_stress[date_str]
 
     def get_activities_raw(self, start_date_str: str, end_date_str: str) -> list[dict[str, Any]]:
         """Lista cruda de actividades (carrera/ciclismo/fuerza/...) en el
@@ -384,4 +452,55 @@ class GarminClient:
             "altura_cm": datos.get("height"),
             "peso_kg": (peso_g / 1000) if peso_g is not None else None,
             "fecha_nacimiento": datos.get("birthDate"),
+        }
+
+    def get_intraday_series_raw(self, date_str: str) -> dict[str, list[tuple[int, float]]]:
+        """Serie minuto a minuto de ritmo cardíaco, body battery y estrés
+        de `date_str` - petición explícita del usuario: "el ritmo
+        cardiaco, body battery, etc son valores que cambian cada
+        minuto, quiero todo ese histórico, no me vale que cojas la
+        media del día". Complementa a `get_daily_recovery_raw`, que
+        solo persiste un valor agregado por día.
+
+        Cada métrica es una llamada independiente y se degrada por
+        separado (mismo principio que `get_daily_recovery_raw`): un
+        fallo puntual en una métrica no debe impedir obtener las demás.
+
+        Formas verificadas contra el JSON real de una cuenta Garmin
+        real:
+        - `get_heart_rates(date)` -> dict con `heartRateValues`:
+          lista de `[timestamp_ms, bpm]`.
+        - `get_body_battery(date)` -> LISTA (no dict) de un elemento
+          por día, con `bodyBatteryValuesArray`: lista de
+          `[timestamp_ms, nivel]`.
+        - `get_stress_data(date)` -> dict con `stressValuesArray`:
+          lista de `[timestamp_ms, nivel]`, con -1/-2 como centinela de
+          "sin datos suficientes ese minuto" - estos puntos se
+          DESCARTAN aquí ("unknown is not zero": un hueco en la serie
+          es honesto, un -1 mostrado como estrés real no lo es).
+
+        `body_battery`/`stress` usan la caché por-fecha de
+        `_get_body_battery_raw_cacheado`/`_get_stress_raw_cacheado`
+        (hallazgo de code-review): si `get_daily_recovery_raw` ya pidió
+        el mismo día en esta misma sesión, se reutiliza el payload en
+        vez de repetir la llamada de red - reduce el riesgo de
+        rate-limit sin perder ningún dato (el payload ya trae el array
+        intradía completo)."""
+        if self._api is None:
+            raise RuntimeError("login() debe llamarse antes de sincronizar datos")
+        try:
+            date.fromisoformat(date_str)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"date_str debe tener formato ISO YYYY-MM-DD, recibido: {date_str!r}"
+            ) from exc
+
+        raw_hr = self._llamada_segura(self._api.get_heart_rates, date_str)
+        raw_body_battery = self._get_body_battery_raw_cacheado(date_str)
+        raw_stress = self._get_stress_raw_cacheado(date_str)
+
+        return {
+            "heart_rate": _extraer_serie(raw_hr, "heartRateValues"),
+            "body_battery": _extraer_serie_body_battery(raw_body_battery),
+            "stress": _extraer_serie(raw_stress, "stressValuesArray", descartar_negativos=True),
         }
