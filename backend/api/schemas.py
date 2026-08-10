@@ -97,6 +97,51 @@ class NutritionTargetOut(BaseModel):
     deficit_pausado_por_guardrail: bool
 
 
+_FaseNutritionPlan = Literal["cut", "maintenance", "recomp", "surplus"]
+
+
+class NutritionPlanRequest(BaseModel):
+    """Alta de un plan de fase de peso con duración determinada
+    (petición explícita del usuario: "planes de deficit, superhabit y
+    mantenimiento dedicados, con duración determinada")."""
+
+    fase: _FaseNutritionPlan
+    semanas_duracion: int = Field(gt=0, le=52)
+    fecha_inicio: date
+    # max_length alineado con la columna motivo=String(300) del modelo
+    # (code-review: sin esto un motivo largo rompía como 500 de DB en
+    # vez de un 422 limpio de validación).
+    motivo: str | None = Field(default=None, max_length=300)
+
+
+class NutritionPlanOut(BaseModel):
+    id: int
+    fase: str
+    fecha_inicio: date
+    semanas_duracion: int
+    motivo: str | None
+    activo: bool
+
+    model_config = {"from_attributes": True}
+
+
+class ActiveNutritionPlanOut(BaseModel):
+    """`None` si no hay ningún plan activo - "unknown is not zero", la
+    ausencia de plan es un estado real, nunca se inventa uno."""
+
+    plan: NutritionPlanOut
+    fecha_fin: date
+    dias_restantes: int
+    expirado: bool
+
+
+class NutritionPhaseRecommendationOut(BaseModel):
+    fase_recomendada: str
+    accion: Literal["sin_cambios", "nuevo_plan_sugerido"]
+    motivo: str
+    semanas_sugeridas: int | None
+
+
 class ManualReadinessRequest(BaseModel):
     target_date: date
     hrv_today: float = Field(gt=0)
