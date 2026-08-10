@@ -1,6 +1,6 @@
 """Capa de servicio delgada de solo lectura para el historial de
 actividades Garmin ya ingeridas - valida que el usuario exista (mismo
-patrón que `services.habit_service`/`services.food_log_service`) antes
+patrón que `services.habit_service`) antes
 de delegar en el repositorio."""
 from __future__ import annotations
 

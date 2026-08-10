@@ -1,5 +1,5 @@
 """Tests de integración del router de hábitos — TDD. Patrón de
-TestClient + SQLite en memoria establecido en test_food_log_router.py."""
+TestClient + SQLite en memoria establecido en test_garmin_router.py."""
 from datetime import date, timedelta
 
 import pytest
@@ -65,7 +65,7 @@ class TestSetHabits:
     def test_usuario_inexistente_da_404(self, client):
         # HIGH-2 de code-review: sin esta validación, en Postgres real
         # esto habría escapado como un 500 (IntegrityError de FK) en vez
-        # de un 404 limpio - mismo patrón que food_log.py.
+        # de un 404 limpio.
         c, _ = client
         resp = c.post(
             "/users/99999/habits?date=2026-08-04",
