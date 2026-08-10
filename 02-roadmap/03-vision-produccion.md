@@ -1,5 +1,12 @@
 # Visión de producto: Pulse como app de producción (WHOOP/Garmin-like)
 
+> **⚠️ AVISO (reconstrucción del frontend v2):** cualquier decisión de
+> diseño VISUAL mencionada en este documento (rediseño estilo WHOOP,
+> rediseño estilo Apple posterior) queda **derogada**. La única fuente
+> de verdad de diseño vigente es `01-arquitectura/04-design-system-v2.md`.
+> Las decisiones de PRODUCTO/backlog de este documento (qué épicas
+> están hechas/pendientes) siguen vigentes sin cambios.
+
 > Documento de trabajo vivo. Creado tras petición explícita del usuario de
 > escalar Pulse de "app funcional" a "producto pulido, listo para vender".
 > Esto es un proyecto de **meses**, no de una sesión — este documento existe
