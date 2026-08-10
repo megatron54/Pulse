@@ -112,6 +112,35 @@ export type NutritionTarget = {
   deficit_pausado_por_guardrail: boolean;
 };
 
+// Planes de deficit/superavit/mantenimiento con duración determinada
+// (petición explícita del usuario: "como tu nutricionista personal").
+// El sistema RECOMIENDA, el usuario CONFIRMA - nunca se crea un plan
+// automáticamente desde la recomendación sin que el usuario lo pida.
+export type FaseNutricional = "cut" | "maintenance" | "recomp" | "surplus";
+
+export type NutritionPlan = {
+  id: number;
+  fase: FaseNutricional;
+  fecha_inicio: string;
+  semanas_duracion: number;
+  motivo: string | null;
+  activo: boolean;
+};
+
+export type ActiveNutritionPlan = {
+  plan: NutritionPlan;
+  fecha_fin: string;
+  dias_restantes: number;
+  expirado: boolean;
+};
+
+export type NutritionPhaseRecommendation = {
+  fase_recomendada: FaseNutricional;
+  accion: "sin_cambios" | "nuevo_plan_sugerido";
+  motivo: string;
+  semanas_sugeridas: number | null;
+};
+
 export type ManualReadinessInput = {
   target_date: string;
   hrv_today: number;
@@ -309,6 +338,25 @@ export const api = {
     request<NutritionTarget>(`/users/${userId}/nutrition/daily-target`, {
       method: "POST",
       body: JSON.stringify({ target_date: targetDate, factor_actividad: factorActividad }),
+    }),
+
+  getActiveNutritionPlan: (userId: number, asOf = todayLocalDate()) =>
+    request<ActiveNutritionPlan | null>(
+      `/users/${userId}/nutrition/plans/active?as_of=${asOf}`
+    ),
+
+  getNutritionPhaseRecommendation: (userId: number, asOf = todayLocalDate()) =>
+    request<NutritionPhaseRecommendation>(
+      `/users/${userId}/nutrition/plans/recommendation?as_of=${asOf}`
+    ),
+
+  createNutritionPlan: (
+    userId: number,
+    data: { fase: FaseNutricional; semanas_duracion: number; fecha_inicio: string; motivo?: string }
+  ) =>
+    request<NutritionPlan>(`/users/${userId}/nutrition/plans`, {
+      method: "POST",
+      body: JSON.stringify(data),
     }),
 
   manualReadinessCheckin: (userId: number, data: ManualReadinessInput) =>

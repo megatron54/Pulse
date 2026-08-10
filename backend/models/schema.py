@@ -421,6 +421,43 @@ class HabitCheckin(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
+class NutritionPlan(Base):
+    """Plan de fase de peso con DURACIÓN determinada (petición explícita
+    del usuario: "planes de deficit, superhabit y mantenimiento
+    dedicados, con duración determinada" - "como tu nutricionista
+    personal"). Sustituye a `UserProfile.fase_peso_actual` como campo
+    estático sin fecha: ese campo se mantiene en sincronía (se
+    actualiza al crear un plan nuevo) para no tener que tocar
+    `services.nutrition_service.compute_daily_nutrition_target`, que ya
+    lee de ahí.
+
+    `fecha_fin` NO se almacena (se calcula: `fecha_inicio +
+    semanas_duracion` semanas) - evita que quede desincronizada de
+    `semanas_duracion` si algún día se permite editar la duración.
+
+    Solo un plan `activo=True` por usuario a la vez: crear uno nuevo
+    desactiva el anterior (mismo patrón append-only con "flag activo"
+    que ya usa `GarminCredentials`/`WgerCredentials`)."""
+
+    __tablename__ = "nutrition_plan"
+    __table_args__ = (Index("ix_nutrition_plan_user_activo", "user_id", "activo"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user_profile.id"), index=True)
+    fase: Mapped[str] = mapped_column(
+        Enum(*_FASE_PESO_VALORES, name="nutrition_plan_fase_enum", create_constraint=True)
+    )
+    fecha_inicio: Mapped[date] = mapped_column(Date)
+    semanas_duracion: Mapped[int] = mapped_column(Integer)
+    # Motivo de creación (recomendación del sistema citada tal cual, o
+    # "elegido por el usuario" si se creó sin pasar por la
+    # recomendación) - para que el historial de planes sea auditable,
+    # mismo principio que `AuditLog`.
+    motivo: Mapped[str | None] = mapped_column(String(300), default=None)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 class NutritionLog(Base):
     __tablename__ = "nutrition_log"
     __table_args__ = (Index("ix_nutrition_log_user_fecha", "user_id", "fecha"),)
