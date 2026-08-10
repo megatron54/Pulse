@@ -1,0 +1,6 @@
+# Solo necesario para empaquetar la app de escritorio nativa (Épica K,
+# 00-research/09-app-nativa-escritorio.md) - PyInstaller no se instala
+# en Docker/CI, así que vive separado de requirements.txt.
+#
+# USO: .venv\Scripts\pip install -r requirements.txt -r requirements-desktop.txt
+pyinstaller>=6.0.0

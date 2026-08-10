@@ -7,3 +7,9 @@ __pycache__/
 .coverage
 coverage.xml
 
+# Épica K: artefactos de PyInstaller (`pyinstaller --onefile desktop_main.py`),
+# se regeneran en cada build de la app de escritorio, no se versionan.
+build/
+dist/
+*.spec
+

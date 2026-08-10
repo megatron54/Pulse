@@ -2,3 +2,9 @@
 # will have compiled files and executables
 /target/
 /gen/schemas
+
+# Épica K: sidecar del backend (PyInstaller), se regenera con
+# `scripts/build_desktop_sidecar.ps1` antes de cada `tauri build` -
+# no se versiona (29MB, y depende de la plataforma exacta donde se
+# empaqueta).
+/binaries/
