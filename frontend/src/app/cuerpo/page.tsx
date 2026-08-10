@@ -24,7 +24,7 @@ export default function CuerpoPage() {
   return (
     <main className="p-6 md:p-8 max-w-5xl mx-auto w-full">
       <header className="mb-8">
-        <h1 className="font-display text-2xl font-bold tracking-wide text-white">Cuerpo</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-white">Cuerpo</h1>
         <p className="text-gray-400 mt-1">Peso, medidas y su evolución.</p>
       </header>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">

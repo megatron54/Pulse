@@ -18,7 +18,7 @@ export default function RunningPage() {
   return (
     <main className="p-6 md:p-8 max-w-5xl mx-auto w-full">
       <header className="mb-8">
-        <h1 className="font-display text-2xl font-bold tracking-wide text-white">Running</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-white">Running</h1>
         <p className="text-gray-400 mt-1">Tus sesiones de carrera, sacadas de Garmin.</p>
       </header>
       <div className="grid grid-cols-1 gap-6 items-start">
