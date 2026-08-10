@@ -25,6 +25,19 @@ altera ni borra las que ya existen - seguro de ejecutar en cada arranque
 del contenedor, incluso contra una base de datos de producción con
 datos reales.
 
+Por eso mismo, `create_all` NUNCA añade una columna nueva a una tabla
+YA EXISTENTE (hallazgo MEDIUM de code-review, integración Feelfit): el
+volumen `pulse-postgres-data` de `docker-compose.yml` es persistente,
+así que `body_measurements.fuente_externa_id` (columna añadida junto a
+`FeelfitCredentials`) NO aparecería solo con `create_all` en cualquier
+Postgres que ya tuviera la tabla `body_measurements` de antes - el
+primer INSERT con ese campo fallaría con `UndefinedColumn`, el mismo
+tipo de fallo silencioso que motivó este script. `_migrar_columnas_
+aditivas` de abajo cubre este caso concreto de forma explícita e
+idempotente (columna + índice único, sin tocar filas existentes -
+`fuente_externa_id` queda `NULL` en las mediciones manuales ya
+guardadas, que es exactamente su valor por defecto para ese caso).
+
 Incluye un reintento acotado con backoff: `depends_on: condition:
 service_healthy` en docker-compose garantiza que `pg_isready` responda,
 pero no que Postgres acepte ya conexiones de aplicación en el primer
@@ -34,11 +47,45 @@ from __future__ import annotations
 
 import time
 
+from sqlalchemy import inspect, text
+
 from models.database import create_pulse_engine
 from models.schema import Base
 
 _INTENTOS = 5
 _ESPERA_INICIAL_SEGUNDOS = 2
+
+
+def _migrar_columnas_aditivas(engine) -> None:
+    """Migración manual mínima para columnas añadidas a tablas YA
+    EXISTENTES tras el primer despliegue (ver docstring del módulo) -
+    NUNCA borra ni altera datos, solo añade lo que falte. Deliberadamente
+    no se adopta Alembic completo todavía (decisión explícita: el
+    proyecto es de un solo desarrollador con una base de datos local,
+    ver `models/database.py`) - si esta lista de parches manuales crece
+    más allá de un puñado de casos, ese es el momento de migrar a
+    Alembic de verdad."""
+    inspector = inspect(engine)
+    if "body_measurements" not in inspector.get_table_names():
+        return  # create_all ya la habrá creado completa, nada que parchear
+
+    columnas = {c["name"] for c in inspector.get_columns("body_measurements")}
+    if "fuente_externa_id" in columnas:
+        return  # ya migrada (o creada de cero ya con la columna)
+
+    dialecto = engine.dialect.name
+    tipo_columna = "VARCHAR(100)" if dialecto == "sqlite" else "VARCHAR(100)"
+    with engine.begin() as conn:
+        conn.execute(
+            text(f"ALTER TABLE body_measurements ADD COLUMN fuente_externa_id {tipo_columna}")
+        )
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX uq_body_measurements_user_fuente_externa "
+                "ON body_measurements (user_id, fuente_externa_id)"
+            )
+        )
+    print("OK: migración aditiva body_measurements.fuente_externa_id aplicada.")
 
 
 def main() -> None:
@@ -47,6 +94,7 @@ def main() -> None:
     for intento in range(1, _INTENTOS + 1):
         try:
             Base.metadata.create_all(engine)
+            _migrar_columnas_aditivas(engine)
             print("OK: schema de Pulse verificado/creado.")
             return
         except Exception as exc:  # noqa: BLE001 - se reintenta, no se traga el error final
