@@ -11,7 +11,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from models.schema import Base, GarminActivity, ReadinessLog, UserProfile
+from models.schema import Base, GarminActivity, GarminIntradayMetric, ReadinessLog, UserProfile
 from services.garmin_backfill_service import backfill_full_history
 
 
@@ -206,4 +206,69 @@ class TestBackfillFullHistory:
 
         assert resultado.actividades_fallo is True
         assert resultado.dias_recovery_exitosos == 1
+
+    def test_ingiere_tambien_la_serie_minuto_a_minuto_por_cada_dia(self, session, usuario):
+        # Petición explícita del usuario: "quiero todo ese histórico,
+        # no me vale que cojas la media del día" - el backfill debe
+        # traer HR/body battery/estrés minuto a minuto, no solo el
+        # agregado diario de arriba.
+        client = MagicMock()
+        client.get_activities_raw.return_value = []
+        client.get_daily_recovery_raw.return_value = {
+            "hrv_today": None,
+            "hrv_status": None,
+            "training_readiness": None,
+            "body_battery_am": None,
+            "sleep_score": None,
+            "stress_avg": None,
+            "resting_hr": None,
+            "vo2max": None,
+            "raw_json": {},
+        }
+        client.get_intraday_series_raw.return_value = {
+            "heart_rate": [(1704110400000, 60.0), (1704110520000, 62.0)],
+            "body_battery": [(1704110400000, 80.0)],
+            "stress": [],
+        }
+
+        resultado = backfill_full_history(
+            session,
+            user_id=usuario.id,
+            garmin_client=client,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 1, 1),
+        )
+
+        client.get_intraday_series_raw.assert_called_once_with("2024-01-01")
+        assert resultado.puntos_intradia_nuevos == 3
+        assert resultado.dias_intradia_fallidos == 0
+        assert session.query(GarminIntradayMetric).count() == 3
+
+    def test_fallo_de_intradia_no_impide_el_backfill_de_recovery_ni_viceversa(self, session, usuario):
+        client = MagicMock()
+        client.get_activities_raw.return_value = []
+        client.get_daily_recovery_raw.return_value = {
+            "hrv_today": 65.0,
+            "hrv_status": None,
+            "training_readiness": None,
+            "body_battery_am": 80,
+            "sleep_score": 85,
+            "stress_avg": None,
+            "resting_hr": None,
+            "vo2max": None,
+            "raw_json": {},
+        }
+        client.get_intraday_series_raw.side_effect = Exception("fallo puntual intradia")
+
+        resultado = backfill_full_history(
+            session,
+            user_id=usuario.id,
+            garmin_client=client,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 1, 1),
+        )
+
+        assert resultado.dias_recovery_exitosos == 1
+        assert resultado.dias_intradia_fallidos == 1
+        assert resultado.puntos_intradia_nuevos == 0
 

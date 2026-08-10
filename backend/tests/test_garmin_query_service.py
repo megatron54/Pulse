@@ -10,10 +10,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from models.schema import Base, GarminActivity, UserProfile
+from repositories.garmin_intraday_repository import save_intraday_points
 from repositories.garmin_repository import save_activity_if_new
+from services.errors import EntityNotFoundError
 from services.garmin_query_service import (
     CategoriaDeporte,
     get_activity_history_for_user,
+    get_intraday_history_for_user,
     get_weekly_volume_for_user,
 )
 
@@ -211,3 +214,26 @@ class TestGetWeeklyVolumeForUser:
             get_weekly_volume_for_user(
                 session, 99999, as_of=date(2026, 8, 10), categoria=CategoriaDeporte.RUNNING, weeks=4
             )
+
+
+class TestGetIntradayHistoryForUser:
+    def test_devuelve_la_serie_del_dia_pedido(self, session, usuario):
+        save_intraday_points(
+            session, usuario.id, "heart_rate", date(2026, 8, 8), [(1786226400000, 107.0), (1786226520000, 103.0)]
+        )
+
+        historia = get_intraday_history_for_user(
+            session, usuario.id, "heart_rate", date(2026, 8, 8)
+        )
+
+        assert [p.valor for p in historia] == [107.0, 103.0]
+
+    def test_dia_sin_datos_devuelve_lista_vacia(self, session, usuario):
+        assert (
+            get_intraday_history_for_user(session, usuario.id, "heart_rate", date(2026, 8, 8))
+            == []
+        )
+
+    def test_usuario_inexistente_lanza_entity_not_found(self, session):
+        with pytest.raises(EntityNotFoundError):
+            get_intraday_history_for_user(session, 99999, "heart_rate", date(2026, 8, 8))

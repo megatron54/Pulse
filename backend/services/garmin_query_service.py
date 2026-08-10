@@ -10,7 +10,8 @@ from enum import Enum
 
 from sqlalchemy.orm import Session
 
-from models.schema import GarminActivity, GarminDailyMetrics, UserProfile
+from models.schema import GarminActivity, GarminDailyMetrics, GarminIntradayMetric, UserProfile
+from repositories.garmin_intraday_repository import get_intraday_history
 from repositories.garmin_repository import get_activity_history, get_daily_metrics_history
 from services.errors import EntityNotFoundError
 
@@ -83,6 +84,19 @@ def get_daily_metrics_history_for_user(
     if session.get(UserProfile, user_id) is None:
         raise EntityNotFoundError(f"No existe UserProfile con id={user_id}")
     return get_daily_metrics_history(session, user_id, as_of, days)
+
+
+def get_intraday_history_for_user(
+    session: Session, user_id: int, metrica: str, fecha: date
+) -> list[GarminIntradayMetric]:
+    """Serie minuto a minuto de `metrica` (heart_rate/body_battery/
+    stress) para `fecha` - petición explícita del usuario: "quiero
+    todo ese histórico, no me vale que cojas la media del día".
+    Complementa a `get_daily_metrics_history_for_user` (un solo valor
+    agregado por día)."""
+    if session.get(UserProfile, user_id) is None:
+        raise EntityNotFoundError(f"No existe UserProfile con id={user_id}")
+    return get_intraday_history(session, user_id, metrica, fecha)
 
 
 @dataclass(frozen=True)

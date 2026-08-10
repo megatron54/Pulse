@@ -296,6 +296,17 @@ class GarminDailyMetricsOut(BaseModel):
     vo2max: float | None
 
 
+class GarminIntradayPointOut(BaseModel):
+    """Un punto de la serie minuto a minuto (petición explícita del
+    usuario: "quiero todo ese histórico, no me vale que cojas la media
+    del día")."""
+
+    timestamp_utc: datetime
+    valor: float
+
+    model_config = {"from_attributes": True}
+
+
 class HealthNarrativeOut(BaseModel):
     """Épica H del plan de expansión (02-roadmap/03-vision-produccion.md):
     explicación conversacional (Capa 3) del estado de recovery de un

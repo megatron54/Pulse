@@ -1,7 +1,7 @@
 """Tests de integración del router de Garmin (solo lectura del
 historial de actividades ya ingeridas - la sincronización real corre
 en el scheduler nocturno, ver services.scheduler_service) — TDD."""
-from datetime import date
+from datetime import date, datetime
 
 import pytest
 from fastapi.testclient import TestClient
@@ -11,7 +11,7 @@ from sqlalchemy.pool import StaticPool
 
 from api.dependencies import get_db
 from api.main import app
-from models.schema import Base, GarminActivity, GarminDailyMetrics, ReadinessLog
+from models.schema import Base, GarminActivity, GarminDailyMetrics, GarminIntradayMetric, ReadinessLog
 
 
 @pytest.fixture()
@@ -274,4 +274,63 @@ class TestGetWeeklyVolume:
     def test_usuario_inexistente_da_404(self, client):
         c, _ = client
         resp = c.get("/users/99999/garmin/activities/volume?categoria=running")
+        assert resp.status_code == 404
+
+
+class TestGetIntradayHistory:
+    """Petición explícita del usuario: "el ritmo cardiaco, body
+    battery, etc son valores que cambian cada minuto, quiero todo ese
+    histórico"."""
+
+    def test_devuelve_la_serie_del_dia_pedido(self, client):
+        c, engine = client
+        usuario = _crear_usuario(c)
+        with Session(engine) as session:
+            session.add_all(
+                [
+                    GarminIntradayMetric(
+                        user_id=usuario["id"],
+                        metrica="heart_rate",
+                        fecha=date(2026, 8, 9),
+                        timestamp_utc=datetime(2026, 8, 9, 6, 0, 0),
+                        valor=60.0,
+                    ),
+                    GarminIntradayMetric(
+                        user_id=usuario["id"],
+                        metrica="heart_rate",
+                        fecha=date(2026, 8, 9),
+                        timestamp_utc=datetime(2026, 8, 9, 6, 2, 0),
+                        valor=62.0,
+                    ),
+                ]
+            )
+            session.commit()
+
+        resp = c.get(
+            f"/users/{usuario['id']}/garmin/intraday?metrica=heart_rate&fecha=2026-08-09"
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body) == 2
+        assert body[0]["valor"] == 60.0
+
+    def test_dia_sin_datos_devuelve_lista_vacia(self, client):
+        c, _ = client
+        usuario = _crear_usuario(c)
+        resp = c.get(
+            f"/users/{usuario['id']}/garmin/intraday?metrica=heart_rate&fecha=2026-08-09"
+        )
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    def test_metrica_invalida_da_422(self, client):
+        c, _ = client
+        usuario = _crear_usuario(c)
+        resp = c.get(f"/users/{usuario['id']}/garmin/intraday?metrica=no-existe")
+        assert resp.status_code == 422
+
+    def test_usuario_inexistente_da_404(self, client):
+        c, _ = client
+        resp = c.get("/users/99999/garmin/intraday?metrica=heart_rate")
         assert resp.status_code == 404

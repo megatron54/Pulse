@@ -2,6 +2,7 @@
 
 import { useUser } from "@/lib/UserContext";
 import { GarminHealthHistoryCard } from "@/components/GarminHealthHistoryCard";
+import { IntradayMetricCard } from "@/components/IntradayMetricCard";
 import { CoachNarrativeBlock } from "@/components/CoachNarrativeBlock";
 import { FadeIn } from "@/components/ui/FadeIn";
 
@@ -29,6 +30,9 @@ export default function SaludPage() {
           <CoachNarrativeBlock userId={user.id} />
         </FadeIn>
         <FadeIn delay={0.05}>
+          <IntradayMetricCard userId={user.id} />
+        </FadeIn>
+        <FadeIn delay={0.1}>
           <GarminHealthHistoryCard userId={user.id} />
         </FadeIn>
       </div>

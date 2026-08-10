@@ -291,6 +291,16 @@ export type GarminHealthDay = {
   vo2max: number | null;
 };
 
+// Serie minuto a minuto (petición explícita del usuario: "el ritmo
+// cardiaco, body battery, etc son valores que cambian cada minuto,
+// quiero todo ese histórico, no me vale que cojas la media del día").
+export type GarminIntradayMetrica = "heart_rate" | "body_battery" | "stress";
+
+export type GarminIntradayPoint = {
+  timestamp_utc: string;
+  valor: number;
+};
+
 // Épica H del plan de expansión: explicación conversacional (Capa 3)
 // del estado de recovery de un día - text/source son null cuando la
 // Capa 1 aún no ha calculado ningún ReadinessLog para esa fecha.
@@ -420,6 +430,11 @@ export const api = {
 
   getGarminHealthHistory: (userId: number, days = 90) =>
     request<GarminHealthDay[]>(`/users/${userId}/garmin/health-history?days=${days}`),
+
+  getGarminIntradayHistory: (userId: number, metrica: GarminIntradayMetrica, fecha = todayLocalDate()) =>
+    request<GarminIntradayPoint[]>(
+      `/users/${userId}/garmin/intraday?metrica=${metrica}&fecha=${fecha}`
+    ),
 
   getGarminHealthNarrative: (userId: number, fecha = todayLocalDate()) =>
     request<HealthNarrative>(`/users/${userId}/garmin/health-narrative?fecha=${fecha}`),

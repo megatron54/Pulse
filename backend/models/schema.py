@@ -191,6 +191,58 @@ class GarminDailyMetrics(Base):
     ingested_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
+_METRICA_INTRADIA_VALORES = ("heart_rate", "body_battery", "stress")
+
+
+class GarminIntradayMetric(Base):
+    """Serie de tiempo minuto a minuto (petición explícita del usuario:
+    "el ritmo cardiaco, body battery, etc son valores que cambian cada
+    minuto, quiero todo ese histórico, no me vale que cojas la media
+    del día") - complementa a `GarminDailyMetrics` (que solo guarda UN
+    valor agregado por día, ej. `body_battery_am` = el valor de la
+    mañana). Verificado contra el JSON real de una cuenta Garmin real:
+    `get_heart_rates`/`get_body_battery`/`get_stress_data` devuelven un
+    array de `[timestamp_ms, valor]` con un punto cada ~2-3 minutos.
+
+    UNIQUE(user_id, metrica, timestamp_utc) - a diferencia de
+    `GarminDailyMetrics` (append-only, sin UNIQUE), aquí SÍ hace falta
+    unicidad real: la ingesta es idempotente por diseño (una
+    resincronización del mismo día no debe duplicar cada punto de la
+    serie, que ya son cientos por día).
+
+    "unknown is not zero": Garmin usa valores centinela negativos
+    (-1/-2) en `stressValuesArray` para "sin datos suficientes ese
+    minuto" - esos puntos se DESCARTAN en la extracción
+    (`garmin_sync.client`), nunca se persisten como si fueran un valor
+    real. Un hueco en la serie es honesto; un -1 mostrado en una
+    gráfica como si fuera estrés real no lo es."""
+
+    __tablename__ = "garmin_intraday_metric"
+    __table_args__ = (
+        Index("ix_garmin_intraday_user_metrica_fecha", "user_id", "metrica", "fecha"),
+        UniqueConstraint(
+            "user_id", "metrica", "timestamp_utc", name="uq_garmin_intraday_user_metrica_ts"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user_profile.id"), index=True)
+    # `fecha` es el día calendario que se le pidió a Garmin (el mismo
+    # `date_str` de `GarminClient.get_intraday_series_raw`), NUNCA
+    # derivada del timestamp UTC de cada punto - Garmin ya agrupa la
+    # serie por día calendario de la cuenta/dispositivo al responder;
+    # recalcularla a partir de UTC desplazaba los puntos de madrugada
+    # (23:00-01:00 hora local) al día UTC equivocado (hallazgo de
+    # code-review).
+    fecha: Mapped[date] = mapped_column(Date, index=True)
+    metrica: Mapped[str] = mapped_column(
+        Enum(*_METRICA_INTRADIA_VALORES, name="garmin_intraday_metrica_enum", create_constraint=True)
+    )
+    timestamp_utc: Mapped[datetime] = mapped_column(DateTime, index=True)
+    valor: Mapped[float] = mapped_column()
+    ingested_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 class GarminActivity(Base):
     __tablename__ = "garmin_activity"
     __table_args__ = (
