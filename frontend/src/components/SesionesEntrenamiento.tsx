@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Bike, Dumbbell, PersonStanding, Watch } from "lucide-react";
 import { GarminActivitiesCard } from "./GarminActivitiesCard";
 import { SportActivityHistoryCard } from "./SportActivityHistoryCard";
+import { ChipFilter } from "./ui/ChipFilter";
 
 type Filtro = "todas" | "running" | "ciclismo" | "gimnasio";
 
@@ -28,23 +29,12 @@ export function SesionesEntrenamiento({ userId }: { userId: number }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex gap-2 flex-wrap" role="tablist" aria-label="Filtrar por deporte">
-        {FILTROS.map(({ valor, label }) => (
-          <button
-            key={valor}
-            role="tab"
-            aria-selected={filtro === valor}
-            onClick={() => setFiltro(valor)}
-            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-              filtro === valor
-                ? "bg-accent text-white"
-                : "bg-surface-muted text-text-secondary hover:text-foreground"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <ChipFilter
+        options={FILTROS.map(({ valor, label }) => ({ value: valor, label }))}
+        value={filtro}
+        onChange={setFiltro}
+        ariaLabel="Filtrar por deporte"
+      />
       {filtro === "todas" && <GarminActivitiesCard userId={userId} />}
       {filtro === "running" && (
         <SportActivityHistoryCard

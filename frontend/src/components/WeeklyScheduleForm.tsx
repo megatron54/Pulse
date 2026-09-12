@@ -13,9 +13,7 @@ import {
 } from "@/lib/api";
 import { Card, CardTitle } from "./ui/Card";
 import { Button } from "./ui/Button";
-
-const inputClass =
-  "border border-surface-border bg-surface-muted rounded-lg px-3 py-2 text-foreground placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-accent";
+import { FormField, fieldInputClass } from "./ui/FormField";
 
 const DAY_LABELS: Record<DayOfWeek, string> = {
   mon: "Lunes",
@@ -25,6 +23,16 @@ const DAY_LABELS: Record<DayOfWeek, string> = {
   fri: "Viernes",
   sat: "Sábado",
   sun: "Domingo",
+};
+
+const DAY_SHORT_LABELS: Record<DayOfWeek, string> = {
+  mon: "L",
+  tue: "M",
+  wed: "X",
+  thu: "J",
+  fri: "V",
+  sat: "S",
+  sun: "D",
 };
 
 const SESSION_LABELS: Record<SessionTypeValue, string> = {
@@ -101,44 +109,60 @@ export function WeeklyScheduleForm({
         Una vez creado, la app decide sola qué toca cada día combinándolo con tu recuperación -
         ya no hace falta elegirlo a mano en &quot;Sesión de hoy&quot;.
       </p>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1 text-sm text-text-secondary">
-          Objetivo prioritario del bloque
-          <input
-            className={inputClass}
-            value={objetivo}
-            onChange={(e) => setObjetivo(e.target.value)}
-            placeholder="ej. strength, hypertrophy, running, bjj"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm text-text-secondary">
-          Fecha de inicio
-          <input
-            type="date"
-            className={inputClass}
-            value={fechaInicio}
-            onChange={(e) => setFechaInicio(e.target.value)}
-          />
-        </label>
-        <div className="grid grid-cols-1 gap-2">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <FormField label="Objetivo prioritario del bloque" htmlFor="objetivo-bloque">
+            <input
+              id="objetivo-bloque"
+              className={fieldInputClass}
+              value={objetivo}
+              onChange={(e) => setObjetivo(e.target.value)}
+              placeholder="ej. strength, hypertrophy, running, bjj"
+            />
+          </FormField>
+          <FormField label="Fecha de inicio" htmlFor="fecha-inicio-bloque">
+            <input
+              id="fecha-inicio-bloque"
+              type="date"
+              className={fieldInputClass}
+              value={fechaInicio}
+              onChange={(e) => setFechaInicio(e.target.value)}
+            />
+          </FormField>
+        </div>
+
+        {/* Tira semanal tipo calendario (estilo Garmin Connect): un
+            chip por día en vez de una lista vertical de <select>
+            sueltos, misma jerarquía visual que un calendario real. */}
+        <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
           {DAYS_OF_WEEK.map((day) => (
-            <label key={day} className="flex items-center gap-2 text-sm text-text-secondary">
-              <span className="w-24">{DAY_LABELS[day]}</span>
+            <div
+              key={day}
+              className="flex flex-col gap-1.5 rounded-xl border border-surface-border bg-surface-muted p-2"
+            >
+              <span
+                className="mx-auto flex size-6 items-center justify-center rounded-full bg-surface text-xs font-semibold text-foreground"
+                title={DAY_LABELS[day]}
+              >
+                {DAY_SHORT_LABELS[day]}
+              </span>
               <select
-                className={`${inputClass} flex-1`}
+                aria-label={DAY_LABELS[day]}
+                className="w-full rounded-lg border-0 bg-transparent px-1 py-1 text-center text-[11px] text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
                 value={schedule[day] ?? ""}
                 onChange={(e) => updateDay(day, e.target.value)}
               >
-                <option value="">— sin plan (descanso implícito) —</option>
+                <option value="">Descanso</option>
                 {SESSION_TYPES.map((tipo) => (
                   <option key={tipo} value={tipo}>
                     {SESSION_LABELS[tipo]}
                   </option>
                 ))}
               </select>
-            </label>
+            </div>
           ))}
         </div>
+
         {error && <p className="text-recovery-low text-sm">{error}</p>}
         <Button type="submit" disabled={submitting} className="self-start">
           {submitting ? "Creando..." : "Activar plan semanal"}

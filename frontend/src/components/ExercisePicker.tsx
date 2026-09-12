@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, type Exercise, type ExerciseCategory } from "@/lib/api";
 import { Card, CardTitle } from "./ui/Card";
+import { FormField, fieldInputClass } from "./ui/FormField";
 
 /**
  * Selector/explorador del catálogo de ejercicios de wger (Fase E del
@@ -17,9 +18,6 @@ import { Card, CardTitle } from "./ui/Card";
  * un `SessionType` + volumen, no una lista de ejercicios), que queda
  * como trabajo futuro explícito.
  */
-const inputClass =
-  "border border-surface-border bg-surface-muted rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-accent";
-
 export function ExercisePicker() {
   const [categorias, setCategorias] = useState<ExerciseCategory[] | null>(null);
   const [categoriaId, setCategoriaId] = useState<number | null>(null);
@@ -90,18 +88,20 @@ export function ExercisePicker() {
         </p>
       )}
       {!error && categorias && (
-        <select
-          aria-label="Categoría de ejercicios"
-          className={inputClass}
-          value={categoriaId ?? ""}
-          onChange={(e) => setCategoriaId(Number(e.target.value))}
-        >
-          {categorias.map((cat) => (
-            <option key={cat.id} value={cat.id}>
-              {cat.name}
-            </option>
-          ))}
-        </select>
+        <FormField label="Categoría de ejercicios" htmlFor="categoria-ejercicios">
+          <select
+            id="categoria-ejercicios"
+            className={fieldInputClass}
+            value={categoriaId ?? ""}
+            onChange={(e) => setCategoriaId(Number(e.target.value))}
+          >
+            {categorias.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
+        </FormField>
       )}
       <div className="mt-4 flex flex-col gap-2">
         {cargando && (
@@ -116,7 +116,10 @@ export function ExercisePicker() {
         )}
         {!cargando &&
           ejercicios?.map((ej) => (
-            <div key={ej.id} className="rounded-lg bg-surface-muted px-3 py-2 text-sm">
+            <div
+              key={ej.id}
+              className="rounded-xl border border-surface-border bg-surface px-4 py-3 text-sm"
+            >
               <p className="text-foreground font-medium">{ej.nombre}</p>
               {ej.equipamiento.length > 0 && (
                 <p className="text-text-secondary text-xs mt-0.5">{ej.equipamiento.join(", ")}</p>

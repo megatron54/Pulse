@@ -6,8 +6,15 @@ import { WeeklyScheduleForm } from "@/components/WeeklyScheduleForm";
 import { TrainingLoadCard } from "@/components/TrainingLoadCard";
 import { ExercisePicker } from "@/components/ExercisePicker";
 import { SesionesEntrenamiento } from "@/components/SesionesEntrenamiento";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 
 type Tab = "sesiones" | "plan";
+
+const TABS = [
+  { value: "sesiones", label: "Sesiones" },
+  { value: "plan", label: "Plan" },
+] as const;
 
 /**
  * Entrenamiento (reconstrucción v2 - 01-arquitectura/04-design-system-v2.md,
@@ -22,17 +29,12 @@ export default function EntrenamientoPage() {
 
   return (
     <main className="content-container py-6 md:py-8">
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Entrenamiento</h1>
-        <div className="mt-4 flex gap-1 border-b border-surface-border">
-          <TabButton activo={tab === "sesiones"} onClick={() => setTab("sesiones")}>
-            Sesiones
-          </TabButton>
-          <TabButton activo={tab === "plan"} onClick={() => setTab("plan")}>
-            Plan
-          </TabButton>
-        </div>
-      </header>
+      <PageHeader
+        title="Entrenamiento"
+        actions={
+          <SegmentedControl options={TABS} value={tab} onChange={setTab} ariaLabel="Sesiones o plan" />
+        }
+      />
 
       {tab === "sesiones" && <SesionesEntrenamiento userId={user.id} />}
 
@@ -46,28 +48,5 @@ export default function EntrenamientoPage() {
         </div>
       )}
     </main>
-  );
-}
-
-function TabButton({
-  activo,
-  onClick,
-  children,
-}: {
-  activo: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      role="tab"
-      aria-selected={activo}
-      onClick={onClick}
-      className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-        activo ? "border-accent text-accent" : "border-transparent text-text-secondary hover:text-foreground"
-      }`}
-    >
-      {children}
-    </button>
   );
 }
