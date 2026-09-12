@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Activity } from "lucide-react";
 import { api, ApiError, todayLocalDate, type GarminIntradayMetrica } from "@/lib/api";
 import { AreaTrendChart } from "./ui/AreaTrendChart";
+import { SegmentedControl } from "./ui/SegmentedControl";
 import { Card, CardTitle } from "./ui/Card";
 import { EmptyState } from "./ui/EmptyState";
 import { ErrorState } from "./ui/ErrorState";
@@ -59,22 +60,13 @@ export function IntradayMetricCard({ userId }: { userId: number }) {
   return (
     <Card>
       <CardTitle>Minuto a minuto (hoy)</CardTitle>
-      <div className="flex gap-2 flex-wrap mb-4" role="tablist" aria-label="Métrica intradía">
-        {PESTANAS.map(({ valor, label }) => (
-          <button
-            key={valor}
-            role="tab"
-            aria-selected={metrica === valor}
-            onClick={() => setMetrica(valor)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-              metrica === valor
-                ? "bg-accent/15 text-accent"
-                : "bg-surface-muted text-text-secondary hover:text-foreground"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+      <div className="mb-4">
+        <SegmentedControl
+          options={PESTANAS.map(({ valor, label }) => ({ value: valor, label }))}
+          value={metrica}
+          onChange={setMetrica}
+          ariaLabel="Métrica intradía"
+        />
       </div>
       {error && (
         <ErrorState

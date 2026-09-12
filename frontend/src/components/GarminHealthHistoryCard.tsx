@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { HeartPulse } from "lucide-react";
 import { api, ApiError, type GarminHealthDay } from "@/lib/api";
 import { AreaTrendChart } from "./ui/AreaTrendChart";
+import { SegmentedControl } from "./ui/SegmentedControl";
 import { Card, CardTitle } from "./ui/Card";
 import { EmptyState } from "./ui/EmptyState";
 import { ErrorState } from "./ui/ErrorState";
@@ -57,24 +58,12 @@ export function GarminHealthHistoryCard({ userId }: { userId: number }) {
     <Card>
       <div className="flex items-center justify-between mb-4">
         <CardTitle>Salud y recovery</CardTitle>
-        <div className="flex gap-1" role="radiogroup" aria-label="Rango temporal">
-          {RANGOS.map((rango) => (
-            <button
-              key={rango.dias}
-              type="button"
-              role="radio"
-              onClick={() => setDias(rango.dias)}
-              aria-checked={dias === rango.dias}
-              className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
-                dias === rango.dias
-                  ? "bg-surface-muted text-foreground"
-                  : "text-text-secondary hover:text-foreground"
-              }`}
-            >
-              {rango.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          options={RANGOS.map((rango) => ({ value: String(rango.dias), label: rango.label }))}
+          value={String(dias)}
+          onChange={(v) => setDias(Number(v) as (typeof RANGOS)[number]["dias"])}
+          ariaLabel="Rango temporal"
+        />
       </div>
 
       {error && (
