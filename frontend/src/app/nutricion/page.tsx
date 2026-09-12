@@ -4,6 +4,7 @@ import { useUser } from "@/lib/UserContext";
 import { NutritionTargetCard } from "@/components/NutritionTargetCard";
 import { NutritionPlanCard } from "@/components/NutritionPlanCard";
 import { FadeIn } from "@/components/ui/FadeIn";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 /**
  * Nutrición: plan de fase (Capa 0, motor propio) + objetivo diario de
@@ -22,16 +23,13 @@ export default function NutricionPage() {
 
   return (
     <main className="content-container py-6 md:py-8">
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Nutrición</h1>
-        <p className="text-text-secondary mt-1">Tu plan y tu objetivo de macros.</p>
-      </header>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-        <FadeIn>
-          <NutritionPlanCard userId={user.id} />
-        </FadeIn>
+      <PageHeader title="Nutrición" subtitle="Tu plan y tu objetivo de macros." />
+      <div className="flex flex-col gap-6">
         <FadeIn>
           <NutritionTargetCard userId={user.id} />
+        </FadeIn>
+        <FadeIn delay={0.05}>
+          <NutritionPlanCard userId={user.id} />
         </FadeIn>
       </div>
     </main>
