@@ -79,15 +79,77 @@ Hoy            — dashboard compuesto, jerarquía de 3 niveles, sin scroll forz
 Entrenamiento  — Sesiones (actividades Garmin reales, filtro por categoría) + Plan (bloque activo, calendario)
 Recuperación   — HRV, sueño, body battery, estrés — 100% automático de Garmin
 Análisis       — tendencias históricas (HRV, sueño, carga, peso, volumen)
-Coach          — chat conversacional con IA
-Nutrición      — (sin cambios de fondo, solo tema visual)
-Cuerpo         — peso, composición (sin cambios de fondo, solo tema visual)
+Coach          — chat conversacional con IA (placeholder honesto, Fase 6 pendiente)
+Nutrición      — objetivo de macros del día (hero) + plan de fase
+Cuerpo         — tendencia de peso (hero) + composición Feelfit + medida manual
 ```
 
 Se eliminan como páginas de primer nivel: `/running`, `/ciclismo`,
 `/gimnasio` (pasan a ser un filtro `categoria=` dentro de
 Entrenamiento → Sesiones) y `/garmin` (sus datos se reparten entre
 Hoy/Recuperación/Análisis; el emparejamiento de cuenta pasa a Ajustes).
+
+## Composición y layout (v2.1)
+
+Tras cerrar la Fase 1-5 originales, feedback directo del usuario aclaró
+que el problema visual real nunca fue la paleta ni el tema (el
+Apple-clean de la sección anterior sigue vigente sin cambios), sino la
+**composición**: ubicación de cajas, tamaños, jerarquía y formularios
+pobres. El objetivo pasó a ser explícitamente un híbrido de UX/layout
+con **Garmin Connect, Strava y MyFitnessPal** — esto es una referencia
+de **patrones de interacción y organización de contenido** (rails de
+métricas, feed de actividades, diario de macros con barras), **no** una
+petición de volver a un tema oscuro de marca deportiva. Ambas cosas se
+confundieron una vez en esta misma conversación; queda anotado aquí
+para no repetir el error.
+
+Primitivos de UI nuevos en `components/ui/`, reutilizados en todas las
+páginas en vez de markup ad-hoc repetido por componente:
+
+- **`StatTile`** — tile compacto icono+etiqueta+valor animado, en un
+  rail horizontal con scroll en móvil (`.scroll-rail`, sin scrollbar
+  visible) y en grid en desktop. Sustituye a las tarjetas apiladas a
+  ancho completo por cada métrica suelta (HRV, Body Battery, sueño...).
+- **`SegmentedControl<T extends string>`** — control agrupado
+  (`role="tablist"`/`aria-selected`) para elegir una única opción entre
+  pocas (rango temporal, pestaña Sesiones/Plan). Sustituye a los grupos
+  de botones con estilos de "radio" reimplementados a mano en cada
+  componente.
+- **`ChipFilter<T extends string>`** — pastillas independientes
+  (`role="tablist"`/`aria-selected`) para filtros tipo Strava (filtro
+  de categoría de actividad).
+- **`ActivityListItem`** — fila de actividad estilo feed de Strava
+  (icono de deporte + título + subtítulo + métricas alineadas a la
+  derecha), usada tanto en el feed de sesiones Garmin como en el
+  histórico de actividades manuales.
+- **`MacroBar`** — barra de proporción apilada + leyenda para
+  proteína/carbohidratos/grasa, estilo diario de MyFitnessPal. Solo
+  muestra el objetivo (nunca inventa consumo real que no se registra
+  todavía) — el anillo (`DonutChart`) original queda como vista
+  secundaria dentro de un `Disclosure`, no desaparece.
+- **`FormField` + `fieldInputClass`** — envoltorio label+input+error/
+  hint consistente. Sustituye al patrón `<label className="flex
+  flex-col gap-1...">` con un `inputClass` duplicado y ligeramente
+  distinto en cada formulario, la causa concreta de los "formularios
+  nefastos" señalados por el usuario.
+- **`Disclosure`** — sección plegable simple, usada para agrupar campos
+  secundarios que no hacen falta a la primera (cuello/cintura/cadera del
+  método Navy, ahora opcional porque la báscula Feelfit cubre el caso
+  automático de composición corporal; vista de anillo de macros).
+- **`PageHeader`** — cabecera título+subtítulo+acciones única para las
+  7 páginas, sustituye al `<header>` manual repetido con pequeñas
+  variaciones de spacing en cada una.
+
+Composición corporal completa de la báscula Feelfit (hallazgo de esta
+misma fase, no solo layout): la báscula reporta `bmi`, `muscle_kg`,
+`bone_kg`, `water_pct` en cada medición, pero antes se descartaban en
+el backend (`services/feelfit_sync_service.py` solo persistía
+`peso_kg`/`bodyfat_pct`). Ahora se persisten (columnas nullable,
+migración aditiva) y se exponen en `GET .../body-measurements/history`;
+el frontend los muestra en `BodyCompositionTile` — con el mismo
+criterio "unknown is not zero" que el resto del proyecto: el tile entero
+no se renderiza si la medición más reciente no trae ningún campo de
+composición (p. ej. una entrada manual de solo peso).
 
 ## Estado de las skills de diseño instaladas
 
@@ -104,6 +166,9 @@ Pulse**. Este documento es la única fuente de verdad para Pulse.
   pero conservando estructura de layout heredada de v1 (grid bento,
   `max-w-6xl` centrado). **Derogado** — fue un repintado de superficie,
   no una reconstrucción de la arquitectura de información.
-- **v2 (este documento):** reconstrucción completa de arquitectura de
-  información + sistema visual + eliminación de inputs manuales
-  redundantes. Fuente de verdad vigente.
+- **v2:** reconstrucción completa de arquitectura de información +
+  sistema visual + eliminación de inputs manuales redundantes.
+- **v2.1 (este documento):** reconstrucción de composición/layout de
+  las 7 páginas (kit de UI nuevo en `components/ui/`) sin tocar el tema
+  visual Apple-clean, más persistencia completa de la composición
+  corporal de la báscula Feelfit. Fuente de verdad vigente.

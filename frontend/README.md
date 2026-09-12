@@ -1,6 +1,6 @@
 # Frontend — Pulse
 
-Dashboard visual (Next.js 16 / App Router / React 19 / TypeScript / Tailwind v4) estilo WHOOP/Apple Health/Samsung Health: gráficas reales, no listados de texto.
+Dashboard visual (Next.js 16 / App Router / React 19 / TypeScript / Tailwind v4), tema único Apple-clean (fuente de sistema, claro/oscuro real vía `prefers-color-scheme`) con patrones de layout/interacción inspirados en Garmin Connect, Strava y MyFitnessPal — ver `../01-arquitectura/04-design-system-v2.md` para la fuente de verdad de diseño.
 
 ## Setup y arranque local
 
@@ -16,15 +16,15 @@ Necesita el backend corriendo en `http://localhost:8000` (ver `../backend/README
 
 ## Estructura
 
-- `src/app/` — páginas (App Router): `page.tsx` (Hoy, dashboard principal), `entrenamiento/`, `nutricion/`, `cuerpo/`, `garmin/`.
-- `src/components/` — un componente por tarjeta/formulario (`ReadinessCheckinForm`, `TrainingLoadCard`, `NutritionTargetCard`, `HabitJournalCard`, `PeriodicSummaryCard`, `GarminActivitiesCard`...).
-- `src/components/ui/` — primitivas compartidas: `Button` (foco visible WCAG 2.4.7, feedback con springs físicos), `LoadingState`/`EmptyState`/`ErrorState` (con reintento), `Skeleton` (shimmer, no `animate-pulse` genérico), `AnimatedNumber` (contador imperativo), `AreaTrendChart`/`RadialGauge`/`DonutChart` (wrappers de `recharts`), `Card`, `FadeIn`.
-- `src/lib/` — `api.ts` (cliente tipado), `theme.ts` (paleta centralizada), `motion-tokens.ts` (sistema de tokens de animación: duración/easing/springs), `useCurrentUser.ts`/`UserContext.tsx` (sesión mono-usuario vía `localStorage`, sin login real todavía).
+- `src/app/` — páginas (App Router): `page.tsx` (Hoy), `entrenamiento/`, `salud/` (Recuperación), `analisis/`, `nutricion/`, `cuerpo/`, `coach/`.
+- `src/components/` — un componente por tarjeta/formulario (`RecoveryStatusCard`, `DailySessionCard`, `GarminActivitiesCard`, `SesionesEntrenamiento`, `WeeklyScheduleForm`, `ExercisePicker`, `HealthMetricsSummaryRow`, `GarminHealthHistoryCard`, `IntradayMetricCard`, `HabitJournalCard`, `PeriodicSummaryCard`, `NutritionTargetCard`, `NutritionPlanCard`, `WeightTrendCard`, `BodyCompositionTile`, `BodyMeasurementForm`...), cada uno con su test co-localizado.
+- `src/components/ui/` — kit de UI compartido: `StatTile` (métrica compacta en rail horizontal), `SegmentedControl`/`ChipFilter` (selección agrupada/filtros, `role="tablist"`), `ActivityListItem` (fila de feed estilo Strava), `MacroBar` (barra de proporción de macros estilo MyFitnessPal), `FormField`/`fieldInputClass` (label+input+error consistente), `Disclosure` (sección plegable), `PageHeader` (cabecera título+subtítulo+acciones), además de `Button`, `Card`, `DonutChart`, `RadialGauge`, `AreaTrendChart`, `Sparkline`, `AnimatedNumber`, `Skeleton`, `LoadingState`/`EmptyState`/`ErrorState`.
+- `src/lib/` — `api.ts` (cliente tipado), `theme.ts` (paleta centralizada), `motion-tokens.ts` (sistema de tokens de animación), `dedupe.ts` (agregación "última fila del día gana" para históricos append-only), `activityFormat.ts`/`activityIcons.ts`, `useCurrentUser.ts`/`UserContext.tsx` (sesión mono-usuario vía `localStorage`, sin login real todavía).
 
 ## Librerías clave
 
 - `motion` (framer-motion) para animación — springs físicos, nunca `hover:scale` de CSS suelto.
-- `recharts` para gráficas (área con degradado, medidor radial, donut).
+- `recharts`/SVG propio para gráficas (área con degradado, medidor radial, donut).
 - `lucide-react` para iconos SVG (nunca emoji).
 
 ## Tests

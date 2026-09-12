@@ -4,6 +4,21 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versionado: [SemVer](https://semver.org/lang/es/) informal (proyecto personal,
 mono-usuario - no hay compromiso de compatibilidad de API entre versiones).
 
+## [Unreleased]
+
+### Añadido
+- Persistencia completa de la composición de bioimpedancia de la báscula
+  Feelfit (músculo, hueso, % agua, BMI) - antes se descartaba y solo se
+  guardaba peso/% de grasa, pese a que la báscula ya la reportaba en cada
+  medición.
+- Reconstrucción de composición/layout (v2.1) de las 7 páginas del
+  frontend, sin cambiar el tema visual Apple-clean: nuevo kit de UI
+  (`StatTile`, `SegmentedControl`, `ChipFilter`, `ActivityListItem`,
+  `MacroBar`, `FormField`, `Disclosure`, `PageHeader`) con patrones de
+  layout inspirados en Garmin Connect/Strava/MyFitnessPal (rail de
+  métricas, feed de actividades, diario de macros, formularios
+  reagrupados).
+
 ## [0.2.0] - 2026-08-10
 
 ### Añadido
