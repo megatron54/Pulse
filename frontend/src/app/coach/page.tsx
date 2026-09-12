@@ -2,6 +2,7 @@
 
 import { MessageCircle } from "lucide-react";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 /**
  * Coach (reconstrucción v2 - 01-arquitectura/04-design-system-v2.md,
@@ -16,18 +17,19 @@ import { Card } from "@/components/ui/Card";
 export default function CoachPage() {
   return (
     <main className="content-container py-6 md:py-8">
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Coach</h1>
-        <p className="text-text-secondary mt-1">Chat conversacional con tu coach de IA.</p>
-      </header>
-      <Card className="flex flex-col items-center gap-3 py-12 text-center">
-        <MessageCircle size={32} aria-hidden="true" className="text-text-secondary" />
-        <p className="text-foreground font-medium">Todavía no está construido.</p>
-        <p className="text-sm text-text-secondary max-w-sm">
-          El chat conversacional con IA es la Fase 6 del plan de reconstrucción -
-          requiere un endpoint nuevo en el backend que todavía no existe. Esta
-          página no aparenta una función que no funciona de verdad.
-        </p>
+      <PageHeader title="Coach" subtitle="Chat conversacional con tu coach de IA." />
+      <Card className="flex flex-col items-center gap-4 py-16 text-center">
+        <div className="flex size-14 items-center justify-center rounded-full bg-surface-muted">
+          <MessageCircle size={26} aria-hidden="true" className="text-text-secondary" />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <p className="text-foreground font-medium">Todavía no está construido.</p>
+          <p className="text-sm text-text-secondary max-w-sm text-pretty">
+            El chat conversacional con IA es la Fase 6 del plan de reconstrucción - requiere un
+            endpoint nuevo en el backend que todavía no existe. Esta página no aparenta una
+            función que no funciona de verdad.
+          </p>
+        </div>
       </Card>
     </main>
   );
