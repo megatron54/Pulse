@@ -22,10 +22,10 @@ describe("HabitJournalCard", () => {
     vi.mocked(api.getHabitCorrelation).mockReset();
   });
 
-  it("muestra un checkbox por cada hábito del catálogo", () => {
+  it("muestra un chip por cada hábito del catálogo", () => {
     render(<HabitJournalCard userId={1} />);
-    expect(screen.getByLabelText(/alcohol/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/siesta/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /alcohol/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /siesta/i })).toBeInTheDocument();
   });
 
   it("al marcar hábitos y guardar, llama a setHabits con la lista seleccionada", async () => {
@@ -33,8 +33,8 @@ describe("HabitJournalCard", () => {
     vi.mocked(api.setHabits).mockResolvedValue(undefined);
 
     render(<HabitJournalCard userId={1} />);
-    await user.click(screen.getByLabelText(/alcohol/i));
-    await user.click(screen.getByLabelText(/siesta/i));
+    await user.click(screen.getByRole("button", { name: /alcohol/i }));
+    await user.click(screen.getByRole("button", { name: /siesta/i }));
     await user.click(screen.getByRole("button", { name: /guardar/i }));
 
     await waitFor(() =>

@@ -4,6 +4,7 @@ import { useUser } from "@/lib/UserContext";
 import { PeriodicSummaryCard } from "@/components/PeriodicSummaryCard";
 import { HabitJournalCard } from "@/components/HabitJournalCard";
 import { WeightTrendCard } from "@/components/WeightTrendCard";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 /**
  * Análisis (reconstrucción v2 - 01-arquitectura/04-design-system-v2.md,
@@ -21,10 +22,7 @@ export default function AnalisisPage() {
 
   return (
     <main className="content-container py-6 md:py-8">
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Análisis</h1>
-        <p className="text-text-secondary mt-1">Tendencias de tu recovery, carga y peso.</p>
-      </header>
+      <PageHeader title="Análisis" subtitle="Tendencias de tu recovery, carga y peso." />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <PeriodicSummaryCard userId={user.id} refreshKey={0} />
         <WeightTrendCard userId={user.id} />
