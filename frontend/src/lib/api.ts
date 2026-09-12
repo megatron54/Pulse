@@ -93,6 +93,12 @@ export type BodyMeasurement = {
   metodo: "manual" | "navy" | "navy_pose";
   bodyfat_pct_rango_min: number | null;
   bodyfat_pct_rango_max: number | null;
+  // Composición de bioimpedancia (báscula Feelfit) - null en mediciones
+  // manuales o si la báscula no reportó el campo esa vez.
+  muscle_kg: number | null;
+  bone_kg: number | null;
+  water_pct: number | null;
+  bmi: number | null;
 };
 
 export type BodyMeasurementInput = {
