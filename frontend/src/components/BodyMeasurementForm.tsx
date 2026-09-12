@@ -4,9 +4,8 @@ import { useState } from "react";
 import { api, ApiError, todayLocalDate, type BodyMeasurement } from "@/lib/api";
 import { Card, CardTitle } from "./ui/Card";
 import { Button } from "./ui/Button";
-
-const inputClass =
-  "border border-surface-border bg-surface-muted rounded-lg px-3 py-2 text-foreground placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-accent";
+import { Disclosure } from "./ui/Disclosure";
+import { FormField, fieldInputClass } from "./ui/FormField";
 
 export function BodyMeasurementForm({
   userId,
@@ -47,53 +46,65 @@ export function BodyMeasurementForm({
 
   return (
     <Card>
-      <CardTitle>Registrar peso / medidas</CardTitle>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1 text-sm text-text-secondary">
-          Peso (kg)
+      <CardTitle>Registrar peso</CardTitle>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <FormField label="Peso (kg)" htmlFor="peso-kg">
           <input
+            id="peso-kg"
             type="number"
             step="0.1"
-            className={inputClass}
+            className={fieldInputClass}
             value={pesoKg}
             onChange={(e) => setPesoKg(Number(e.target.value))}
             required
           />
-        </label>
-        <p className="text-sm text-text-secondary">
-          Opcional: añade cuello/cintura (y cadera si eres mujer) para estimar % de grasa
-          (fórmula Navy, siempre como rango, nunca un número exacto).
-        </p>
-        <div className="grid grid-cols-3 gap-2">
-          <input
-            type="number"
-            step="0.1"
-            placeholder="Cuello (cm)"
-            aria-label="Cuello en centímetros"
-            className={inputClass}
-            value={cuelloCm}
-            onChange={(e) => setCuelloCm(e.target.value)}
-          />
-          <input
-            type="number"
-            step="0.1"
-            placeholder="Cintura (cm)"
-            aria-label="Cintura en centímetros"
-            className={inputClass}
-            value={cinturaCm}
-            onChange={(e) => setCinturaCm(e.target.value)}
-          />
-          <input
-            type="number"
-            step="0.1"
-            placeholder="Cadera (cm)"
-            aria-label="Cadera en centímetros, solo para mujer"
-            className={inputClass}
-            value={caderaCm}
-            onChange={(e) => setCaderaCm(e.target.value)}
-          />
-        </div>
-        {error && <p className="text-recovery-low text-sm">{error}</p>}
+        </FormField>
+        <Disclosure summary="Medida manual opcional (método Navy)">
+          <p className="text-xs text-text-secondary -mt-1">
+            Solo hace falta si no usas la báscula Feelfit: con cuello y cintura (y cadera si eres
+            mujer) estimamos tu % de grasa como un rango, nunca un número exacto.
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            <FormField label="Cuello" htmlFor="cuello-cm">
+              <input
+                id="cuello-cm"
+                type="number"
+                step="0.1"
+                placeholder="cm"
+                className={fieldInputClass}
+                value={cuelloCm}
+                onChange={(e) => setCuelloCm(e.target.value)}
+              />
+            </FormField>
+            <FormField label="Cintura" htmlFor="cintura-cm">
+              <input
+                id="cintura-cm"
+                type="number"
+                step="0.1"
+                placeholder="cm"
+                className={fieldInputClass}
+                value={cinturaCm}
+                onChange={(e) => setCinturaCm(e.target.value)}
+              />
+            </FormField>
+            <FormField label="Cadera (mujer)" htmlFor="cadera-cm">
+              <input
+                id="cadera-cm"
+                type="number"
+                step="0.1"
+                placeholder="cm"
+                className={fieldInputClass}
+                value={caderaCm}
+                onChange={(e) => setCaderaCm(e.target.value)}
+              />
+            </FormField>
+          </div>
+        </Disclosure>
+        {error && (
+          <p role="alert" className="text-recovery-low text-sm">
+            {error}
+          </p>
+        )}
         <Button type="submit" disabled={submitting} className="self-start">
           {submitting ? "Guardando..." : "Guardar"}
         </Button>

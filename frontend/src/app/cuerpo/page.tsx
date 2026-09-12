@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { useUser } from "@/lib/UserContext";
 import { BodyMeasurementForm } from "@/components/BodyMeasurementForm";
+import { BodyCompositionTile } from "@/components/BodyCompositionTile";
 import { WeightTrendCard } from "@/components/WeightTrendCard";
 import { FadeIn } from "@/components/ui/FadeIn";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 /**
  * Cuerpo: peso, medidas y su tendencia. Pendiente (ver 02-roadmap,
@@ -23,20 +25,22 @@ export default function CuerpoPage() {
 
   return (
     <main className="content-container py-6 md:py-8">
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Cuerpo</h1>
-        <p className="text-text-secondary mt-1">Peso, medidas y su evolución.</p>
-      </header>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+      <PageHeader title="Cuerpo" subtitle="Peso, medidas y su evolución." />
+      <div className="flex flex-col gap-6">
         <FadeIn>
-          <BodyMeasurementForm
-            userId={user.id}
-            onSaved={() => setWeightRefreshKey((k) => k + 1)}
-          />
-        </FadeIn>
-        <FadeIn delay={0.05}>
           <WeightTrendCard userId={user.id} refreshKey={weightRefreshKey} />
         </FadeIn>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
+          <FadeIn delay={0.05}>
+            <BodyCompositionTile userId={user.id} refreshKey={weightRefreshKey} />
+          </FadeIn>
+          <FadeIn delay={0.1}>
+            <BodyMeasurementForm
+              userId={user.id}
+              onSaved={() => setWeightRefreshKey((k) => k + 1)}
+            />
+          </FadeIn>
+        </div>
       </div>
     </main>
   );

@@ -14,6 +14,16 @@ vi.mock("@/lib/api", async () => {
   };
 });
 
+const baseMedicion = {
+  metodo: "manual" as const,
+  bodyfat_pct_rango_min: null,
+  bodyfat_pct_rango_max: null,
+  muscle_kg: null,
+  bone_kg: null,
+  water_pct: null,
+  bmi: null,
+};
+
 describe("WeightTrendCard", () => {
   beforeEach(() => {
     vi.mocked(api.getBodyMeasurementHistory).mockReset();
@@ -21,10 +31,10 @@ describe("WeightTrendCard", () => {
 
   it("muestra la tendencia de peso deduplicada a una fila por día", async () => {
     vi.mocked(api.getBodyMeasurementHistory).mockResolvedValue([
-      { id: 1, fecha: "2026-08-01", peso_kg: 80, metodo: "manual", bodyfat_pct_rango_min: null, bodyfat_pct_rango_max: null },
+      { ...baseMedicion, id: 1, fecha: "2026-08-01", peso_kg: 80 },
       // Segunda medición del mismo día -> debe ganar (append-only, "la última fila del día gana")
-      { id: 2, fecha: "2026-08-01", peso_kg: 79.5, metodo: "manual", bodyfat_pct_rango_min: null, bodyfat_pct_rango_max: null },
-      { id: 3, fecha: "2026-08-02", peso_kg: 79.2, metodo: "manual", bodyfat_pct_rango_min: null, bodyfat_pct_rango_max: null },
+      { ...baseMedicion, id: 2, fecha: "2026-08-01", peso_kg: 79.5 },
+      { ...baseMedicion, id: 3, fecha: "2026-08-02", peso_kg: 79.2 },
     ]);
 
     render(<WeightTrendCard userId={1} />);
@@ -77,9 +87,7 @@ describe("WeightTrendCard", () => {
 
     const { unmount } = render(<WeightTrendCard userId={1} />);
     unmount();
-    resolverPromesa([
-      { id: 1, fecha: "2026-08-01", peso_kg: 80, metodo: "manual", bodyfat_pct_rango_min: null, bodyfat_pct_rango_max: null },
-    ]);
+    resolverPromesa([{ ...baseMedicion, id: 1, fecha: "2026-08-01", peso_kg: 80 }]);
     await new Promise((r) => setTimeout(r, 0));
 
     const advertenciasDeSetStateEnDesmontado = consoleError.mock.calls.filter((args) =>
