@@ -21,6 +21,7 @@ describe("AppShell", () => {
       user: null,
       loading: true,
       error: null,
+      createUser: vi.fn(),
       loginUser: vi.fn(),
     });
     render(
@@ -37,6 +38,7 @@ describe("AppShell", () => {
       user: null,
       loading: false,
       error: null,
+      createUser: vi.fn(),
       loginUser: vi.fn(),
     });
     render(
@@ -54,6 +56,7 @@ describe("AppShell", () => {
       user: null,
       loading: false,
       error: "fallo al crear usuario",
+      createUser: vi.fn(),
       loginUser: vi.fn(),
     });
     render(
@@ -76,6 +79,7 @@ describe("AppShell", () => {
       },
       loading: false,
       error: null,
+      createUser: vi.fn(),
       loginUser: vi.fn(),
     });
     render(
