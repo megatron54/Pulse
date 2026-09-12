@@ -38,7 +38,15 @@ class TestSyncFeelfitMeasurements:
     def test_inserta_las_mediciones_nuevas(self, session, usuario):
         client = _FakeFeelfitClient(
             [
-                {"time_stamp": 1723300000, "weight": 74.1, "bodyfat": 19.4},
+                {
+                    "time_stamp": 1723300000,
+                    "weight": 74.1,
+                    "bodyfat": 19.4,
+                    "muscle": 33.2,
+                    "bone": 3.1,
+                    "water": 55.6,
+                    "bmi": 22.9,
+                },
                 {"time_stamp": 1723400000, "weight": 73.8},
             ]
         )
@@ -51,9 +59,19 @@ class TestSyncFeelfitMeasurements:
         con_bodyfat = next(f for f in filas if f.peso_kg == 74.1)
         assert con_bodyfat.bodyfat_pct_rango_min == 19.4
         assert con_bodyfat.metodo == "feelfit_bioimpedance"
+        assert con_bodyfat.muscle_kg == 33.2
+        assert con_bodyfat.bone_kg == 3.1
+        assert con_bodyfat.water_pct == 55.6
+        assert con_bodyfat.bmi == 22.9
         sin_bodyfat = next(f for f in filas if f.peso_kg == 73.8)
         assert sin_bodyfat.bodyfat_pct_rango_min is None
         assert sin_bodyfat.metodo == "manual"
+        # "unknown is not zero": sin datos de bioimpedancia en el
+        # payload crudo, nunca se rellenan con 0.
+        assert sin_bodyfat.muscle_kg is None
+        assert sin_bodyfat.bone_kg is None
+        assert sin_bodyfat.water_pct is None
+        assert sin_bodyfat.bmi is None
 
     def test_es_idempotente_no_duplica_mediciones_ya_sincronizadas(self, session, usuario):
         client = _FakeFeelfitClient([{"time_stamp": 1723300000, "weight": 74.1}])

@@ -94,6 +94,13 @@ def sync_feelfit_measurements(
             bodyfat_pct_rango_max=bodyfat_pct,
             metodo="feelfit_bioimpedance" if bodyfat_pct is not None else "manual",
             fuente_externa_id=fuente_id,
+            # Resto de la composición de bioimpedancia que la báscula
+            # reporte en esta medición concreta - `None` si no vino
+            # (nunca se inventa, ver `normalize_measurement`).
+            muscle_kg=normalizada["muscle_kg"],
+            bone_kg=normalizada["bone_kg"],
+            water_pct=normalizada["water_pct"],
+            bmi=normalizada["bmi"],
         )
         session.add(medicion)
         try:

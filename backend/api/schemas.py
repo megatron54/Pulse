@@ -93,6 +93,12 @@ class BodyMeasurementOut(BaseModel):
     metodo: str
     bodyfat_pct_rango_min: float | None
     bodyfat_pct_rango_max: float | None
+    # Composición de bioimpedancia (báscula Feelfit) - `None` en
+    # mediciones manuales o si la báscula no reportó el campo esa vez.
+    muscle_kg: float | None
+    bone_kg: float | None
+    water_pct: float | None
+    bmi: float | None
 
     model_config = {"from_attributes": True}
 
