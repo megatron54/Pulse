@@ -83,6 +83,18 @@ body {
   padding-inline: clamp(1rem, 3vw, 2.5rem);
 }
 
+/* Rail horizontal sin scrollbar visible (Design System v2.1): usado
+ * por el rail de StatTile de "Hoy"/"Recuperación" - el scroll sigue
+ * siendo funcional (rueda del ratón/gesto táctil), solo se oculta la
+ * barra nativa para que no compita visualmente con el contenido. */
+.scroll-rail {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.scroll-rail::-webkit-scrollbar {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
