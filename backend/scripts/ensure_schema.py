@@ -70,22 +70,32 @@ def _migrar_columnas_aditivas(engine) -> None:
         return  # create_all ya la habrá creado completa, nada que parchear
 
     columnas = {c["name"] for c in inspector.get_columns("body_measurements")}
-    if "fuente_externa_id" in columnas:
-        return  # ya migrada (o creada de cero ya con la columna)
 
-    dialecto = engine.dialect.name
-    tipo_columna = "VARCHAR(100)" if dialecto == "sqlite" else "VARCHAR(100)"
-    with engine.begin() as conn:
-        conn.execute(
-            text(f"ALTER TABLE body_measurements ADD COLUMN fuente_externa_id {tipo_columna}")
-        )
-        conn.execute(
-            text(
-                "CREATE UNIQUE INDEX uq_body_measurements_user_fuente_externa "
-                "ON body_measurements (user_id, fuente_externa_id)"
+    if "fuente_externa_id" not in columnas:
+        with engine.begin() as conn:
+            conn.execute(
+                text("ALTER TABLE body_measurements ADD COLUMN fuente_externa_id VARCHAR(100)")
             )
-        )
-    print("OK: migración aditiva body_measurements.fuente_externa_id aplicada.")
+            conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX uq_body_measurements_user_fuente_externa "
+                    "ON body_measurements (user_id, fuente_externa_id)"
+                )
+            )
+        print("OK: migración aditiva body_measurements.fuente_externa_id aplicada.")
+
+    # Composición completa de bioimpedancia (báscula Feelfit) - añadida
+    # después de fuente_externa_id, así que se migra por separado: una
+    # base ya migrada con fuente_externa_id puede seguir sin estas 4.
+    columnas_bioimpedancia = {"muscle_kg", "bone_kg", "water_pct", "bmi"}
+    faltantes = columnas_bioimpedancia - columnas
+    if faltantes:
+        with engine.begin() as conn:
+            for columna in faltantes:
+                conn.execute(
+                    text(f"ALTER TABLE body_measurements ADD COLUMN {columna} FLOAT")
+                )
+        print(f"OK: migración aditiva body_measurements bioimpedancia aplicada ({sorted(faltantes)}).")
 
 
 def main() -> None:

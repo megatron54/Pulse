@@ -305,6 +305,14 @@ class BodyMeasurements(Base):
         Enum(*_METODO_BODYFAT_VALORES, name="metodo_bodyfat_enum", create_constraint=True), default="manual"
     )
     fuente_externa_id: Mapped[str | None] = mapped_column(String(100), default=None)
+    # Composición completa de bioimpedancia (báscula Feelfit) - `None`
+    # para mediciones manuales o cuando la báscula no reportó el campo
+    # en esa medición concreta ("unknown is not zero", ver
+    # `feelfit_client.client.normalize_measurement`).
+    muscle_kg: Mapped[float | None] = mapped_column(default=None)
+    bone_kg: Mapped[float | None] = mapped_column(default=None)
+    water_pct: Mapped[float | None] = mapped_column(default=None)
+    bmi: Mapped[float | None] = mapped_column(default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 

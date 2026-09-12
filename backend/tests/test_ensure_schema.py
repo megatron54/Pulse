@@ -133,3 +133,48 @@ def test_migra_fuente_externa_id_en_una_body_measurements_ya_existente(monkeypat
     # Segunda ejecución: ya migrada, no debe fallar ni volver a intentar
     # el ALTER/CREATE INDEX (que rompería con "columna ya existe").
     ensure_schema_main()
+
+
+def test_migra_columnas_de_bioimpedancia_en_una_body_measurements_ya_migrada(monkeypatch):
+    # Simula una base ya migrada con fuente_externa_id (fase anterior)
+    # pero SIN las columnas de bioimpedancia completa de Feelfit -
+    # create_all tampoco las añadiría a una tabla ya existente.
+    engine = create_engine("sqlite:///:memory:")
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "CREATE TABLE body_measurements ("
+                "id INTEGER PRIMARY KEY, user_id INTEGER, fecha DATE, peso_kg FLOAT, "
+                "metodo VARCHAR(30) DEFAULT 'manual', fuente_externa_id VARCHAR(100))"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX uq_body_measurements_user_fuente_externa "
+                "ON body_measurements (user_id, fuente_externa_id)"
+            )
+        )
+        conn.execute(
+            text(
+                "INSERT INTO body_measurements (id, user_id, fecha, peso_kg, metodo) "
+                "VALUES (1, 1, '2026-08-01', 81.0, 'manual')"
+            )
+        )
+
+    monkeypatch.setattr("scripts.ensure_schema.create_pulse_engine", lambda: engine)
+
+    ensure_schema_main()
+
+    inspector = inspect(engine)
+    columnas = {c["name"] for c in inspector.get_columns("body_measurements")}
+    assert {"muscle_kg", "bone_kg", "water_pct", "bmi"} <= columnas
+
+    with engine.connect() as conn:
+        fila = conn.execute(
+            text("SELECT peso_kg, muscle_kg FROM body_measurements WHERE id=1")
+        ).one()
+        assert fila.peso_kg == 81.0
+        assert fila.muscle_kg is None  # dato preexistente intacto, sin inventar un valor
+
+    # Segunda ejecución: ya migrada, no debe fallar reintentando el ALTER.
+    ensure_schema_main()
