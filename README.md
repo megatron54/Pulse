@@ -35,11 +35,11 @@ Detalle completo en [`01-arquitectura/`](01-arquitectura/).
 ## Qué funciona hoy
 
 - **Garmin Connect real**: único mecanismo de alta de usuario (sin onboarding manual), backfill histórico automático, sincronización nocturna de recovery (HRV/Body Battery/sleep/training readiness/estrés minuto a minuto) y actividades — corre como servicio Docker propio (`scheduler`).
-- **Báscula Feelfit real**: conexión custom vía la API de la báscula, sincronización nocturna automática de peso/composición corporal.
+- **Báscula Feelfit real**: conexión custom vía la API de la báscula, sincronización nocturna automática de la composición de bioimpedancia completa (peso, % grasa, músculo, hueso, % agua, BMI), no solo peso.
 - **wger**: catálogo de ejercicios (el diario de comidas ya no usa wger, ver más abajo).
 - **Motor de reglas**: nutrición (TDEE + macros por fase), planes de fase de peso con duración determinada (déficit/mantenimiento/recomposición/superávit — el sistema recomienda, el usuario confirma), progresión (1RM, doble progresión, autorregulación RIR/APRE), periodización (readiness diario, ACWR real), guardrails (deload forzado, pausa de déficit por mala recuperación sostenida).
 - **Diario de hábitos** correlacionado con recovery (estilo WHOOP Journal), resumen periódico de tendencias.
-- **Frontend**: dashboard visual (gráficas reales, no listados), design system propio Apple-clean con tema claro/oscuro real — ver [`frontend/README.md`](frontend/README.md).
+- **Frontend**: dashboard visual (gráficas reales, no listados), design system propio Apple-clean con tema claro/oscuro real y patrones de layout inspirados en Garmin Connect/Strava/MyFitnessPal — ver [`frontend/README.md`](frontend/README.md) y [`01-arquitectura/04-design-system-v2.md`](01-arquitectura/04-design-system-v2.md).
 
 ## Quickstart
 
