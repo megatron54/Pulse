@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { api, ApiError, type GarminActivity } from "@/lib/api";
 import { formatDistancia, formatDuracion } from "@/lib/activityFormat";
+import { ActivityListItem } from "./ui/ActivityListItem";
 import { Card, CardTitle } from "./ui/Card";
 import { EmptyState } from "./ui/EmptyState";
 import { ErrorState } from "./ui/ErrorState";
@@ -86,19 +87,16 @@ export function SportActivityHistoryCard({
       {!error && actividades !== null && actividades.length > 0 && (
         <div className="flex flex-col gap-2">
           {actividades.map((act) => (
-            <div
+            <ActivityListItem
               key={act.activity_id}
-              className="flex items-center justify-between rounded-lg bg-surface-muted px-3 py-2 text-sm"
-            >
-              <div>
-                <p className="text-foreground capitalize">{act.tipo.replace(/_/g, " ")}</p>
-                <p className="text-text-secondary text-xs">{act.fecha}</p>
-              </div>
-              <div className="text-right text-text-secondary">
-                <p>{formatDuracion(act.duracion_seg)}</p>
-                <p className="text-xs text-text-secondary">{formatDistancia(act.distancia_m)}</p>
-              </div>
-            </div>
+              icon={icono}
+              title={act.tipo.replace(/_/g, " ")}
+              subtitle={act.fecha}
+              metrics={[
+                { label: "Duración", value: formatDuracion(act.duracion_seg) },
+                { label: "Distancia", value: formatDistancia(act.distancia_m) },
+              ]}
+            />
           ))}
         </div>
       )}
