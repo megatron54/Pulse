@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCurrentUser } from "@/lib/useCurrentUser";
 import { UserProvider } from "@/lib/UserContext";
 import { GarminConnectForm } from "@/components/GarminConnectForm";
@@ -39,11 +40,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   if (!user) {
     return (
-      <main className="flex-1 flex flex-col justify-center p-8">
-        <h1 className="text-3xl font-semibold text-center mb-8 tracking-tight text-foreground">
-          Pulse
-        </h1>
-        {error && <p className="text-recovery-low text-sm text-center mb-4">{error}</p>}
+      <main className="flex flex-1 flex-col justify-center p-8">
+        <div className="mx-auto mb-8 flex flex-col items-center gap-3">
+          <Image src="/icon-192.png" alt="" width={56} height={56} className="rounded-2xl" priority />
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground">Pulse</h1>
+        </div>
+        {error && <p className="mb-4 text-center text-sm text-recovery-low">{error}</p>}
         <GarminConnectForm onConnected={loginUser} />
       </main>
     );

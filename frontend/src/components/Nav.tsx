@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -49,11 +50,12 @@ export function Nav() {
       {/* Sidebar de escritorio */}
       <nav
         aria-label="Navegación principal"
-        className="hidden md:flex md:flex-col md:w-56 md:shrink-0 md:border-r md:border-surface-border md:p-4 md:gap-1 md:bg-surface"
+        className="hidden md:flex md:w-60 md:shrink-0 md:flex-col md:gap-1 md:border-r md:border-surface-border md:bg-surface md:p-4"
       >
-        <span className="text-xl font-semibold tracking-tight text-foreground mb-6 px-2">
-          Pulse
-        </span>
+        <div className="mb-8 flex items-center gap-2.5 px-2">
+          <Image src="/icon-192.png" alt="" width={28} height={28} className="rounded-lg" priority />
+          <span className="text-xl font-semibold tracking-tight text-foreground">Pulse</span>
+        </div>
         {SECCIONES.map(({ href, label, Icono }) => {
           const activa = esRutaActiva(pathname, href);
           return (
