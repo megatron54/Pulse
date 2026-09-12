@@ -5,6 +5,7 @@ import { Check } from "lucide-react";
 import { api, ApiError, HABITOS, type Habito, type HabitCorrelation } from "@/lib/api";
 import { Card, CardTitle } from "./ui/Card";
 import { Button } from "./ui/Button";
+import { FormField, fieldInputClass } from "./ui/FormField";
 
 /**
  * Diario de hábitos correlacionado con recovery (Épica MUST-HAVE #3 de
@@ -60,21 +61,25 @@ function HabitCheckboxes({ userId }: { userId: number }) {
   return (
     <div>
       <p className="text-sm text-text-secondary mb-3">¿Ocurrió hoy alguno de estos?</p>
-      <div className="grid grid-cols-2 gap-2">
-        {HABITOS.map((habito) => (
-          <label
-            key={habito}
-            className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer"
-          >
-            <input
-              type="checkbox"
-              checked={seleccionados.has(habito)}
-              onChange={() => toggle(habito)}
-              className="accent-teal"
-            />
-            {_ETIQUETAS[habito]}
-          </label>
-        ))}
+      <div className="flex flex-wrap gap-2">
+        {HABITOS.map((habito) => {
+          const activo = seleccionados.has(habito);
+          return (
+            <button
+              key={habito}
+              type="button"
+              aria-pressed={activo}
+              onClick={() => toggle(habito)}
+              className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                activo
+                  ? "bg-accent text-white"
+                  : "bg-surface-muted text-text-secondary hover:text-foreground"
+              }`}
+            >
+              {_ETIQUETAS[habito]}
+            </button>
+          );
+        })}
       </div>
       {error && (
         <p role="alert" className="text-recovery-low text-sm mt-2">
@@ -116,12 +121,12 @@ function HabitCorrelationView({ userId }: { userId: number }) {
 
   return (
     <div className="mt-6 pt-6 border-t border-surface-border">
-      <label className="flex flex-col gap-1 text-sm text-text-secondary">
-        Ver correlación con recovery
+      <FormField label="Ver correlación con recovery" htmlFor="habito-correlacion">
         <select
+          id="habito-correlacion"
           value={habitoElegido}
           onChange={(e) => onSelect(e.target.value)}
-          className="border border-surface-border bg-surface-muted rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
+          className={fieldInputClass}
         >
           <option value="">Elige un hábito...</option>
           {HABITOS.map((habito) => (
@@ -130,7 +135,7 @@ function HabitCorrelationView({ userId }: { userId: number }) {
             </option>
           ))}
         </select>
-      </label>
+      </FormField>
       {error && (
         <p role="alert" className="text-recovery-low text-sm mt-2">
           {error}
