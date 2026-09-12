@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { HeartPulse } from "lucide-react";
+import { Activity, BatteryCharging, HeartPulse, Moon } from "lucide-react";
 import { api, ApiError, type GarminHealthDay, type ReadinessResult } from "@/lib/api";
-import { AreaTrendChart } from "./ui/AreaTrendChart";
 import { CoachNarrativeBlock } from "./CoachNarrativeBlock";
 import { EmptyState } from "./ui/EmptyState";
 import { ErrorState } from "./ui/ErrorState";
 import { LoadingState } from "./ui/LoadingState";
-import { PALETA } from "@/lib/theme";
+import { StatTile } from "./ui/StatTile";
 
 const DIAS_MINI_TENDENCIA = 7;
 
@@ -58,12 +57,12 @@ export function RecoveryStatusCard({ userId }: { userId: number }) {
     };
   }, [userId, intentos]);
 
-  const cronologico = historial ? [...historial].reverse() : [];
   // .at(-1) en vez de [0]: getReadinessHistory devuelve orden
   // ascendente (más antiguo primero) - con days=1 da igual porque solo
   // puede haber 0 o 1 fila, pero .at(-1) es correcto también si algún
   // día se cambia el `days` de esta llamada (hallazgo de code-review).
   const zonaHoy = readinessHoy?.at(-1)?.resultado ?? null;
+  const diaHoy = historial?.at(-1) ?? null;
   const cargando = readinessHoy === null || historial === null;
 
   return (
@@ -80,43 +79,39 @@ export function RecoveryStatusCard({ userId }: { userId: number }) {
       {!error && cargando && <LoadingState lines={4} />}
       {!error && !cargando && (
         <div className="flex flex-col gap-5">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div>
-              <p className="text-sm text-text-secondary">Tu recovery de hoy</p>
-              {zonaHoy ? (
-                <span
-                  className={`mt-1 inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ${ZONA[zonaHoy].clase}`}
-                >
-                  {ZONA[zonaHoy].label}
-                </span>
-              ) : (
-                <span className="mt-1 inline-flex items-center rounded-full bg-surface-muted px-3 py-1 text-sm font-medium text-text-secondary">
-                  Aún sin datos de hoy
-                </span>
-              )}
-            </div>
+          <div>
+            <p className="text-sm text-text-secondary">Tu recovery de hoy</p>
+            {zonaHoy ? (
+              <span
+                className={`mt-1 inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ${ZONA[zonaHoy].clase}`}
+              >
+                {ZONA[zonaHoy].label}
+              </span>
+            ) : (
+              <span className="mt-1 inline-flex items-center rounded-full bg-surface-muted px-3 py-1 text-sm font-medium text-text-secondary">
+                Aún sin datos de hoy
+              </span>
+            )}
           </div>
 
           {historial && historial.length === 0 && (
             <EmptyState icon={HeartPulse} message="Todavía no hay datos de recovery sincronizados." />
           )}
 
-          {historial && historial.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <MiniMetrica titulo="VFC" color={PALETA.recoveryHigh} datos={cronologico} campo="hrv_value" />
-              <MiniMetrica
-                titulo="Body Battery"
-                color={PALETA.accent}
-                datos={cronologico}
-                campo="body_battery_am"
-              />
-              <MiniMetrica titulo="Sueño" color={PALETA.sleep} datos={cronologico} campo="sleep_score" />
-              <MiniMetrica
-                titulo="Estrés"
-                color={PALETA.recoveryLow}
-                datos={cronologico}
-                campo="stress_avg"
-              />
+          {diaHoy && (
+            <div className="scroll-rail -mx-1 flex gap-3 px-1">
+              {diaHoy.hrv_value != null && (
+                <StatTile icon={HeartPulse} label="VFC" value={diaHoy.hrv_value} unit=" ms" />
+              )}
+              {diaHoy.body_battery_am != null && (
+                <StatTile icon={BatteryCharging} label="Body Battery" value={diaHoy.body_battery_am} />
+              )}
+              {diaHoy.sleep_score != null && (
+                <StatTile icon={Moon} label="Sueño" value={diaHoy.sleep_score} />
+              )}
+              {diaHoy.stress_avg != null && (
+                <StatTile icon={Activity} label="Estrés" value={diaHoy.stress_avg} />
+              )}
             </div>
           )}
 
@@ -124,35 +119,5 @@ export function RecoveryStatusCard({ userId }: { userId: number }) {
         </div>
       )}
     </section>
-  );
-}
-
-function MiniMetrica({
-  titulo,
-  color,
-  datos,
-  campo,
-}: {
-  titulo: string;
-  color: string;
-  datos: GarminHealthDay[];
-  campo: keyof Pick<GarminHealthDay, "hrv_value" | "body_battery_am" | "sleep_score" | "stress_avg">;
-}) {
-  const puntos = datos
-    .filter((d) => d[campo] != null)
-    .map((d) => ({ fecha: d.fecha, valor: d[campo] as number }));
-
-  // "unknown is not zero": sin ningún dato de esta métrica en los
-  // últimos 7 días, se omite en vez de mostrar un valor inventado.
-  if (puntos.length === 0) return null;
-
-  const hoy = puntos[puntos.length - 1].valor;
-
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs text-text-secondary">{titulo}</span>
-      <span className="text-lg font-semibold text-foreground">{hoy}</span>
-      <AreaTrendChart data={puntos} color={color} alto={24} decimales={0} />
-    </div>
   );
 }

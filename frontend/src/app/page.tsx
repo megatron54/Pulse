@@ -2,9 +2,11 @@
 
 import { useUser } from "@/lib/UserContext";
 import { DailySessionCard } from "@/components/DailySessionCard";
+import { NutritionTargetCard } from "@/components/NutritionTargetCard";
 import { ReadinessTrendCard } from "@/components/ReadinessTrendCard";
 import { RecoveryStatusCard } from "@/components/RecoveryStatusCard";
 import { FadeIn } from "@/components/ui/FadeIn";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 /**
  * Página "Hoy" - reconstrucción v2 (01-arquitectura/04-design-system-v2.md,
@@ -15,7 +17,10 @@ import { FadeIn } from "@/components/ui/FadeIn";
  * Garmin - `RecoveryStatusCard` sustituye por completo al check-in
  * manual (`ReadinessCheckinForm`, ELIMINADO) y a los anillos
  * (`RecoveryRing`, ELIMINADO).
- * Nivel 2 (soporte): sesión de entrenamiento recomendada/realizada hoy.
+ * Nivel 2 (soporte): sesión de entrenamiento recomendada/realizada hoy,
+ * junto a los macros objetivo de hoy (lado a lado en desktop, estilo
+ * Garmin Connect/MyFitnessPal - antes vivían en páginas separadas sin
+ * ninguna vista conjunta del día).
  * Nivel 3 (glanceable): mini-tendencia de recovery de 7 días.
  *
  * Sin scroll forzado en desktop para el contenido de nivel 1-2 (cabe
@@ -27,17 +32,19 @@ export default function HoyPage() {
 
   return (
     <main className="content-container py-6 md:py-8">
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Hoy</h1>
-        <p className="text-text-secondary mt-1">Hola, {user.nombre}.</p>
-      </header>
+      <PageHeader title="Hoy" subtitle={`Hola, ${user.nombre}.`} />
       <div className="flex flex-col gap-6">
         <FadeIn delay={0}>
           <RecoveryStatusCard userId={user.id} />
         </FadeIn>
-        <FadeIn delay={0.05}>
-          <DailySessionCard userId={user.id} />
-        </FadeIn>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
+          <FadeIn delay={0.05}>
+            <DailySessionCard userId={user.id} />
+          </FadeIn>
+          <FadeIn delay={0.08}>
+            <NutritionTargetCard userId={user.id} />
+          </FadeIn>
+        </div>
         <FadeIn delay={0.1}>
           <ReadinessTrendCard userId={user.id} refreshKey={0} />
         </FadeIn>
