@@ -19,7 +19,7 @@ router = APIRouter(
 )
 
 
-@router.post("", status_code=204)
+@router.post("", status_code=204, response_model=None)
 def set_habits(
     user_id: int,
     payload: SetHabitsRequest,
