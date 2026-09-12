@@ -2,8 +2,10 @@
 
 import { useUser } from "@/lib/UserContext";
 import { GarminHealthHistoryCard } from "@/components/GarminHealthHistoryCard";
+import { HealthMetricsSummaryRow } from "@/components/HealthMetricsSummaryRow";
 import { IntradayMetricCard } from "@/components/IntradayMetricCard";
 import { CoachNarrativeBlock } from "@/components/CoachNarrativeBlock";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { FadeIn } from "@/components/ui/FadeIn";
 
 /**
@@ -21,13 +23,16 @@ export default function SaludPage() {
 
   return (
     <main className="content-container py-6 md:py-8">
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Recuperación</h1>
-        <p className="text-text-secondary mt-1">Histórico de recovery, sacado directamente de Garmin.</p>
-      </header>
-      <div className="grid grid-cols-1 gap-6 items-start">
+      <PageHeader
+        title="Recuperación"
+        subtitle="Histórico de recovery, sacado directamente de Garmin."
+      />
+      <div className="flex flex-col gap-6">
         <FadeIn>
           <CoachNarrativeBlock userId={user.id} />
+        </FadeIn>
+        <FadeIn delay={0.03}>
+          <HealthMetricsSummaryRow userId={user.id} />
         </FadeIn>
         <FadeIn delay={0.05}>
           <IntradayMetricCard userId={user.id} />

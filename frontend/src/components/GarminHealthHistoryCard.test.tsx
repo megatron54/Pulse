@@ -79,21 +79,21 @@ describe("GarminHealthHistoryCard", () => {
     render(<GarminHealthHistoryCard userId={1} />);
     await waitFor(() => expect(api.getGarminHealthHistory).toHaveBeenCalledWith(1, 90));
 
-    const boton30d = screen.getByRole("radio", { name: "30d" });
+    const boton30d = screen.getByRole("tab", { name: "30d" });
     boton30d.click();
 
     await waitFor(() => expect(api.getGarminHealthHistory).toHaveBeenCalledWith(1, 30));
   });
 
-  it("marca con aria-checked el rango activo del selector, como un radiogroup", async () => {
+  it("marca con aria-selected el rango activo del selector", async () => {
     vi.mocked(api.getGarminHealthHistory).mockResolvedValue([]);
     render(<GarminHealthHistoryCard userId={1} />);
 
     await waitFor(() =>
-      expect(screen.getByRole("radio", { name: "90d" })).toHaveAttribute("aria-checked", "true")
+      expect(screen.getByRole("tab", { name: "90d" })).toHaveAttribute("aria-selected", "true")
     );
-    expect(screen.getByRole("radio", { name: "7d" })).toHaveAttribute("aria-checked", "false");
-    expect(screen.getByRole("radio", { name: "30d" })).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByRole("tab", { name: "7d" })).toHaveAttribute("aria-selected", "false");
+    expect(screen.getByRole("tab", { name: "30d" })).toHaveAttribute("aria-selected", "false");
   });
 
   it("muestra el valor MÁS RECIENTE de cada métrica, no el más antiguo (el backend devuelve desc)", async () => {
