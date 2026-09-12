@@ -2,10 +2,9 @@
 
 import { useState } from "react";
 import { api, ApiError, type GarminConnectInput, type User } from "@/lib/api";
+import { Button } from "./ui/Button";
 import { Card, CardTitle } from "./ui/Card";
-
-const inputClass =
-  "border border-surface-border bg-surface-muted rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-accent";
+import { FormField, fieldInputClass } from "./ui/FormField";
 
 const ETIQUETA_CAMPO: Record<string, string> = {
   nombre: "Nombre",
@@ -101,20 +100,20 @@ export function GarminConnectForm({
 
   if (camposFaltantes) {
     return (
-      <div className="max-w-md mx-auto">
+      <div className="mx-auto w-full max-w-sm">
         <Card>
           <CardTitle>Falta un dato</CardTitle>
-          <p className="text-sm text-text-secondary mb-3">
+          <p className="-mt-2 mb-4 text-sm text-text-secondary">
             Garmin no nos dio {camposFaltantes.length === 1 ? "este dato" : "estos datos"} - solo te
             pedimos lo que falta.
           </p>
-          <form onSubmit={handleSubmitCompletar} className="flex flex-col gap-3">
+          <form onSubmit={handleSubmitCompletar} className="flex flex-col gap-4">
             {camposFaltantes.map((campo) => (
-              <label key={campo} className="flex flex-col gap-1 text-sm text-text-secondary">
-                {ETIQUETA_CAMPO[campo] ?? campo}
+              <FormField key={campo} label={ETIQUETA_CAMPO[campo] ?? campo} htmlFor={campo}>
                 {campo === "sexo" ? (
                   <select
-                    className={inputClass}
+                    id={campo}
+                    className={fieldInputClass}
                     value={overrides[campo] ?? ""}
                     onChange={(e) => setOverrides((o) => ({ ...o, [campo]: e.target.value }))}
                   >
@@ -126,23 +125,24 @@ export function GarminConnectForm({
                   </select>
                 ) : (
                   <input
+                    id={campo}
                     type={campo === "fecha_nacimiento" ? "date" : campo === "altura_cm" ? "number" : "text"}
-                    className={inputClass}
+                    className={fieldInputClass}
                     value={overrides[campo] ?? ""}
                     onChange={(e) => setOverrides((o) => ({ ...o, [campo]: e.target.value }))}
                     required
                   />
                 )}
-              </label>
+              </FormField>
             ))}
-            {error && <p className="text-recovery-low text-sm">{error}</p>}
-            <button
-              type="submit"
-              disabled={submitting}
-              className="bg-accent text-white font-semibold rounded-lg px-4 py-2.5 disabled:bg-surface-muted disabled:text-text-secondary"
-            >
+            {error && (
+              <p role="alert" className="text-sm text-recovery-low">
+                {error}
+              </p>
+            )}
+            <Button type="submit" disabled={submitting} className="w-full">
               {submitting ? "Completando..." : "Completar"}
-            </button>
+            </Button>
           </form>
         </Card>
       </div>
@@ -150,44 +150,42 @@ export function GarminConnectForm({
   }
 
   return (
-    <div className="max-w-md mx-auto">
+    <div className="mx-auto w-full max-w-sm">
       <Card>
         <CardTitle>Conecta tu cuenta de Garmin</CardTitle>
-        <p className="text-sm text-text-secondary mb-3">
+        <p className="-mt-2 mb-4 text-sm text-text-secondary">
           Tu email y contraseña van directos a tu propio servidor de Pulse por HTTPS - nunca se
           guardan, solo se usan para iniciar sesión en Garmin Connect esta vez.
         </p>
-        <form onSubmit={handleSubmitInicial} className="flex flex-col gap-3">
-          <label className="flex flex-col gap-1 text-sm text-text-secondary" htmlFor="garmin-email">
-            Email
+        <form onSubmit={handleSubmitInicial} className="flex flex-col gap-4">
+          <FormField label="Email" htmlFor="garmin-email">
             <input
               id="garmin-email"
               type="email"
-              className={inputClass}
+              className={fieldInputClass}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
             />
-          </label>
-          <label className="flex flex-col gap-1 text-sm text-text-secondary" htmlFor="garmin-password">
-            Contraseña
+          </FormField>
+          <FormField label="Contraseña" htmlFor="garmin-password">
             <input
               id="garmin-password"
               type="password"
-              className={inputClass}
+              className={fieldInputClass}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
             />
-          </label>
-          {error && <p className="text-recovery-low text-sm">{error}</p>}
-          <button
-            type="submit"
-            disabled={submitting}
-            className="bg-accent text-white font-semibold rounded-lg px-4 py-2.5 disabled:bg-surface-muted disabled:text-text-secondary"
-          >
+          </FormField>
+          {error && (
+            <p role="alert" className="text-sm text-recovery-low">
+              {error}
+            </p>
+          )}
+          <Button type="submit" disabled={submitting} className="w-full">
             {submitting ? "Conectando..." : "Conectar"}
-          </button>
+          </Button>
         </form>
       </Card>
     </div>
