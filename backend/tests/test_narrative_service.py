@@ -86,6 +86,20 @@ class TestGenerateSessionNarrativeConLLM:
         assert resultado.source == "template"
         assert resultado.text  # nunca se rompe el flujo del usuario
 
+    def test_cae_a_plantilla_si_el_llm_mezcla_un_alfabeto_no_latino(self):
+        # Hallazgo real probando contra Ollama (qwen2.5:7b añadió una
+        # traducción china no pedida al final de una respuesta válida en
+        # español) - ver nota de _PATRON_ALFABETO_NO_LATINO.
+        fake_client = MagicMock(spec=LlmClient)
+        fake_client.generate.return_value = "Hoy toca fuerza pesada. 继续加油！"
+        recomendacion = SessionRecommendation(
+            session_type=SessionType.STRENGTH_HEAVY, volume_pct=100
+        )
+        resultado = generate_session_narrative(
+            recomendacion, readiness=ReadinessLevel.GREEN, llm_client=fake_client
+        )
+        assert resultado.source == "template"
+
     def test_cae_a_plantilla_si_el_llm_devuelve_texto_vacio(self):
         fake_client = MagicMock(spec=LlmClient)
         fake_client.generate.return_value = "   "

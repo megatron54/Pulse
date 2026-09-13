@@ -52,33 +52,28 @@ servidor Ollama real** - ver Fase 1 de este plan.
    encontró de peso en esta sesión más allá de lo ya limpiado - se anota
    en la Fase 2 por si aparece más según se avance.
 
-## Fase 1 — Cerrar la integración Ollama (empezada esta sesión, falta la mitad)
+## Fase 1 — Integración Ollama — ✅ Hecha y verificada contra un servidor real
 
-1. **Probar contra un servidor Ollama real**: instalar Ollama localmente
-   (`ollama pull llama3.1` o un modelo más pequeño si la máquina no da
-   para 8B), configurar `OLLAMA_HOST=http://localhost:11434` y verificar
-   con una petición real a `GET /users/{id}/garmin/activities/narrative`
-   (o cualquier endpoint que use la Capa 3) que el texto generado es
-   coherente y la barrera anti-alucinación numérica (`_es_texto_llm_coherente_contexto`)
-   sigue rechazando cifras inventadas con un modelo distinto a Gemini.
-2. **Medir latencia real** y decidir el modelo recomendado por defecto
-   documentándolo en `03-vision-produccion.md` (punto 16) - un modelo de
-   8B en CPU puede tardar varios segundos, puede hacer falta un modelo
-   más pequeño (`llama3.2:3b`, `qwen2.5:3b`) para que la respuesta HTTP
-   no se perciba lenta.
-3. **Decidir si `docker-compose.yml` levanta su propio servicio `ollama`**
-   (más pesado - modelo de varios GB - pero "un solo comando", coherente
-   con la filosofía de `start.ps1`) o si se documenta como requisito
-   externo opcional (más ligero, un paso manual). Actualizar
-   `.env.example`/README según la decisión.
-4. Confirmar que el fallback a plantilla determinista se sigue
-   ejecutando correctamente si el servidor Ollama configurado no responde
-   (ya cubierto por test con dobles - falta la confirmación real).
+Completada el 2026-09-13 (ver investigación #16 y Épica L de
+`03-vision-produccion.md`):
 
-**Por qué primero**: es trabajo ya empezado, de alcance pequeño y
-acotado, y dejar una integración a medias (código listo pero nunca
-probado contra el servicio real) sería exactamente el tipo de progreso
-no verificado que este proyecto se ha comprometido a no fingir.
+1. ✅ Probado contra un servidor Ollama real ya instalado por el usuario
+   (`llama3.2:latest` 3B, `qwen2.5:7b`) - narrativas coherentes en
+   español, la barrera anti-alucinación numérica sigue rechazando cifras
+   inventadas igual que con Gemini.
+2. ✅ Latencia real medida: 1.3-6.5s por narrativa, aceptable dentro de
+   la petición HTTP síncrona actual. `llama3.2:latest` recomendado como
+   default (más ligero, más rápido, no mostró el hallazgo del punto 4).
+3. ⬜ **Sigue pendiente, no bloqueante**: decidir si `docker-compose.yml`
+   empaqueta su propio servicio `ollama` o se sigue asumiendo una
+   instalación externa (lo verificado) - no bloquea nada más, la
+   integración ya funciona contra cualquier `OLLAMA_HOST` accesible.
+4. ✅ Fallback a plantilla determinista confirmado con servidor
+   inaccesible, y hallazgo real corregido en el camino: `qwen2.5:7b` a
+   veces mezclaba caracteres chinos no pedidos en una respuesta por lo
+   demás correcta - nueva barrera de forma (`_PATRON_ALFABETO_NO_LATINO`
+   en `narrative_service.py`) lo rechaza, cubierta con test de
+   regresión.
 
 ## Fase 2 — Nutrición: decisión de producto pendiente antes de codificar
 

@@ -21,6 +21,20 @@ from engine.periodization import ReadinessLevel, SessionRecommendation, SessionT
 
 _MAX_LONGITUD_TEXTO_LLM = 800
 
+# Hallazgo real probando contra Ollama (02-roadmap/03-vision-produccion.md,
+# punto 16): un modelo pequeño (qwen2.5:7b) a veces añade, sin que se le
+# pida, una traducción no solicitada en otro alfabeto (chino) al final de
+# la respuesta - no inventa cifras (no lo detecta la barrera numérica) ni
+# es "demasiado largo" de forma fiable, pero es basura que no debe llegar
+# al usuario. Defensa barata (mismo criterio que el resto de barreras de
+# esta capa): si aparece CUALQUIER carácter de un alfabeto no latino
+# (CJK, hangul, kana, cirílico, árabe), se rechaza el texto completo y se
+# cae a la plantilla determinista - la app es en español, nunca se
+# espera legítimamente texto en estos alfabetos.
+_PATRON_ALFABETO_NO_LATINO = re.compile(
+    r"[぀-ヿ㐀-鿿가-힯Ѐ-ӿ؀-ۿ]"
+)
+
 _NOMBRES_LEGIBLES_SESSION = {
     SessionType.REST: "descanso completo",
     SessionType.ACTIVE_RECOVERY: "recuperación activa",
@@ -92,13 +106,16 @@ def _construir_prompt(recomendacion: SessionRecommendation, readiness: Readiness
 
 
 def _es_texto_llm_valido(texto: str | None) -> bool:
-    """Validación de FORMA: no vacío, longitud razonable."""
+    """Validación de FORMA: no vacío, longitud razonable, sin caracteres
+    de un alfabeto no latino (ver nota de `_PATRON_ALFABETO_NO_LATINO`)."""
     if texto is None:
         return False
     texto_limpio = texto.strip()
     if not texto_limpio:
         return False
     if len(texto_limpio) > _MAX_LONGITUD_TEXTO_LLM:
+        return False
+    if _PATRON_ALFABETO_NO_LATINO.search(texto_limpio):
         return False
     return True
 

@@ -29,7 +29,7 @@ def build_default_llm_client() -> LlmClient | None:
     if proveedor == "ollama" or ollama_host:
         return OllamaClient(
             host=ollama_host or "http://localhost:11434",
-            model_name=os.environ.get("OLLAMA_MODEL", "llama3.1"),
+            model_name=os.environ.get("OLLAMA_MODEL", "llama3.2"),
         )
 
     return build_gemini_client_if_configured()

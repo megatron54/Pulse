@@ -59,7 +59,12 @@ mono-usuario - no hay compromiso de compatibilidad de API entre versiones).
   (`coach/ollama_client.py`) como proveedor preferido, gratis y sin
   enviar datos de salud a terceros - reemplaza la dependencia exclusiva
   de Gemini, cuyo SDK (`google-generativeai`) fue deprecado por Google.
-  Gemini se mantiene como alternativa vía `GEMINI_API_KEY`.
+  Gemini se mantiene como alternativa vía `GEMINI_API_KEY`. Verificado
+  contra un servidor Ollama real (`llama3.2`/`qwen2.5`): narrativas
+  coherentes, barrera anti-alucinación numérica intacta, latencia
+  1.3-6.5s. Corregido en el camino un hallazgo real: una respuesta podía
+  mezclar caracteres de un alfabeto no latino (ej. chino) no solicitados
+  - nueva barrera de forma los rechaza.
 
 ### Corregido
 - Rate-limiting al conectar Garmin: el backfill de 90 días (~900 llamadas)

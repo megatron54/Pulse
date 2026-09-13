@@ -20,7 +20,7 @@ import requests
 from coach.llm_client import LlmError
 
 _DEFAULT_HOST = "http://localhost:11434"
-_DEFAULT_MODEL_NAME = "llama3.1"
+_DEFAULT_MODEL_NAME = "llama3.2"
 _DEFAULT_TIMEOUT_SEG = 60
 
 
