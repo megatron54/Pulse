@@ -7,18 +7,10 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("Nav", () => {
-  it("renderiza un enlace a cada una de las 7 secciones (reconstruccion v2)", () => {
+  it("renderiza un enlace a cada una de las 5 secciones (Recuperación/Análisis fusionadas en Entrenamiento)", () => {
     render(<Nav />);
     const sidebar = screen.getByRole("navigation", { name: "Navegación principal" });
-    for (const nombre of [
-      "Hoy",
-      "Entrenamiento",
-      "Recuperación",
-      "Análisis",
-      "Coach",
-      "Nutrición",
-      "Cuerpo",
-    ]) {
+    for (const nombre of ["Hoy", "Cuerpo", "Entrenamiento", "Nutrición", "Coach"]) {
       expect(within(sidebar).getByText(nombre)).toBeInTheDocument();
     }
   });

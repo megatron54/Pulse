@@ -3,22 +3,16 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  BarChart3,
-  Dumbbell,
-  HeartPulse,
-  MessageCircle,
-  Ruler,
-  Sun,
-  Utensils,
-} from "lucide-react";
+import { Dumbbell, MessageCircle, Ruler, Sun, Utensils } from "lucide-react";
 
 /**
  * Navegación principal (reconstrucción v2 -
- * 01-arquitectura/04-design-system-v2.md): 7 secciones con jerarquía
- * de producto real, en vez de las 9 páginas planas anteriores
- * (running/ciclismo/gimnasio se pliegan en Entrenamiento→Sesiones como
- * un filtro `categoria`, Garmin se reparte entre Recuperación/Análisis).
+ * 01-arquitectura/04-design-system-v2.md): 5 secciones con jerarquía
+ * de producto real. Petición explícita del usuario: "Cuerpo" en
+ * segundo lugar (justo después de "Hoy"), y Recuperación+Análisis
+ * fusionadas dentro de Entrenamiento (pestañas, ver
+ * src/app/entrenamiento/page.tsx) en vez de vivir como páginas propias
+ * con contenido duplicado/disperso.
  *
  * Responsive verificado por redimensionado real (Design System v2,
  * principio 5): sidebar fluida en desktop, tab bar fija abajo en
@@ -26,12 +20,10 @@ import {
  */
 const SECCIONES = [
   { href: "/", label: "Hoy", Icono: Sun },
-  { href: "/entrenamiento", label: "Entrenamiento", Icono: Dumbbell },
-  { href: "/salud", label: "Recuperación", Icono: HeartPulse },
-  { href: "/analisis", label: "Análisis", Icono: BarChart3 },
-  { href: "/coach", label: "Coach", Icono: MessageCircle },
-  { href: "/nutricion", label: "Nutrición", Icono: Utensils },
   { href: "/cuerpo", label: "Cuerpo", Icono: Ruler },
+  { href: "/entrenamiento", label: "Entrenamiento", Icono: Dumbbell },
+  { href: "/nutricion", label: "Nutrición", Icono: Utensils },
+  { href: "/coach", label: "Coach", Icono: MessageCircle },
 ] as const;
 
 function esRutaActiva(pathname: string, href: string): boolean {
