@@ -1,81 +1,169 @@
-# Plan de desarrollo: siguiente fase (post rate-limit fix + rediseño frontend v2.1)
+# Plan de desarrollo: siguiente fase
 
-> Este documento NO repite investigación ya hecha - cada punto enlaza a la
-> sección correspondiente de [`03-vision-produccion.md`](03-vision-produccion.md)
-> (fuente de verdad de estado/hallazgos). Este documento solo secuencia y
-> prioriza el trabajo pendiente ya identificado allí, en fases ejecutables.
-> Actualizar la tabla de épicas de `03-vision-produccion.md` según se
-> complete cada punto - este plan no duplica esa tabla, la ordena.
+> Reescrito de cero el 2026-09-13 (la versión anterior de este documento
+> quedó completada u obsoleta - en concreto, proponía construir el diario
+> de nutrición sobre wger, que el usuario ya rechazó explícitamente en la
+> Épica 4, ver `03-vision-produccion.md`). Este documento sigue sin repetir
+> investigación ya hecha - cada punto enlaza a la sección correspondiente
+> de [`03-vision-produccion.md`](03-vision-produccion.md) (fuente de
+> verdad de estado/hallazgos). Actualizar la tabla de épicas de ese
+> documento según se complete cada punto - este plan no la duplica, la
+> ordena.
 
 ## Estado de partida (2026-09-13)
 
-Completado en la sesión más reciente: fix del rate-limiting real de Garmin
-(backfill a background + sync manual + sync incremental cada 2h, ver
-investigación #15), ingesta de pasos, ejes/leyenda en gráficas de detalle,
-fusión Entrenamiento+Recuperación+Análisis, reorden de nav (Cuerpo en 2º
-lugar), `BodyGoalInsightCard`. 661 tests backend + 150 tests frontend en
-verde, `npm run build` limpio.
+Backend: 708 tests en verde (1 fallo conocido y no relacionado: falta
+`psycopg2` en el entorno de desarrollo local, el driver de Postgres no
+hace falta para correr la suite contra SQLite). Frontend: 155 tests en
+verde, `npx tsc --noEmit` y `npm run build` limpios. `ruff check` sin
+hallazgos reales (solo variables de test intencionalmente sin usar).
 
-Pendiente real identificado en el backlog (`03-vision-produccion.md`),
-priorizado aquí por impacto y por dependencias reales entre épicas - no
-por orden numérico de la tabla.
+Limpieza hecha en esta sesión: eliminado `Sparkline.tsx` (componente
+huérfano, sin referencias reales, superseded por `AreaTrendChart`),
+imports muertos en 6 archivos de test (`ruff --fix`). El resto del
+repositorio está sano - sin routers/servicios huérfanos, sin
+dependencias de `requirements.txt` sin usar.
 
-## Fase 1 — Cerrar huecos de producto ya reconocidos como parciales (bajo riesgo, sin investigación nueva)
+Recién completado (ver Épica L de `03-vision-produccion.md`): el coach
+(Capa 3) ya no depende de un cliente concreto. `coach/llm_client.py`
+define `LlmClient`/`LlmError` genéricos; `coach/llm_factory.py` elige el
+proveedor real por variable de entorno. Motivo: el SDK `google-generativeai`
+que usaba el coach está deprecado por Google (confirmado por warning real
+en los tests). Ollama (servidor local, gratis, sin enviar datos a
+terceros) es ahora el proveedor preferido; Gemini se mantiene como
+alternativa. **Falta la mitad de este trabajo: probarlo contra un
+servidor Ollama real** - ver Fase 1 de este plan.
 
-Estas piezas ya tienen su research hecho o son extensión directa de código existente.
+## Cómo se ha priorizado este plan (criterio, no solo orden numérico)
 
-1. ✅ **Hecho** — **Épica G (slot de coach por deporte)**: `generate_context_narrative` (Capa 3, reutilizada tal cual) integrado como `GET /garmin/activities/narrative`, contexto de carga semanal (sesiones y km de la semana actual vs. media de las 4 previas) por categoría, visible en la ficha de detalle de cada deporte (`SportActivityHistoryCard`).
-2. ✅ **Hecho** — **Épica G (detalle de series/reps de gimnasio)**: ingesta de `get_activity_exercise_sets` (nuevo modelo `GarminExerciseSet`, idempotente por `(user_id, activity_id, numero_serie)`), solo para actividades nuevas (misma mitigación de riesgo de bloqueo de cuenta que el resto de la ingesta), + detalle expandible por sesión de fuerza en `SportActivityHistoryCard`. Cierra el MUST-HAVE #2 del punto 4. Nota de honestidad: los nombres de campo de Garmin (`setType`, `repetitionCount`, `weight`, `category`) no estaban documentados en el repo ni en la librería local - se usaron los nombres estándar de la comunidad, sin verificar todavía contra una sesión de fuerza real del usuario.
-3. **Épica H (extender coach a nutrición)**: una vez exista contexto de nutrición suficientemente rico (ver Fase 2, punto 6), añadir `generate_context_narrative` para nutrición. Bloqueada por la Fase 2 si se quiere un contexto con datos reales de macros diarios, no solo el resultado del motor.
-4. ✅ **Hecho** — **Épica 8 (informe exportable)**: botón "Descargar PDF" en `PeriodicSummaryCard` vía el diálogo de impresión nativo del navegador ("Guardar como PDF", `[data-print-target]` + `@media print` en `globals.css`), sin dependencia nueva de generación de PDF.
-5. ✅ **Hecho** — **Épica B (fases de sueño detalladas)**: columnas `deep_sleep_seg`/`light_sleep_seg`/`rem_sleep_seg`/`awake_sleep_seg` en `GarminDailyMetrics` (no una tabla `GarminSleepDetail` separada, mismo criterio ya usado para `pasos`) + desglose visual (barra apilada) en el histórico de Salud y recovery.
+1. **Terminar lo empezado antes de abrir algo nuevo**: el proveedor Ollama
+   se implementó pero nunca se ejecutó contra un servidor real - eso es
+   lo primero, no una épica nueva.
+2. **No construir sobre una decisión de producto ya revertida**: el
+   diario de nutrición NO se construye sobre wger (ver más arriba) - se
+   necesita una decisión explícita del usuario sobre la alternativa antes
+   de escribir código, no asumirla.
+3. **Research ya cerrada > research pendiente**: fotos de progreso (Fase
+   3) tiene una decisión técnica ya tomada y documentada (MediaPipe, sin
+   %grasa desde foto) - ejecutable ya. El ayuno intermitente (Fase 5) y
+   las integraciones externas (Fase 6) siguen bloqueadas por research
+   dedicada que no se ha hecho.
+4. **Deuda técnica real detectada, no solo "nice to have"**: ninguna se
+   encontró de peso en esta sesión más allá de lo ya limpiado - se anota
+   en la Fase 2 por si aparece más según se avance.
 
-**Por qué primero**: ninguna de estas 5 piezas requiere investigación dedicada nueva ni decisiones de producto pendientes de confirmar con el usuario - son ejecutables ya, con TDD normal.
+## Fase 1 — Cerrar la integración Ollama (empezada esta sesión, falta la mitad)
 
-## Fase 2 — Nutrición: diario real + recetas (la pieza de producto más grande sin construir)
+1. **Probar contra un servidor Ollama real**: instalar Ollama localmente
+   (`ollama pull llama3.1` o un modelo más pequeño si la máquina no da
+   para 8B), configurar `OLLAMA_HOST=http://localhost:11434` y verificar
+   con una petición real a `GET /users/{id}/garmin/activities/narrative`
+   (o cualquier endpoint que use la Capa 3) que el texto generado es
+   coherente y la barrera anti-alucinación numérica (`_es_texto_llm_coherente_contexto`)
+   sigue rechazando cifras inventadas con un modelo distinto a Gemini.
+2. **Medir latencia real** y decidir el modelo recomendado por defecto
+   documentándolo en `03-vision-produccion.md` (punto 16) - un modelo de
+   8B en CPU puede tardar varios segundos, puede hacer falta un modelo
+   más pequeño (`llama3.2:3b`, `qwen2.5:3b`) para que la respuesta HTTP
+   no se perciba lenta.
+3. **Decidir si `docker-compose.yml` levanta su propio servicio `ollama`**
+   (más pesado - modelo de varios GB - pero "un solo comando", coherente
+   con la filosofía de `start.ps1`) o si se documenta como requisito
+   externo opcional (más ligero, un paso manual). Actualizar
+   `.env.example`/README según la decisión.
+4. Confirmar que el fallback a plantilla determinista se sigue
+   ejecutando correctamente si el servidor Ollama configurado no responde
+   (ya cubierto por test con dobles - falta la confirmación real).
 
-Ver desglose completo en investigación #7 del vision doc - aquí solo la secuencia de ejecución:
+**Por qué primero**: es trabajo ya empezado, de alcance pequeño y
+acotado, y dejar una integración a medias (código listo pero nunca
+probado contra el servicio real) sería exactamente el tipo de progreso
+no verificado que este proyecto se ha comprometido a no fingir.
 
-6. **Input diario de comidas vía wger** (`nutritiondiary`/`meal`/`mealitem`) - Épica 11 depende de esto. Atención a los gotchas ya documentados (campos numéricos como string, CVE-2026-27839 en sub-endpoints `nutritional_values`, orden de `ingredient/` no garantizado).
-7. **Recetas** (Épica 11): modelo de datos nuevo sobre `mealitem` de wger (una receta = lista de `mealitem` + instrucciones), o evaluar la alternativa más barata de "guardar una combinación de `mealitem` como plantilla reusable" antes de construir un modelo nuevo completo.
-8. Exponer con más detalle en la UI la calculadora de calorías/macros que ya existe en `engine/nutrition.py` (hoy solo se ve el resultado final del día) - trabajo de frontend puro, sin backend nuevo.
+## Fase 2 — Nutrición: decisión de producto pendiente antes de codificar
 
-**Por qué segundo**: es la pieza de producto explícitamente pedida por el usuario ("Nutrición equivalente a MyFitnessPal") con research ya cerrada (wger es la fuente, MyFitnessPal descartado) - solo falta construir.
+El diario de comidas NO se construye sobre wger (rechazado explícitamente
+por el usuario, Épica 4 de `03-vision-produccion.md`). Antes de escribir
+ningún modelo de datos nuevo, se necesita decidir con el usuario:
 
-## Fase 3 — Motor de timing/ayuno intermitente (la pieza de mayor riesgo, requiere investigación dedicada previa)
+5. ¿Diario propio de Pulse con ingredientes vía Open Food Facts
+   directamente (sin wger de por medio, solo su API pública de
+   `ingredient`/`product` search, sin auth)? Es la alternativa más
+   coherente con lo ya rechazado - reutiliza la misma fuente de datos de
+   alimentos que ya se evaluó como buena (Open Food Facts), pero con
+   modelo de datos y persistencia 100% de Pulse en vez de vía wger.
+6. Si se confirma: modelo de datos (`Meal`/`MealItem`/`NutritionDiaryEntry`
+   propios), motor de agregación diaria reutilizando `engine/nutrition.py`
+   ya existente, y solo entonces recetas (lista de `MealItem` propios +
+   instrucciones).
+7. Exponer con más detalle en la UI la calculadora de calorías/macros que
+   ya existe en `engine/nutrition.py` (hoy solo se ve el resultado final
+   del día) - esto SÍ es ejecutable ya, sin esperar a la decisión de
+   arriba, es trabajo de frontend puro sobre un motor que ya existe.
 
-Épica 13. **No empezar a codificar sin antes completar el paso 0**:
+**Por qué no primero pese a ser una pieza grande de producto**: escribir
+código sobre una arquitectura de datos no confirmada por el usuario
+arriesga repetir el mismo ciclo de construir-y-revertir de la Épica 4.
 
-0. Sesión de investigación científica dedicada (mismo patrón que `00-research/06-periodizacion-ciencia-deportiva.md` y `00-research/08-nutricion-recovery-ciencia.md`) sobre timing de nutrientes/ayuno intermitente - la evidencia es mixta/contestada, cualquier umbral debe documentar su fuente.
-1. Motor de reglas determinista (Capa 1 nueva, sin red) con condiciones auditables, ej. "si recuperación 3+ días en amarillo/rojo Y usuario en déficit → sugerir redistribuir carbohidratos hacia el entrenamiento en vez de ayuno prolongado".
-2. Conectar a Capa 3 (solo explica, nunca decide) - reutiliza el patrón anti-alucinación numérica ya construido (investigación #13 del vision doc).
+## Fase 3 — Fotos de progreso (research ya cerrada, ejecutable ya)
 
-**Depende de**: Fase 1 (carga ya existe), Fase 2 (nutrición real, no solo el resultado agregado), Épica 9 (fotos/tendencia, ver Fase 4) según el research defina qué inputs son necesarios.
+Épica 9, investigación #3 de `03-vision-produccion.md` ya concluyente:
+**nunca %grasa desde foto**, solo tendencia relativa de silueta (ratios
+hombro/cintura/cadera) vía MediaPipe Pose Landmarker.
 
-## Fase 4 — Fotos de progreso (research ya cerrada, solo falta construir)
+8. Captura de landmarks por foto (frontal/lateral/espalda, ya modelado en
+   `ProgressPhoto.angulo`) - todo cliente (`"use client"`), assets WASM
+   servidos desde `public/` propio, modelo cargado perezosamente.
+9. Integrar como una señal más en `BodyGoalInsightCard`/insights de
+   Cuerpo, nunca como número de %grasa.
 
-Épica 9, investigación #3 del vision doc ya concluyente: **nunca %grasa desde foto**, solo tendencia relativa de silueta (ratios hombro/cintura/cadera) vía MediaPipe Pose Landmarker. Plan ya escrito en el research - ejecutar tal cual:
-- Captura de landmarks por foto (frontal/lateral/espalda, ya modelado en `ProgressPhoto.angulo`).
-- Todo cliente (`"use client"`), assets WASM servidos desde `public/` propio, modelo cargado perezosamente.
-- Integrar como una señal más en `BodyGoalInsightCard`/insights de Cuerpo, nunca como número de %grasa.
+**Por qué segundo**: no depende de ninguna decisión de producto
+pendiente ni de investigación nueva - es la pieza de mayor impacto de
+producto que se puede empezar hoy mismo sin bloqueos.
 
-## Fase 5 — Integraciones de investigación pendiente (no empezar sin sesión de research dedicada)
+## Fase 4 — Motor de timing/ayuno intermitente (mayor riesgo, requiere investigación previa)
 
-Estas tres NO tienen research suficiente todavía (ver investigación #12 del vision doc) - cualquier trabajo de código antes de la sesión de research sería prometer algo no verificado:
+Épica 13. Bloqueada por Fase 2 (necesita datos reales de nutrición, no
+solo el resultado agregado del motor) y por una sesión de investigación
+científica dedicada (mismo patrón que
+`00-research/06-periodizacion-ciencia-deportiva.md` y
+`00-research/08-nutricion-recovery-ciencia.md`) sobre timing de
+nutrientes/ayuno intermitente antes de fijar cualquier umbral.
 
-- **Épica 17 (intervals.icu)**: términos de uso, límites de rate, si requiere cuenta intervals.icu separada, si "Build Your Own Coach" es API pública documentada o producto cerrado.
-- **Épica 18 (`coach.md`)**: preferencias de coaching persistentes editables por el usuario - research menor (formato de archivo, cómo se inyecta en la plantilla de Capa 3), ejecutable rápido una vez decidido el formato.
-- **Épica 19 (Telegram)**: bot propio vía `@BotFather`, empuje del mensaje ya generado por Capa 3 - sin chat conversacional nuevo (ya descartado como WON'T-HAVE-YET). Research menor, mayormente de implementación.
+## Fase 5 — Integraciones externas (necesitan research dedicada previa)
 
-De las tres, 18 y 19 son las más baratas de investigar y ejecutar (no dependen de negociar con un tercero) - candidatas a intercalarse en cualquier fase anterior si surge tiempo libre.
+- **Épica 17 (intervals.icu)**: términos de uso, límites de rate, si
+  requiere cuenta separada, si "Build Your Own Coach" es API pública o
+  producto cerrado.
+- **Épica 18 (`coach.md`)**: preferencias de coaching persistentes
+  editables por el usuario, inyectadas en la plantilla de prompt de la
+  Capa 3 - research menor (solo formato de archivo), barata de ejecutar.
+- **Épica 19 (Telegram)**: bot vía `@BotFather` que empuja el resumen
+  narrativo ya generado por la Capa 3 - sin chat conversacional nuevo
+  (ya descartado como WON'T-HAVE-YET). Research menor, mayormente
+  implementación directa.
+
+De las tres, 18 y 19 son las más baratas y no dependen de negociar con un
+tercero - candidatas a intercalarse en cualquier fase anterior si surge
+tiempo libre entre piezas más grandes.
 
 ## Fase 6 — Baja prioridad / opcional
 
-- **Épica 12 (HealthKit como fuente secundaria)**: solo iOS, resúmenes aproximados de MyFitnessPal sin desglose - prioridad baja explícita, no bloquea nada más.
-- **Épica 4 (sustituto del food log revertido)**: ya resuelto de facto por la Fase 2 (wger vía `nutritiondiary`) - marcar como cerrada cuando la Fase 2 esté hecha, en vez de tratarla como una épica separada.
+- **Épica 12 (HealthKit como fuente secundaria)**: solo iOS, resúmenes
+  aproximados de MyFitnessPal sin desglose - prioridad baja explícita.
+- **Épica 4 (sustituto del food log revertido)**: se resuelve de facto
+  por la Fase 2 - no es una épica separada, márquese cerrada cuando la
+  Fase 2 esté hecha.
 
 ## Cómo usar este documento
 
-- Cada fase es secuencial por dependencia real, no por preferencia - Fase 3 (ayuno) necesita el research antes que nada, Fase 2 (nutrición) necesita estar hecha antes de que ese research tenga inputs reales que evaluar.
-- Dentro de una fase, las épicas listadas SÍ pueden paralelizarse si hay presupuesto de sesión para ello.
-- Al completar cualquier punto: actualizar su fila en la tabla de épicas de `03-vision-produccion.md` (Estado + evidencia real de verificación), añadir entrada a `CHANGELOG.md`, y si introduce un hallazgo/decisión de diseño no obvio, documentarlo en la sección "Investigación ya realizada" del vision doc para que no se repita.
+- Cada fase es secuencial por dependencia real o por criterio de
+  priorización explicado arriba, no por orden numérico de la tabla de
+  épicas.
+- Dentro de una fase, las piezas listadas SÍ pueden paralelizarse si hay
+  presupuesto de sesión para ello.
+- Al completar cualquier punto: actualizar su fila en la tabla de épicas
+  de `03-vision-produccion.md` (Estado + evidencia real de verificación),
+  añadir entrada a `CHANGELOG.md`, y si introduce un hallazgo/decisión de
+  diseño no obvio, documentarlo en la sección "Investigación ya
+  realizada" del vision doc para que no se repita.

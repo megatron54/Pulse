@@ -4,7 +4,6 @@ mantenimiento dedicados, con duración determinada, como tu
 nutricionista personal", decisión: "recomienda, tú confirmas"."""
 from __future__ import annotations
 
-from datetime import date
 
 import pytest
 from fastapi.testclient import TestClient

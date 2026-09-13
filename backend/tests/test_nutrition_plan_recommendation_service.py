@@ -9,7 +9,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from models.schema import Base, GarminDailyMetrics, ReadinessLog, UserProfile
+from models.schema import Base, ReadinessLog, UserProfile
 from services.nutrition_plan_recommendation_service import recommend_next_phase
 from services.nutrition_plan_service import create_nutrition_plan
 

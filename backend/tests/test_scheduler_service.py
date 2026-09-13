@@ -17,8 +17,6 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from garmin_sync.client import GarminAuthError
-from garmin_sync.mapper import InsufficientDataError
 from models.schema import (
     AuditLog,
     Base,
@@ -194,7 +192,6 @@ class TestRunDailySyncForAllUsers:
         u_falla = _crear_usuario_con_credenciales(session, nombre="Falla")
         u_ok = _crear_usuario_con_credenciales(session, nombre="OK")
 
-        import services.scheduler_service as scheduler_service_module
 
         llamadas = {"n": 0}
         original_add = session.add

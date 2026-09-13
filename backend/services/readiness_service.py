@@ -14,7 +14,6 @@ salvo en el mapeo de campos a persistir.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import date
 
 from sqlalchemy.orm import Session

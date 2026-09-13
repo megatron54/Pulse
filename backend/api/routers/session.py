@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from api.dependencies import get_db, verify_api_key
 from api.schemas import DailySessionOut, DailySessionRequest, TrainingLoadOut
-from coach.gemini_client import build_gemini_client_if_configured
+from coach.llm_factory import build_default_llm_client
 from coach.narrative_service import generate_session_narrative
 from engine.periodization import SessionType
 from repositories.readiness_log_repository import get_latest_readiness_level
@@ -46,7 +46,7 @@ def get_daily_session(
         )
 
     narrativa = generate_session_narrative(
-        recomendacion, readiness=readiness, gemini_client=build_gemini_client_if_configured()
+        recomendacion, readiness=readiness, llm_client=build_default_llm_client()
     )
 
     return DailySessionOut(

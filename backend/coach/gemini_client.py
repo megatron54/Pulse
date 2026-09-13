@@ -15,14 +15,15 @@ from __future__ import annotations
 import os
 from typing import Any, Callable
 
+from coach.llm_client import LlmError
+
 _DEFAULT_MODEL_NAME = "gemini-1.5-flash"
 
 
-class GeminiError(Exception):
+class GeminiError(LlmError):
     """Fallo al generar contenido con Gemini (red, cuota, respuesta con
-    forma inesperada). La capa llamante NUNCA debe dejar que esto rompa
-    el flujo del usuario - ver coach.narrative_service, que hace
-    fallback a una plantilla determinista ante cualquier GeminiError."""
+    forma inesperada). Subclase de `LlmError` - la capa llamante puede
+    capturar `LlmError` genéricamente sin conocer el proveedor real."""
 
 
 def _default_model_factory() -> Callable[..., Any]:

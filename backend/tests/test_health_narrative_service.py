@@ -38,7 +38,7 @@ class TestGenerateHealthNarrativeForUser:
     def test_usuario_inexistente_lanza_entity_not_found(self, session):
         with pytest.raises(EntityNotFoundError):
             generate_health_narrative_for_user(
-                session, user_id=99999, fecha=date(2026, 8, 6), gemini_client=None
+                session, user_id=99999, fecha=date(2026, 8, 6), llm_client=None
             )
 
     def test_sin_readiness_calculado_ese_dia_devuelve_none(self, session, usuario):
@@ -47,7 +47,7 @@ class TestGenerateHealthNarrativeForUser:
         # es un día futuro), no hay nada honesto que explicar todavía -
         # nunca se inventa un estado de recovery.
         resultado = generate_health_narrative_for_user(
-            session, user_id=usuario.id, fecha=date(2026, 8, 6), gemini_client=None
+            session, user_id=usuario.id, fecha=date(2026, 8, 6), llm_client=None
         )
         assert resultado is None
 
@@ -71,7 +71,7 @@ class TestGenerateHealthNarrativeForUser:
         session.commit()
 
         resultado = generate_health_narrative_for_user(
-            session, user_id=usuario.id, fecha=date(2026, 8, 6), gemini_client=None
+            session, user_id=usuario.id, fecha=date(2026, 8, 6), llm_client=None
         )
 
         assert resultado is not None
@@ -87,7 +87,7 @@ class TestGenerateHealthNarrativeForUser:
         session.commit()
 
         resultado = generate_health_narrative_for_user(
-            session, user_id=usuario.id, fecha=date(2026, 8, 6), gemini_client=None
+            session, user_id=usuario.id, fecha=date(2026, 8, 6), llm_client=None
         )
 
         assert resultado is not None
@@ -111,7 +111,7 @@ class TestGenerateHealthNarrativeForUser:
         session.commit()
 
         resultado = generate_health_narrative_for_user(
-            session, user_id=usuario.id, fecha=date(2026, 8, 6), gemini_client=None
+            session, user_id=usuario.id, fecha=date(2026, 8, 6), llm_client=None
         )
 
         assert "50" in resultado.text  # baseline citada en la plantilla

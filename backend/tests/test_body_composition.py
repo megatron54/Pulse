@@ -9,7 +9,6 @@ Principio "nunca un número falso-preciso": el resultado es SIEMPRE un
 rango (± margen de incertidumbre documentado, ~3-4% MAE vs DEXA en la
 literatura), nunca un único valor puntual.
 """
-import math
 
 import pytest
 

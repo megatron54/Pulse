@@ -61,7 +61,7 @@ class TestGenerateSportNarrativeForUser:
                 user_id=99999,
                 categoria=CategoriaDeporte.RUNNING,
                 as_of=date(2026, 9, 7),
-                gemini_client=None,
+                llm_client=None,
             )
 
     def test_sin_ninguna_actividad_devuelve_none(self, session, usuario):
@@ -70,7 +70,7 @@ class TestGenerateSportNarrativeForUser:
             user_id=usuario.id,
             categoria=CategoriaDeporte.RUNNING,
             as_of=date(2026, 9, 7),
-            gemini_client=None,
+            llm_client=None,
         )
         assert resultado is None
 
@@ -92,7 +92,7 @@ class TestGenerateSportNarrativeForUser:
             user_id=usuario.id,
             categoria=CategoriaDeporte.RUNNING,
             as_of=as_of,
-            gemini_client=None,
+            llm_client=None,
         )
 
         assert resultado is not None
@@ -114,7 +114,7 @@ class TestGenerateSportNarrativeForUser:
             user_id=usuario.id,
             categoria=CategoriaDeporte.RUNNING,
             as_of=as_of,
-            gemini_client=None,
+            llm_client=None,
         )
 
         assert resultado is not None
@@ -135,6 +135,6 @@ class TestGenerateSportNarrativeForUser:
             user_id=usuario.id,
             categoria=CategoriaDeporte.RUNNING,
             as_of=as_of,
-            gemini_client=None,
+            llm_client=None,
         )
         assert resultado is None

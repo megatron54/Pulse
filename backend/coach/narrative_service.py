@@ -4,7 +4,7 @@ tomada por el motor de reglas. Nunca calcula ni decide nada.
 Principios (ver docs/00-research/07-arquitectura-coach-ia.md):
 - "La IA es opcional y no autoritativa": el producto debe funcionar sin
   LLM - por eso existe siempre una plantilla determinista de respaldo,
-  usada si no hay `gemini_client`, si Gemini falla, o si su respuesta no
+  usada si no hay `llm_client`, si el LLM falla, o si su respuesta no
   pasa la validación post-generación.
 - "Si no se puede auditar, no se puede confiar": el resultado indica
   siempre su `source` ("llm" | "template") para que quede claro de dónde
@@ -16,7 +16,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from coach.gemini_client import GeminiClient, GeminiError
+from coach.llm_client import LlmClient, LlmError
 from engine.periodization import ReadinessLevel, SessionRecommendation, SessionType
 
 _MAX_LONGITUD_TEXTO_LLM = 800
@@ -120,20 +120,20 @@ def _es_texto_llm_coherente(texto: str, recomendacion: SessionRecommendation) ->
 def generate_session_narrative(
     recomendacion: SessionRecommendation,
     readiness: ReadinessLevel,
-    gemini_client: GeminiClient | None,
+    llm_client: LlmClient | None,
 ) -> NarrativeResult:
     """Genera la explicación en lenguaje natural de `recomendacion`.
 
-    Intenta usar Gemini si se proporciona `gemini_client`; ante
-    cualquier fallo (GeminiError) o respuesta que no pase la validación
+    Intenta usar el LLM si se proporciona `llm_client`; ante
+    cualquier fallo (LlmError) o respuesta que no pase la validación
     post-generación (vacía, o desproporcionadamente larga), cae a la
     plantilla determinista - el usuario SIEMPRE recibe una explicación,
     nunca un error de la capa conversacional.
     """
-    if gemini_client is not None:
+    if llm_client is not None:
         try:
-            texto_llm = gemini_client.generate(_construir_prompt(recomendacion, readiness))
-        except GeminiError:
+            texto_llm = llm_client.generate(_construir_prompt(recomendacion, readiness))
+        except LlmError:
             texto_llm = None
 
         if _es_texto_llm_valido(texto_llm) and _es_texto_llm_coherente(texto_llm, recomendacion):
@@ -272,7 +272,7 @@ def generate_context_narrative(
     contexto: str,
     decision_label: str,
     datos: dict[str, Any],
-    gemini_client: GeminiClient | None,
+    llm_client: LlmClient | None,
 ) -> ContextNarrativeResult:
     """Genera la explicación en lenguaje natural de un estado/decisión
     ya calculado para `contexto` (ej. "salud", "running", "nutrición"),
@@ -281,12 +281,12 @@ def generate_context_narrative(
     no pase la validación (forma + coherencia numérica), cae a la
     plantilla determinista - el usuario SIEMPRE recibe una explicación,
     nunca un error de la capa conversacional."""
-    if gemini_client is not None:
+    if llm_client is not None:
         try:
-            texto_llm = gemini_client.generate(
+            texto_llm = llm_client.generate(
                 _construir_prompt_contexto(contexto, decision_label, datos)
             )
-        except GeminiError:
+        except LlmError:
             texto_llm = None
 
         if (

@@ -19,7 +19,7 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from coach.gemini_client import GeminiClient
+from coach.llm_client import LlmClient
 from coach.narrative_service import generate_context_narrative
 from models.schema import UserProfile
 from services.errors import EntityNotFoundError
@@ -57,7 +57,7 @@ def generate_sport_narrative_for_user(
     user_id: int,
     categoria: CategoriaDeporte,
     as_of: date,
-    gemini_client: GeminiClient | None,
+    llm_client: LlmClient | None,
 ) -> SportNarrativeResult | None:
     """`None` si no hay ninguna actividad de `categoria` registrada
     todavía en la semana actual ni en las `_SEMANAS_PREVIAS` previas -
@@ -95,6 +95,6 @@ def generate_sport_narrative_for_user(
         contexto=_ETIQUETAS_CATEGORIA[categoria],
         decision_label=decision_label,
         datos=datos,
-        gemini_client=gemini_client,
+        llm_client=llm_client,
     )
     return SportNarrativeResult(text=resultado.text, source=resultado.source)

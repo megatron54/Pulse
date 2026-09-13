@@ -11,9 +11,8 @@ Principios de la Capa 3 (ver docs/00-research/07-arquitectura-coach-ia.md):
 """
 from unittest.mock import MagicMock
 
-import pytest
 
-from coach.gemini_client import GeminiClient, GeminiError
+from coach.llm_client import LlmClient, LlmError
 from coach.narrative_service import generate_context_narrative, generate_session_narrative
 from engine.periodization import ReadinessLevel, SessionRecommendation, SessionType
 
@@ -24,7 +23,7 @@ class TestGenerateSessionNarrativeSinLLM:
             session_type=SessionType.STRENGTH_HEAVY, volume_pct=100
         )
         resultado = generate_session_narrative(
-            recomendacion, readiness=ReadinessLevel.GREEN, gemini_client=None
+            recomendacion, readiness=ReadinessLevel.GREEN, llm_client=None
         )
         assert resultado.source == "template"
         assert resultado.text  # no vacío
@@ -35,7 +34,7 @@ class TestGenerateSessionNarrativeSinLLM:
             session_type=SessionType.ACTIVE_RECOVERY, volume_pct=0
         )
         resultado = generate_session_narrative(
-            recomendacion, readiness=ReadinessLevel.RED, gemini_client=None
+            recomendacion, readiness=ReadinessLevel.RED, llm_client=None
         )
         assert resultado.source == "template"
         assert "recuperación" in resultado.text.lower() or "descanso" in resultado.text.lower()
@@ -45,7 +44,7 @@ class TestGenerateSessionNarrativeSinLLM:
             for readiness in ReadinessLevel:
                 recomendacion = SessionRecommendation(session_type=session_type, volume_pct=50)
                 resultado = generate_session_narrative(
-                    recomendacion, readiness=readiness, gemini_client=None
+                    recomendacion, readiness=readiness, llm_client=None
                 )
                 assert resultado.text.strip() != ""
 
@@ -54,7 +53,7 @@ class TestGenerateSessionNarrativeSinLLM:
             session_type=SessionType.STRENGTH_HEAVY, volume_pct=65, intensity_rpe_cap=7
         )
         resultado = generate_session_narrative(
-            recomendacion, readiness=ReadinessLevel.YELLOW, gemini_client=None
+            recomendacion, readiness=ReadinessLevel.YELLOW, llm_client=None
         )
         assert "RPE" in resultado.text
         assert "7" in resultado.text
@@ -62,7 +61,7 @@ class TestGenerateSessionNarrativeSinLLM:
 
 class TestGenerateSessionNarrativeConLLM:
     def test_usa_el_texto_del_llm_si_es_valido(self):
-        fake_client = MagicMock(spec=GeminiClient)
+        fake_client = MagicMock(spec=LlmClient)
         fake_client.generate.return_value = (
             "Hoy toca fuerza pesada al 100% porque tu recuperación es excelente."
         )
@@ -70,31 +69,31 @@ class TestGenerateSessionNarrativeConLLM:
             session_type=SessionType.STRENGTH_HEAVY, volume_pct=100
         )
         resultado = generate_session_narrative(
-            recomendacion, readiness=ReadinessLevel.GREEN, gemini_client=fake_client
+            recomendacion, readiness=ReadinessLevel.GREEN, llm_client=fake_client
         )
         assert resultado.source == "llm"
         assert "fuerza pesada" in resultado.text
 
     def test_cae_a_plantilla_si_gemini_lanza_error(self):
-        fake_client = MagicMock(spec=GeminiClient)
-        fake_client.generate.side_effect = GeminiError("quota exceeded")
+        fake_client = MagicMock(spec=LlmClient)
+        fake_client.generate.side_effect = LlmError("quota exceeded")
         recomendacion = SessionRecommendation(
             session_type=SessionType.STRENGTH_HEAVY, volume_pct=100
         )
         resultado = generate_session_narrative(
-            recomendacion, readiness=ReadinessLevel.GREEN, gemini_client=fake_client
+            recomendacion, readiness=ReadinessLevel.GREEN, llm_client=fake_client
         )
         assert resultado.source == "template"
         assert resultado.text  # nunca se rompe el flujo del usuario
 
     def test_cae_a_plantilla_si_el_llm_devuelve_texto_vacio(self):
-        fake_client = MagicMock(spec=GeminiClient)
+        fake_client = MagicMock(spec=LlmClient)
         fake_client.generate.return_value = "   "
         recomendacion = SessionRecommendation(
             session_type=SessionType.STRENGTH_HEAVY, volume_pct=100
         )
         resultado = generate_session_narrative(
-            recomendacion, readiness=ReadinessLevel.GREEN, gemini_client=fake_client
+            recomendacion, readiness=ReadinessLevel.GREEN, llm_client=fake_client
         )
         assert resultado.source == "template"
 
@@ -102,13 +101,13 @@ class TestGenerateSessionNarrativeConLLM:
         # Validación post-generación: un texto desproporcionado sugiere
         # una respuesta degenerada/no confiable del modelo - mejor la
         # plantilla corta y auditada que un output sin control de forma.
-        fake_client = MagicMock(spec=GeminiClient)
+        fake_client = MagicMock(spec=LlmClient)
         fake_client.generate.return_value = "x" * 5000
         recomendacion = SessionRecommendation(
             session_type=SessionType.STRENGTH_HEAVY, volume_pct=100
         )
         resultado = generate_session_narrative(
-            recomendacion, readiness=ReadinessLevel.GREEN, gemini_client=fake_client
+            recomendacion, readiness=ReadinessLevel.GREEN, llm_client=fake_client
         )
         assert resultado.source == "template"
 
@@ -116,13 +115,13 @@ class TestGenerateSessionNarrativeConLLM:
         # No hay ningún parámetro por el que el LLM pueda influir en
         # session_type/volume_pct - eso ya viene fijado en `recomendacion`
         # (calculado por engine.periodization, Capa 1).
-        fake_client = MagicMock(spec=GeminiClient)
+        fake_client = MagicMock(spec=LlmClient)
         fake_client.generate.return_value = "Hoy toca fuerza pesada, dale con todo."
         recomendacion = SessionRecommendation(
             session_type=SessionType.STRENGTH_HEAVY, volume_pct=100
         )
         resultado = generate_session_narrative(
-            recomendacion, readiness=ReadinessLevel.GREEN, gemini_client=fake_client
+            recomendacion, readiness=ReadinessLevel.GREEN, llm_client=fake_client
         )
         # El texto puede variar, pero el objeto de decisión estructurado
         # que consume el resto del sistema sigue siendo `recomendacion`,
@@ -134,7 +133,7 @@ class TestGenerateSessionNarrativeConLLM:
         # Validación de contenido (no solo forma): si el motor decidió
         # entrenar, un texto que sugiera "descanso total" contradice el
         # dato estructurado y debe descartarse, cayendo a la plantilla.
-        fake_client = MagicMock(spec=GeminiClient)
+        fake_client = MagicMock(spec=LlmClient)
         fake_client.generate.return_value = (
             "Deberías hacer descanso total en vez de entrenar hoy."
         )
@@ -142,7 +141,7 @@ class TestGenerateSessionNarrativeConLLM:
             session_type=SessionType.STRENGTH_HEAVY, volume_pct=100
         )
         resultado = generate_session_narrative(
-            recomendacion, readiness=ReadinessLevel.GREEN, gemini_client=fake_client
+            recomendacion, readiness=ReadinessLevel.GREEN, llm_client=fake_client
         )
         assert resultado.source == "template"
 
@@ -150,11 +149,11 @@ class TestGenerateSessionNarrativeConLLM:
         # La misma frase es válida si la decisión estructurada SÍ es
         # descanso - la validación debe ser contextual, no una lista
         # negra ciega.
-        fake_client = MagicMock(spec=GeminiClient)
+        fake_client = MagicMock(spec=LlmClient)
         fake_client.generate.return_value = "Hoy toca descanso total, tu cuerpo lo necesita."
         recomendacion = SessionRecommendation(session_type=SessionType.REST, volume_pct=0)
         resultado = generate_session_narrative(
-            recomendacion, readiness=ReadinessLevel.RED, gemini_client=fake_client
+            recomendacion, readiness=ReadinessLevel.RED, llm_client=fake_client
         )
         assert resultado.source == "llm"
 
@@ -174,7 +173,7 @@ class TestGenerateContextNarrative:
             contexto="salud",
             decision_label="recuperación buena (verde)",
             datos={"hrv_hoy_ms": 60, "sleep_score": 85},
-            gemini_client=None,
+            llm_client=None,
         )
         assert resultado.source == "template"
         assert "verde" in resultado.text.lower() or "buena" in resultado.text.lower()
@@ -188,13 +187,13 @@ class TestGenerateContextNarrative:
             contexto="salud",
             decision_label="recuperación baja (rojo)",
             datos={"hrv_hoy_ms": None, "sleep_score": 40},
-            gemini_client=None,
+            llm_client=None,
         )
         assert "None" not in resultado.text
         assert "40" in resultado.text
 
     def test_usa_el_texto_del_llm_si_es_valido_y_solo_cita_datos_reales(self):
-        fake_client = MagicMock(spec=GeminiClient)
+        fake_client = MagicMock(spec=LlmClient)
         fake_client.generate.return_value = (
             "Tu HRV de hoy (60 ms) está en línea con tu recuperación buena."
         )
@@ -202,19 +201,19 @@ class TestGenerateContextNarrative:
             contexto="salud",
             decision_label="recuperación buena (verde)",
             datos={"hrv_hoy_ms": 60},
-            gemini_client=fake_client,
+            llm_client=fake_client,
         )
         assert resultado.source == "llm"
         assert "60" in resultado.text
 
     def test_cae_a_plantilla_si_gemini_lanza_error(self):
-        fake_client = MagicMock(spec=GeminiClient)
-        fake_client.generate.side_effect = GeminiError("quota exceeded")
+        fake_client = MagicMock(spec=LlmClient)
+        fake_client.generate.side_effect = LlmError("quota exceeded")
         resultado = generate_context_narrative(
             contexto="salud",
             decision_label="recuperación buena (verde)",
             datos={"hrv_hoy_ms": 60},
-            gemini_client=fake_client,
+            llm_client=fake_client,
         )
         assert resultado.source == "template"
         assert resultado.text
@@ -223,13 +222,13 @@ class TestGenerateContextNarrative:
         # Barrera arquitectónica de esta épica: el LLM no puede citar
         # una cifra que no venga de `datos` - si lo hace, se descarta
         # y cae a la plantilla (que solo usa los datos reales).
-        fake_client = MagicMock(spec=GeminiClient)
+        fake_client = MagicMock(spec=LlmClient)
         fake_client.generate.return_value = "Tu HRV de hoy es 999, un valor extraordinario."
         resultado = generate_context_narrative(
             contexto="salud",
             decision_label="recuperación buena (verde)",
             datos={"hrv_hoy_ms": 60},
-            gemini_client=fake_client,
+            llm_client=fake_client,
         )
         assert resultado.source == "template"
 
@@ -239,13 +238,13 @@ class TestGenerateContextNarrative:
         # el regex de dígitos - se rechaza sin excepción cualquier texto
         # con una palabra numérica en español, sin intentar verificar si
         # citaba un dato real o no (ver _PALABRAS_NUMERICAS_ES).
-        fake_client = MagicMock(spec=GeminiClient)
+        fake_client = MagicMock(spec=LlmClient)
         fake_client.generate.return_value = "Tu HRV de hoy es de noventa y nueve, excelente."
         resultado = generate_context_narrative(
             contexto="salud",
             decision_label="recuperación buena (verde)",
             datos={"hrv_hoy_ms": 60},
-            gemini_client=fake_client,
+            llm_client=fake_client,
         )
         assert resultado.source == "template"
 
@@ -253,24 +252,24 @@ class TestGenerateContextNarrative:
         # "una"/"uno" se excluyen a propósito de _PALABRAS_NUMERICAS_ES:
         # son artículos omnipresentes en español, no números - de
         # incluirlos, la ruta LLM quedaría inutilizada casi siempre.
-        fake_client = MagicMock(spec=GeminiClient)
+        fake_client = MagicMock(spec=LlmClient)
         fake_client.generate.return_value = "Hoy tienes una recuperación buena de verdad."
         resultado = generate_context_narrative(
             contexto="salud",
             decision_label="recuperación buena (verde)",
             datos={"hrv_hoy_ms": 60},
-            gemini_client=fake_client,
+            llm_client=fake_client,
         )
         assert resultado.source == "llm"
 
     def test_cae_a_plantilla_si_el_llm_devuelve_texto_vacio(self):
-        fake_client = MagicMock(spec=GeminiClient)
+        fake_client = MagicMock(spec=LlmClient)
         fake_client.generate.return_value = ""
         resultado = generate_context_narrative(
             contexto="salud",
             decision_label="recuperación buena (verde)",
             datos={"hrv_hoy_ms": 60},
-            gemini_client=fake_client,
+            llm_client=fake_client,
         )
         assert resultado.source == "template"
 
@@ -281,7 +280,7 @@ class TestGenerateContextNarrative:
             contexto="salud",
             decision_label="recuperación baja (rojo)",
             datos={"hrv_hoy_ms": None, "sleep_score": None},
-            gemini_client=None,
+            llm_client=None,
         )
         assert resultado.source == "template"
         assert "rojo" in resultado.text.lower() or "baja" in resultado.text.lower()

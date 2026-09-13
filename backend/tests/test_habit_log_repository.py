@@ -1,5 +1,5 @@
 """Tests para repositories.habit_log_repository — TDD."""
-from datetime import date, timedelta
+from datetime import date
 
 import pytest
 from sqlalchemy import create_engine

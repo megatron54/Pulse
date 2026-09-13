@@ -24,7 +24,7 @@ from api.schemas import (
     SportNarrativeOut,
     WeeklyVolumeOut,
 )
-from coach.gemini_client import build_gemini_client_if_configured
+from coach.llm_factory import build_default_llm_client
 from coach.health_narrative_service import generate_health_narrative_for_user
 from coach.sport_narrative_service import generate_sport_narrative_for_user
 from garmin_sync.client import GarminAuthError, GarminRateLimitedError
@@ -94,7 +94,7 @@ def get_health_narrative(
         db,
         user_id,
         fecha=fecha or date.today(),
-        gemini_client=build_gemini_client_if_configured(),
+        llm_client=build_default_llm_client(),
     )
     if resultado is None:
         return HealthNarrativeOut(text=None, source=None)
@@ -119,7 +119,7 @@ def get_sport_narrative(
         user_id,
         categoria=categoria,
         as_of=as_of or date.today(),
-        gemini_client=build_gemini_client_if_configured(),
+        llm_client=build_default_llm_client(),
     )
     if resultado is None:
         return SportNarrativeOut(text=None, source=None)

@@ -36,6 +36,8 @@ services:
       PULSE_ENV: ${PULSE_ENV:-dev}
       PULSE_API_KEY: ${PULSE_API_KEY:-}
       PULSE_FRONTEND_ORIGIN: ${PULSE_FRONTEND_ORIGIN:-http://localhost:3000}
+      OLLAMA_HOST: ${OLLAMA_HOST:-}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       PULSE_GARMIN_TOKENS_DIR: /data/garmin-tokens
     volumes:

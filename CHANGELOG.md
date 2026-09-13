@@ -53,6 +53,14 @@ mono-usuario - no hay compromiso de compatibilidad de API entre versiones).
   sesión de fuerza real del usuario - mismo caveat de honestidad que la
   agrupación de `typeKey` por categoría.
 
+- Proveedor de LLM del coach desacoplado del cliente concreto (`coach/llm_client.py`:
+  `LlmClient`/`LlmError` genéricos, `coach/llm_factory.py` elige el
+  proveedor por variable de entorno) + soporte de Ollama local
+  (`coach/ollama_client.py`) como proveedor preferido, gratis y sin
+  enviar datos de salud a terceros - reemplaza la dependencia exclusiva
+  de Gemini, cuyo SDK (`google-generativeai`) fue deprecado por Google.
+  Gemini se mantiene como alternativa vía `GEMINI_API_KEY`.
+
 ### Corregido
 - Rate-limiting al conectar Garmin: el backfill de 90 días (~900 llamadas)
   corría de forma síncrona dentro de la petición HTTP de alta y podía

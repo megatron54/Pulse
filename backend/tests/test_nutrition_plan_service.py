@@ -10,7 +10,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from models.schema import Base, NutritionPlan, UserProfile
+from models.schema import Base, UserProfile
 from services.errors import EntityNotFoundError
 from services.nutrition_plan_service import create_nutrition_plan, get_active_nutrition_plan
 

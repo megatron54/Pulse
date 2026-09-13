@@ -9,7 +9,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from models.schema import Base, GarminActivity, UserProfile
+from models.schema import Base, UserProfile
 from repositories.garmin_intraday_repository import save_intraday_points
 from repositories.garmin_repository import save_activity_if_new, save_exercise_sets_if_new
 from services.errors import EntityNotFoundError

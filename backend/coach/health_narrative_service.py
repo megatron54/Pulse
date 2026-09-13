@@ -19,7 +19,7 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from coach.gemini_client import GeminiClient
+from coach.llm_client import LlmClient
 from coach.narrative_service import generate_context_narrative
 from models.schema import UserProfile
 from repositories.garmin_repository import get_daily_metrics_history, get_hrv_baseline_28d
@@ -43,7 +43,7 @@ def generate_health_narrative_for_user(
     session: Session,
     user_id: int,
     fecha: date,
-    gemini_client: GeminiClient | None,
+    llm_client: LlmClient | None,
 ) -> HealthNarrativeResult | None:
     """`None` si la Capa 1 todavía no ha decidido nada para `fecha`
     (nunca se inventa un estado de recovery que no existe)."""
@@ -69,6 +69,6 @@ def generate_health_narrative_for_user(
     decision_label = _ETIQUETAS_RESULTADO.get(readiness_log.resultado, readiness_log.resultado)
 
     resultado = generate_context_narrative(
-        contexto="salud", decision_label=decision_label, datos=datos, gemini_client=gemini_client
+        contexto="salud", decision_label=decision_label, datos=datos, llm_client=llm_client
     )
     return HealthNarrativeResult(text=resultado.text, source=resultado.source)
