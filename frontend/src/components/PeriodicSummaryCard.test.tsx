@@ -92,4 +92,23 @@ describe("PeriodicSummaryCard", () => {
     rerender(<PeriodicSummaryCard userId={1} refreshKey={1} />);
     await waitFor(() => expect(api.getPeriodicSummary).toHaveBeenCalledTimes(2));
   });
+
+  it("el botón de descargar PDF invoca la impresión del navegador", async () => {
+    vi.mocked(api.getPeriodicSummary).mockResolvedValue(_RESUMEN_VACIO);
+    const print = vi.spyOn(window, "print").mockImplementation(() => {});
+
+    render(<PeriodicSummaryCard userId={1} />);
+    const boton = await screen.findByRole("button", { name: /descargar pdf/i });
+    boton.click();
+
+    expect(print).toHaveBeenCalledTimes(1);
+    print.mockRestore();
+  });
+
+  it("no muestra el botón de descargar PDF mientras carga o si falla", async () => {
+    vi.mocked(api.getPeriodicSummary).mockRejectedValue(new ApiError(404, "no existe"));
+    render(<PeriodicSummaryCard userId={1} />);
+    await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: /descargar pdf/i })).not.toBeInTheDocument();
+  });
 });

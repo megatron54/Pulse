@@ -103,3 +103,27 @@ body {
     animation-duration: 0.01ms !important;
   }
 }
+
+/* Épica 8 del plan de desarrollo (04-plan-desarrollo-siguiente-fase.md):
+ * informe exportable del resumen periódico - "exportar a PDF" vía el
+ * diálogo de impresión nativo del navegador ("Guardar como PDF"), sin
+ * añadir una dependencia nueva de generación de PDF. Solo el elemento
+ * marcado con [data-print-target] queda visible al imprimir. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  [data-print-target],
+  [data-print-target] * {
+    visibility: visible;
+  }
+  [data-print-target] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+  [data-print-hide] {
+    display: none !important;
+  }
+}

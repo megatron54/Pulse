@@ -7,6 +7,7 @@ import { ErrorState } from "./ui/ErrorState";
 import { LoadingState } from "./ui/LoadingState";
 import { DonutChart } from "./ui/DonutChart";
 import { PALETA } from "@/lib/theme";
+import { Download } from "lucide-react";
 
 /**
  * Resumen semanal de tendencias (Épica MUST-HAVE #4 de 02-roadmap/
@@ -51,8 +52,22 @@ export function PeriodicSummaryCard({
   }, [userId, refreshKey, intentos]);
 
   return (
-    <Card>
-      <CardTitle>Resumen de la semana</CardTitle>
+    <Card data-print-target>
+      <div className="flex items-center justify-between mb-2">
+        <CardTitle>Resumen de la semana</CardTitle>
+        {!error && resumen !== null && (
+          <button
+            type="button"
+            onClick={() => window.print()}
+            data-print-hide
+            className="flex items-center gap-1 text-xs font-medium text-accent hover:opacity-80"
+            aria-label="Descargar PDF"
+          >
+            <Download size={14} />
+            Descargar PDF
+          </button>
+        )}
+      </div>
       {error && (
         <ErrorState
           message={error}

@@ -40,6 +40,10 @@ mono-usuario - no hay compromiso de compatibilidad de API entre versiones).
 - Fases de sueño (profundo/ligero/REM/despierto) de `get_sleep_data`, nuevas
   columnas en `GarminDailyMetrics` y desglose visual (barra apilada) en el
   histórico de Salud y recovery.
+- Botón "Descargar PDF" en el resumen semanal (`PeriodicSummaryCard`) que
+  exporta el informe vía el diálogo de impresión nativo del navegador
+  ("Guardar como PDF"), sin depender de una librería de generación de PDF
+  nueva.
 
 ### Corregido
 - Rate-limiting al conectar Garmin: el backfill de 90 días (~900 llamadas)
