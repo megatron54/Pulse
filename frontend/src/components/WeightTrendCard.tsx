@@ -82,6 +82,8 @@ export function WeightTrendCard({
             data={diario.map((m) => ({ fecha: m.fecha, valor: m.peso_kg }))}
             color={PALETA.accent}
             unidad=" kg"
+            alto={110}
+            mostrarEjes
           />
         </>
       )}

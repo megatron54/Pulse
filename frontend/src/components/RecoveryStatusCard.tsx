@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Activity, BatteryCharging, HeartPulse, Moon } from "lucide-react";
+import { Activity, BatteryCharging, Footprints, HeartPulse, Moon } from "lucide-react";
 import { api, ApiError, type GarminHealthDay, type ReadinessResult } from "@/lib/api";
 import { CoachNarrativeBlock } from "./CoachNarrativeBlock";
 import { EmptyState } from "./ui/EmptyState";
@@ -100,14 +100,21 @@ export function RecoveryStatusCard({ userId }: { userId: number }) {
 
           {diaHoy && (
             <div className="scroll-rail -mx-1 flex gap-3 px-1">
-              {diaHoy.hrv_value != null && (
-                <StatTile icon={HeartPulse} label="VFC" value={diaHoy.hrv_value} unit=" ms" />
+              {/* Orden inspirado en la home de Garmin Connect (petición
+                  explícita del usuario): sueño, body battery y pasos son
+                  los 3 vistazos principales; VFC/estrés quedan como
+                  secundarios a continuación. */}
+              {diaHoy.sleep_score != null && (
+                <StatTile icon={Moon} label="Sueño" value={diaHoy.sleep_score} />
               )}
               {diaHoy.body_battery_am != null && (
                 <StatTile icon={BatteryCharging} label="Body Battery" value={diaHoy.body_battery_am} />
               )}
-              {diaHoy.sleep_score != null && (
-                <StatTile icon={Moon} label="Sueño" value={diaHoy.sleep_score} />
+              {diaHoy.pasos != null && (
+                <StatTile icon={Footprints} label="Pasos" value={diaHoy.pasos} />
+              )}
+              {diaHoy.hrv_value != null && (
+                <StatTile icon={HeartPulse} label="VFC" value={diaHoy.hrv_value} unit=" ms" />
               )}
               {diaHoy.stress_avg != null && (
                 <StatTile icon={Activity} label="Estrés" value={diaHoy.stress_avg} />

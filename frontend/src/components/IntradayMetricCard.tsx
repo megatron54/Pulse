@@ -90,8 +90,10 @@ export function IntradayMetricCard({ userId }: { userId: number }) {
             data={datosGrafica}
             color={pestanaActiva.color}
             unidad={pestanaActiva.unidad}
-            alto={140}
+            alto={160}
             decimales={0}
+            mostrarEjes
+            formatoEjeX="hora"
           />
           <p className="text-xs text-text-secondary">{puntos.length} puntos hoy</p>
         </div>

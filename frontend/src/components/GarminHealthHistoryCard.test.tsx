@@ -48,6 +48,7 @@ describe("GarminHealthHistoryCard", () => {
         stress_avg: null,
         resting_hr: null,
         vo2max: null,
+        pasos: null,
       },
     ]);
 
@@ -73,6 +74,7 @@ describe("GarminHealthHistoryCard", () => {
         stress_avg: 10,
         resting_hr: 54,
         vo2max: null,
+        pasos: null,
       },
     ]);
 
@@ -113,6 +115,7 @@ describe("GarminHealthHistoryCard", () => {
         stress_avg: null,
         resting_hr: null,
         vo2max: null,
+        pasos: null,
       },
       {
         fecha: "2026-08-01",
@@ -124,6 +127,7 @@ describe("GarminHealthHistoryCard", () => {
         stress_avg: null,
         resting_hr: null,
         vo2max: null,
+        pasos: null,
       },
     ]);
 
@@ -149,6 +153,7 @@ describe("GarminHealthHistoryCard", () => {
         stress_avg: 0,
         resting_hr: null,
         vo2max: null,
+        pasos: null,
       },
     ]);
 

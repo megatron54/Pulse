@@ -20,4 +20,19 @@ describe("AreaTrendChart", () => {
     render(<AreaTrendChart data={[{ fecha: "2026-08-01", valor: 80 }]} color="#00F19F" />);
     expect(screen.getByRole("img")).toBeInTheDocument();
   });
+
+  it("renderiza sin lanzar con mostrarEjes activado (páginas de detalle)", () => {
+    render(
+      <AreaTrendChart
+        data={[
+          { fecha: "2026-08-01", valor: 80 },
+          { fecha: "2026-08-02", valor: 79.5 },
+        ]}
+        color="#00F19F"
+        mostrarEjes
+        formatoEjeX="hora"
+      />
+    );
+    expect(screen.getByRole("img", { name: /gráfica de tendencia/i })).toBeInTheDocument();
+  });
 });

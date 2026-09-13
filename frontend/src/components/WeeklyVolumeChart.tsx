@@ -74,6 +74,8 @@ export function WeeklyVolumeChart({
         color="#5eead4"
         unidad={metrica === "distancia" ? " km" : " min"}
         decimales={metrica === "distancia" ? 1 : 0}
+        alto={110}
+        mostrarEjes
       />
     </div>
   );

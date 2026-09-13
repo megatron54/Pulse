@@ -171,7 +171,14 @@ function MetricaSeccion({
           {unidad}
         </span>
       </div>
-      <AreaTrendChart data={puntos} color={color} unidad={unidad} alto={64} decimales={0} />
+      <AreaTrendChart
+        data={puntos}
+        color={color}
+        unidad={unidad}
+        alto={110}
+        decimales={0}
+        mostrarEjes
+      />
     </div>
   );
 }

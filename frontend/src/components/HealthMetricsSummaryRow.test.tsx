@@ -44,6 +44,7 @@ describe("HealthMetricsSummaryRow", () => {
         stress_avg: null,
         resting_hr: 52,
         vo2max: null,
+        pasos: null,
       },
     ]);
 

@@ -70,6 +70,7 @@ describe("RecoveryStatusCard", () => {
         stress_avg: null,
         resting_hr: null,
         vo2max: null,
+        pasos: 8432,
       },
     ]);
 
@@ -78,6 +79,7 @@ describe("RecoveryStatusCard", () => {
     await waitFor(() => expect(screen.getByText(/vfc/i)).toBeInTheDocument());
     expect(screen.getByText(/body battery/i)).toBeInTheDocument();
     expect(screen.getByText(/sueño/i)).toBeInTheDocument();
+    expect(screen.getByText(/pasos/i)).toBeInTheDocument();
     expect(screen.queryByText(/estrés/i)).not.toBeInTheDocument();
   });
 
