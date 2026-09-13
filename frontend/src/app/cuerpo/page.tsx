@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useUser } from "@/lib/UserContext";
 import { BodyMeasurementForm } from "@/components/BodyMeasurementForm";
 import { BodyCompositionTile } from "@/components/BodyCompositionTile";
+import { BodyGoalInsightCard } from "@/components/BodyGoalInsightCard";
 import { WeightTrendCard } from "@/components/WeightTrendCard";
 import { FadeIn } from "@/components/ui/FadeIn";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -29,6 +30,9 @@ export default function CuerpoPage() {
       <div className="flex flex-col gap-6">
         <FadeIn>
           <WeightTrendCard userId={user.id} refreshKey={weightRefreshKey} />
+        </FadeIn>
+        <FadeIn delay={0.03}>
+          <BodyGoalInsightCard userId={user.id} />
         </FadeIn>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
           <FadeIn delay={0.05}>
