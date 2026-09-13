@@ -9,10 +9,15 @@ def _job(scheduler, job_id):
 
 
 class TestBuildScheduler:
-    def test_registra_el_job_de_sync_diario_el_de_actividades_y_el_de_feelfit(self):
+    def test_registra_el_job_de_sync_diario_el_de_actividades_feelfit_y_el_frecuente(self):
         scheduler = build_scheduler()
         ids = {j.id for j in scheduler.get_jobs()}
-        assert ids == {"sync_diario_garmin", "sync_actividades_garmin", "sync_feelfit"}
+        assert ids == {
+            "sync_diario_garmin",
+            "sync_actividades_garmin",
+            "sync_feelfit",
+            "sync_frecuente_garmin",
+        }
 
     def test_usa_hora_por_defecto_04_00_si_no_hay_env(self, monkeypatch):
         monkeypatch.delenv("PULSE_SCHEDULER_HORA", raising=False)
@@ -67,3 +72,15 @@ class TestBuildScheduler:
         campos = {f.name: str(f) for f in trigger.fields}
         assert campos["hour"] == "7"
         assert campos["minute"] == "10"
+
+    def test_sync_frecuente_usa_intervalo_por_defecto_de_2h_si_no_hay_env(self, monkeypatch):
+        monkeypatch.delenv("PULSE_SCHEDULER_FRECUENTE_INTERVALO_HORAS", raising=False)
+        scheduler = build_scheduler()
+        trigger = _job(scheduler, "sync_frecuente_garmin").trigger
+        assert trigger.interval.total_seconds() == 2 * 3600
+
+    def test_sync_frecuente_respeta_intervalo_configurado_por_env(self, monkeypatch):
+        monkeypatch.setenv("PULSE_SCHEDULER_FRECUENTE_INTERVALO_HORAS", "3")
+        scheduler = build_scheduler()
+        trigger = _job(scheduler, "sync_frecuente_garmin").trigger
+        assert trigger.interval.total_seconds() == 3 * 3600

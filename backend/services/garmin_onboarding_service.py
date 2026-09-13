@@ -77,11 +77,18 @@ def connect_new_user_via_garmin(
     `GarminRateLimitedError`) se propaga tal cual - tampoco en ese caso
     se crea nada.
 
-    El backfill NUNCA puede tumbar la conexión ya exitosa: si falla
-    parcial o totalmente, el usuario ya fue creado y sus credenciales
-    ya están activas - el scheduler nocturno seguirá intentando
-    sincronizar de todos modos. `garmin_backfill_service` ya aísla sus
-    propios fallos día a día internamente."""
+    El backfill de histórico NUNCA se ejecuta aquí (hallazgo de
+    code-review, CRÍTICO): con 90 días por defecto, `backfill_full_history`
+    dispara ~7 llamadas de recovery + 3 de intradía POR DÍA a la API de
+    Garmin (~900 peticiones HTTP secuenciales) - ejecutarlo dentro de
+    esta misma llamada síncrona dejaba la petición HTTP de conexión
+    colgada varios minutos y era la causa real del rate-limiting que
+    sufría el usuario al conectar su cuenta (nunca fue un problema de
+    reintentos de login, que ya estaban bien resueltos). Esta función
+    ahora termina en cuanto el usuario existe en la base de datos - la
+    capa llamante (`api.routers.users.garmin_connect`) es quien decide
+    disparar `backfill_new_user_history` como tarea en background,
+    fuera del ciclo request/response."""
     client = GarminClient(
         token_store_dir=token_store_dir,
         email=email,
@@ -121,13 +128,46 @@ def connect_new_user_via_garmin(
     session.commit()
     session.refresh(usuario)
 
+    return usuario
+
+
+def backfill_new_user_history(
+    session: Session,
+    *,
+    user_id: int,
+    token_store_dir: str,
+    api_factory: Callable[..., Any] | None = None,
+    backfill_dias: int = _BACKFILL_DIAS_POR_DEFECTO,
+    hoy: date | None = None,
+) -> None:
+    """Ejecuta el backfill histórico de un usuario recién conectado -
+    pensada para correr como `BackgroundTask` de FastAPI (o un job
+    encolado equivalente) con SU PROPIA sesión de base de datos, nunca
+    la del request original (que FastAPI puede cerrar en cuanto la
+    respuesta HTTP se envía).
+
+    Vuelve a autenticar contra Garmin (`token_store_dir` ya tiene el
+    token cacheado del login hecho en `connect_new_user_via_garmin`,
+    así que este segundo `login()` reutiliza sesión, no hace un login
+    fresco - ver política de autenticación en `garmin_sync.client`).
+
+    El fallo del backfill NUNCA debe perderse en silencio ni tumbar
+    nada: `garmin_backfill_service` ya aísla sus propios fallos día a
+    día internamente, y las credenciales/usuario ya quedaron creados
+    antes de que esta función se invoque - el scheduler nocturno
+    seguirá intentando sincronizar de todos modos aunque este backfill
+    puntual falle del todo (p.ej. por un rate-limit inesperado)."""
+    client = GarminClient(
+        token_store_dir=token_store_dir,
+        api_factory=api_factory,
+    )
+    client.login()
+
     hoy = hoy or date.today()
     backfill_full_history(
         session,
-        user_id=usuario.id,
+        user_id=user_id,
         garmin_client=client,
         start_date=hoy - timedelta(days=backfill_dias - 1),
         end_date=hoy,
     )
-
-    return usuario

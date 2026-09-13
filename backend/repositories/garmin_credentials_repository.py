@@ -26,3 +26,14 @@ def upsert_garmin_credentials(
     session.commit()
     session.refresh(cred)
     return cred
+
+
+def get_active_garmin_credentials(session: Session, user_id: int) -> GarminCredentials | None:
+    """`None` si el usuario no tiene Garmin conectado o su conexión fue
+    desactivada (`activo=False`) - la capa llamante decide qué hacer
+    (404, mensaje explícito), nunca se asume una conexión que no existe."""
+    return (
+        session.query(GarminCredentials)
+        .filter_by(user_id=user_id, activo=True)
+        .first()
+    )

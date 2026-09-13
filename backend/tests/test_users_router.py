@@ -45,9 +45,12 @@ class TestGarminConnect:
             session.commit()
             session.refresh(usuario_creado)
 
-        with patch(
-            "api.routers.users.connect_new_user_via_garmin", return_value=usuario_creado
-        ) as mock_connect:
+        with (
+            patch(
+                "api.routers.users.connect_new_user_via_garmin", return_value=usuario_creado
+            ) as mock_connect,
+            patch("api.routers.users._ejecutar_backfill_en_background"),
+        ):
             resp = c.post(
                 "/users/garmin-connect", json={"email": "miguel@example.com", "password": "hunter2"}
             )
@@ -59,6 +62,34 @@ class TestGarminConnect:
         assert "password" not in resp.text
         assert mock_connect.call_args.kwargs["email"] == "miguel@example.com"
         assert mock_connect.call_args.kwargs["password"] == "hunter2"
+
+    def test_dispara_el_backfill_como_tarea_en_background_no_bloqueante(self, client):
+        # Hallazgo de code-review, CRÍTICO: antes de este fix, el
+        # backfill de 90 días corría DENTRO de esta misma petición HTTP
+        # (~900 llamadas secuenciales a Garmin) - causa real del
+        # "iniciando sesión" colgado varios minutos y del rate-limit.
+        # La respuesta debe volver en cuanto el usuario existe, con el
+        # backfill programado como tarea en background aparte.
+        c, engine = client
+        with Session(engine) as session:
+            usuario_creado = UserProfile(
+                nombre="Miguel", altura_cm=176.0, fecha_nacimiento=date(2002, 11, 28), sexo="M"
+            )
+            session.add(usuario_creado)
+            session.commit()
+            session.refresh(usuario_creado)
+
+        with (
+            patch("api.routers.users.connect_new_user_via_garmin", return_value=usuario_creado),
+            patch("api.routers.users._ejecutar_backfill_en_background") as mock_backfill,
+        ):
+            resp = c.post(
+                "/users/garmin-connect", json={"email": "miguel@example.com", "password": "hunter2"}
+            )
+
+        assert resp.status_code == 201
+        mock_backfill.assert_called_once()
+        assert mock_backfill.call_args.args[0] == usuario_creado.id
 
     def test_perfil_incompleto_devuelve_422_con_los_campos_faltantes(self, client):
         c, _ = client
@@ -83,9 +114,12 @@ class TestGarminConnect:
             session.commit()
             session.refresh(usuario_creado)
 
-        with patch(
-            "api.routers.users.connect_new_user_via_garmin", return_value=usuario_creado
-        ) as mock_connect:
+        with (
+            patch(
+                "api.routers.users.connect_new_user_via_garmin", return_value=usuario_creado
+            ) as mock_connect,
+            patch("api.routers.users._ejecutar_backfill_en_background"),
+        ):
             c.post(
                 "/users/garmin-connect",
                 json={"email": "a@b.com", "password": "x", "sexo": "M"},
@@ -130,7 +164,10 @@ class TestGarminConnect:
             session.commit()
             session.refresh(usuario_creado)
 
-        with patch("api.routers.users.connect_new_user_via_garmin", return_value=usuario_creado):
+        with (
+            patch("api.routers.users.connect_new_user_via_garmin", return_value=usuario_creado),
+            patch("api.routers.users._ejecutar_backfill_en_background"),
+        ):
             resp = c.post(
                 "/users/garmin-connect", json={"email": "a@b.com", "password": "super-secreto"}
             )

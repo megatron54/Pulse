@@ -1,16 +1,16 @@
 """Historial de actividades y de métricas diarias de recovery de Garmin
-(Épica 2 y Épica C de 02-roadmap/03-vision-produccion.md) - solo
-LECTURA de lo ya ingerido por el scheduler nocturno
-(`services.scheduler_service`). No hay endpoint de sync manual todavía:
-sin credenciales reales (Fase H bloqueada), no hay nada que disparar
-desde la API - cuando exista, este router es el lugar natural para
-añadirlo."""
+(Épica 2 y Épica C de 02-roadmap/03-vision-produccion.md) - la mayoría
+de estos endpoints son solo LECTURA de lo ya ingerido por el scheduler
+nocturno (`services.scheduler_service`); `POST /sync` es la excepción:
+dispara un sync bajo demanda de un único día para este usuario
+(`services.garmin_manual_sync_service`), pensado para un botón
+"actualizar ahora" en el frontend sin repetir el backfill completo."""
 from __future__ import annotations
 
 from datetime import date
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_db, verify_api_key
@@ -18,11 +18,14 @@ from api.schemas import (
     GarminActivityOut,
     GarminDailyMetricsOut,
     GarminIntradayPointOut,
+    GarminManualSyncOut,
     HealthNarrativeOut,
     WeeklyVolumeOut,
 )
 from coach.gemini_client import build_gemini_client_if_configured
 from coach.health_narrative_service import generate_health_narrative_for_user
+from garmin_sync.client import GarminAuthError, GarminRateLimitedError
+from services.garmin_manual_sync_service import sync_today_for_user
 from services.garmin_query_service import (
     CategoriaDeporte,
     get_activity_history_for_user,
@@ -134,3 +137,34 @@ def get_intraday_history(
     is not zero", nunca se interpola ni se rellena un hueco."""
     puntos = get_intraday_history_for_user(db, user_id, metrica, fecha or date.today())
     return [GarminIntradayPointOut.model_validate(p, from_attributes=True) for p in puntos]
+
+
+@router.post("/sync", response_model=GarminManualSyncOut)
+def sync_now(
+    user_id: int,
+    fecha: date | None = Query(default=None, description="Por defecto, hoy."),
+    db: Session = Depends(get_db),
+) -> GarminManualSyncOut:
+    """Botón "actualizar ahora" del frontend: sincroniza SOLO `fecha`
+    (por defecto hoy) para este usuario - un login + 10 llamadas a
+    Garmin (recovery + intradía de un solo día), nada que ver con el
+    backfill de 90 días de la conexión inicial. Da datos "quasi en
+    tiempo real" (minutos de retraso, acotado por cuándo el reloj
+    sincronizó con la app de Garmin) sin el riesgo de rate-limit de un
+    rango amplio - ver `services.garmin_manual_sync_service`."""
+    try:
+        resultado = sync_today_for_user(db, user_id, target_date=fecha)
+    except GarminRateLimitedError as exc:
+        raise HTTPException(
+            status_code=429,
+            detail="Garmin ha aplicado rate-limiting a esta cuenta. Espera unos minutos antes de reintentar.",
+        ) from exc
+    except GarminAuthError as exc:
+        raise HTTPException(
+            status_code=401,
+            detail="No se pudo iniciar sesión en Garmin Connect con el token guardado - reconecta tu cuenta.",
+        ) from exc
+    # GarminNoConectadoError (subclase de EntityNotFoundError) se deja
+    # propagar tal cual: api.main tiene un handler global que la mapea
+    # a 404, mismo patrón que el resto de la API.
+    return GarminManualSyncOut.model_validate(resultado, from_attributes=True)

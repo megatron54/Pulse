@@ -14,9 +14,10 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from models.schema import Base, GarminCredentials, UserProfile
+from models.schema import Base, GarminCredentials, ReadinessLog, UserProfile
 from services.garmin_onboarding_service import (
     GarminPerfilIncompletoError,
+    backfill_new_user_history,
     connect_new_user_via_garmin,
 )
 
@@ -138,17 +139,45 @@ class TestConnectNewUserViaGarmin:
         assert session.query(UserProfile).count() == 0
         assert session.query(GarminCredentials).count() == 0
 
-    def test_dispara_el_backfill_historico_reutilizando_la_sesion_ya_logueada(self, session):
-        # Hallazgo BLOQUEANTE de code-review: el backfill estaba
-        # construido y testeado pero nunca se llamaba desde el flujo de
-        # conexión - petición explícita del usuario: "debería
-        # extraerse todo el histórico de Garmin, no solo lo de los
-        # últimos 5 min".
+    def test_no_dispara_ningun_backfill_ni_segunda_llamada_de_actividades(self, session):
+        # Hallazgo de code-review, CRÍTICO: `connect_new_user_via_garmin`
+        # ya NO dispara el backfill histórico inline (antes hacía ~900
+        # llamadas secuenciales a Garmin dentro de la misma petición
+        # HTTP de conexión, causa real del "iniciando sesión" colgado
+        # varios minutos y del rate-limit que sufría el usuario). Login
+        # + perfil son las únicas 2 llamadas a Garmin de esta función;
+        # el backfill ahora es responsabilidad exclusiva de
+        # `backfill_new_user_history`, disparada en background por la
+        # capa API (`api.routers.users.garmin_connect`).
         fake_api = MagicMock()
         fake_api.get_full_name.return_value = "Miguel"
         fake_api.get_user_profile.return_value = {
             "userData": {"gender": "MALE", "weight": 77000.0, "height": 176.0, "birthDate": "2002-11-28"}
         }
+
+        connect_new_user_via_garmin(
+            session,
+            email="miguel@example.com",
+            password="hunter2",
+            token_store_dir="/data/garmin-tokens/pulse-user-1",
+            api_factory=_api_factory(fake_api),
+        )
+
+        fake_api.get_activities_by_date.assert_not_called()
+        fake_api.get_hrv_data.assert_not_called()
+        fake_api.login.assert_called_once()
+
+
+class TestBackfillNewUserHistory:
+    def test_reutiliza_la_sesion_ya_logueada_para_el_backfill_completo(self, session):
+        usuario = UserProfile(
+            nombre="Miguel", sexo="M", altura_cm=176.0, fecha_nacimiento=date(2002, 11, 28)
+        )
+        session.add(usuario)
+        session.commit()
+        session.refresh(usuario)
+
+        fake_api = MagicMock()
         fake_api.get_activities_by_date.return_value = []
         fake_api.get_hrv_data.return_value = {"hrvSummary": {"lastNightAvg": 65}}
         fake_api.get_training_readiness.return_value = None
@@ -158,10 +187,9 @@ class TestConnectNewUserViaGarmin:
         fake_api.get_rhr_day.return_value = None
         fake_api.get_max_metrics.return_value = None
 
-        connect_new_user_via_garmin(
+        backfill_new_user_history(
             session,
-            email="miguel@example.com",
-            password="hunter2",
+            user_id=usuario.id,
             token_store_dir="/data/garmin-tokens/pulse-user-1",
             api_factory=_api_factory(fake_api),
             backfill_dias=3,
@@ -173,28 +201,36 @@ class TestConnectNewUserViaGarmin:
         # reutilizado, sin volver a pedir contraseña).
         fake_api.get_activities_by_date.assert_called_once_with("2026-08-08", "2026-08-10")
         assert fake_api.get_hrv_data.call_count == 3
-        fake_api.login.assert_called_once()  # nunca un segundo login para el backfill
+        fake_api.login.assert_called_once()
 
-    def test_el_backfill_nunca_impide_devolver_el_usuario_ya_creado(self, session):
-        # Aunque el backfill falle por completo (Garmin caído tras el
-        # login inicial), el usuario ya está creado y debe devolverse -
-        # la conexión en sí ya tuvo éxito.
+    def test_no_lanza_si_el_backfill_falla_por_completo(self, session):
+        # `garmin_backfill_service` ya aísla sus propios fallos día a
+        # día; esta función no debe añadir una excepción propia encima
+        # - es una tarea en background sin nadie esperando su resultado
+        # (ver `api.routers.users._ejecutar_backfill_en_background`).
+        usuario = UserProfile(
+            nombre="Miguel", sexo="M", altura_cm=176.0, fecha_nacimiento=date(2002, 11, 28)
+        )
+        session.add(usuario)
+        session.commit()
+        session.refresh(usuario)
+
         fake_api = MagicMock()
-        fake_api.get_full_name.return_value = "Miguel"
-        fake_api.get_user_profile.return_value = {
-            "userData": {"gender": "MALE", "weight": 77000.0, "height": 176.0, "birthDate": "2002-11-28"}
-        }
         fake_api.get_activities_by_date.side_effect = Exception("Garmin caído")
         fake_api.get_hrv_data.side_effect = Exception("Garmin caído")
+        fake_api.get_training_readiness.return_value = None
+        fake_api.get_body_battery.return_value = None
+        fake_api.get_sleep_data.return_value = None
+        fake_api.get_stress_data.return_value = None
+        fake_api.get_rhr_day.return_value = None
+        fake_api.get_max_metrics.return_value = None
 
-        usuario = connect_new_user_via_garmin(
+        backfill_new_user_history(
             session,
-            email="miguel@example.com",
-            password="hunter2",
+            user_id=usuario.id,
             token_store_dir="/data/garmin-tokens/pulse-user-1",
             api_factory=_api_factory(fake_api),
             backfill_dias=2,
         )
 
-        assert usuario.nombre == "Miguel"
-        assert session.query(UserProfile).count() == 1
+        assert session.query(ReadinessLog).count() == 0

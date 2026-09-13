@@ -1,22 +1,47 @@
 from __future__ import annotations
 
+import logging
 import os
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_db, verify_api_key
 from api.schemas import GarminConnectRequest, UserCreateRequest, UserOut
 from garmin_sync.client import GarminAuthError, GarminRateLimitedError
+from models.database import get_session
 from models.schema import UserProfile
 from services.garmin_onboarding_service import (
     GarminPerfilIncompletoError,
+    backfill_new_user_history,
     connect_new_user_via_garmin,
 )
 
+logger = logging.getLogger("pulse.users")
+
 router = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(verify_api_key)])
+
+
+def _ejecutar_backfill_en_background(user_id: int, token_store_dir: str) -> None:
+    """Wrapper de `BackgroundTasks` (hallazgo de code-review, CRÍTICO -
+    ver docstring de `garmin_onboarding_service.backfill_new_user_history`):
+    abre su PROPIA sesión de base de datos, independiente de la del
+    request que ya terminó, y nunca deja que un fallo se propague fuera
+    de esta tarea en background (no hay ninguna respuesta HTTP a la que
+    devolver un error a estas alturas - el usuario ya fue creado)."""
+    session = get_session()
+    try:
+        backfill_new_user_history(session, user_id=user_id, token_store_dir=token_store_dir)
+    except Exception:  # noqa: BLE001 - tarea en background, el scheduler nocturno reintentará
+        logger.exception(
+            "Fallo el backfill en background del usuario %s (token_store_dir=%s)",
+            user_id,
+            token_store_dir,
+        )
+    finally:
+        session.close()
 
 
 def _directorio_tokens_por_defecto() -> Path:
@@ -36,7 +61,11 @@ def create_user(payload: UserCreateRequest, db: Session = Depends(get_db)) -> Us
 
 
 @router.post("/garmin-connect", response_model=UserOut, status_code=201)
-def garmin_connect(payload: GarminConnectRequest, db: Session = Depends(get_db)) -> UserProfile:
+def garmin_connect(
+    payload: GarminConnectRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+) -> UserProfile:
     """Alta de un usuario nuevo conectando su cuenta de Garmin - sustituye
     al formulario manual de onboarding (petición explícita del usuario:
     "sin cuenta local, que al conectar Garmin se saquen esos datos de
@@ -47,6 +76,14 @@ def garmin_connect(payload: GarminConnectRequest, db: Session = Depends(get_db))
     todavía no existe en este punto) - no tiene que coincidir con
     ninguna convención de nombre, solo ser único y estable para que
     `python-garminconnect` cachee la sesión ahí.
+
+    El backfill histórico (90 días) corre en background tras responder
+    (hallazgo de code-review, CRÍTICO - ver docstring de
+    `garmin_onboarding_service.connect_new_user_via_garmin`): esta
+    petición vuelve en cuanto el login+perfil+usuario están listos (2
+    llamadas a Garmin), no tras las ~900 llamadas que tardaba antes -
+    eso es lo que dejaba "iniciando sesión" colgado varios minutos y
+    disparaba el rate-limit de la cuenta.
 
     Limitación conocida (no soportada todavía): cuentas de Garmin con
     verificación en dos pasos (MFA) fallarán aquí con un 401 genérico -
@@ -69,13 +106,15 @@ def garmin_connect(payload: GarminConnectRequest, db: Session = Depends(get_db))
         if valor is not None
     }
     try:
-        return connect_new_user_via_garmin(
+        usuario = connect_new_user_via_garmin(
             db,
             email=payload.email,
             password=payload.password,
             token_store_dir=token_store_dir,
             overrides=overrides,
         )
+        background_tasks.add_task(_ejecutar_backfill_en_background, usuario.id, token_store_dir)
+        return usuario
     except GarminPerfilIncompletoError as exc:
         raise HTTPException(
             status_code=422,

@@ -312,6 +312,7 @@ class GarminDailyMetricsOut(BaseModel):
     stress_avg: int | None
     resting_hr: int | None
     vo2max: float | None
+    pasos: int | None
 
 
 class GarminIntradayPointOut(BaseModel):
@@ -321,6 +322,16 @@ class GarminIntradayPointOut(BaseModel):
 
     timestamp_utc: datetime
     valor: float
+
+    model_config = {"from_attributes": True}
+
+
+class GarminManualSyncOut(BaseModel):
+    """Resultado del sync manual bajo demanda ("actualizar ahora") -
+    ver `services.garmin_manual_sync_service`."""
+
+    fecha: date
+    puntos_intradia_nuevos: int
 
     model_config = {"from_attributes": True}
 

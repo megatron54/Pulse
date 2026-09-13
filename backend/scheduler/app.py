@@ -3,8 +3,14 @@
 Ejecuta `services.scheduler_service.run_daily_sync_for_all_users` una
 vez al día a la hora configurada (por defecto 04:00, hora del servidor -
 Garmin suele terminar de consolidar los datos de la noche anterior para
-esa hora). Pensado para correr como proceso de larga duración separado
-de la API (`python -m scheduler.app`), igual que un worker de colas.
+esa hora), MÁS un job adicional de sync frecuente del día en curso
+(por defecto cada 2h) que reutiliza la misma función con
+`target_date=hoy` - es lo que da datos "quasi en tiempo real" sin
+volumen de peticiones adicional relevante (mismas ~10 llamadas por
+usuario que ya hacía el sync nocturno, solo que repetidas varias veces
+al día en vez de una). Pensado para correr como proceso de larga
+duración separado de la API (`python -m scheduler.app`), igual que un
+worker de colas.
 
 No hace nada útil todavía en producción real: sin filas en
 `GarminCredentials` (Fase H bloqueada), cada pasada sincroniza 0
@@ -20,6 +26,7 @@ from datetime import date
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 from models.database import get_session
 from services.scheduler_service import (
@@ -41,6 +48,12 @@ _MINUTO_ACTIVIDADES_POR_DEFECTO = "15"
 # no competir por conexión a la base de datos en el mismo instante).
 _HORA_FEELFIT_POR_DEFECTO = "4"
 _MINUTO_FEELFIT_POR_DEFECTO = "30"
+# Sync frecuente del día en curso ("quasi tiempo real") - cada 2h por
+# defecto. Reutiliza run_daily_sync_for_all_users con target_date=hoy,
+# así que cada pasada solo pide el día de hoy (nunca repite días
+# anteriores): el volumen de peticiones a Garmin por pasada es idéntico
+# al del job nocturno, solo cambia la cadencia.
+_INTERVALO_FRECUENTE_HORAS_POR_DEFECTO = "2"
 
 
 def job_sincronizacion_diaria() -> None:
@@ -105,6 +118,27 @@ def job_sincronizacion_feelfit() -> None:
         session.close()
 
 
+def job_sincronizacion_frecuente() -> None:
+    """Mismo patrón de aislamiento que `job_sincronizacion_diaria`,
+    pero disparado cada pocas horas y siempre con `target_date=hoy` -
+    ver docstring del módulo. Job SEPARADO del nocturno a propósito:
+    el nocturno documenta/audita como "sync diario" y este como "sync
+    frecuente", para poder distinguirlos en `AuditLog` si algo falla."""
+    session = get_session()
+    try:
+        resultado = run_daily_sync_for_all_users(session, target_date=date.today())
+        logger.info(
+            "sync frecuente completado: exitosos=%s fallidos=%s omitidos=%s",
+            resultado.exitosos,
+            resultado.fallidos,
+            resultado.omitidos,
+        )
+    except Exception:  # noqa: BLE001 - el proceso del scheduler debe sobrevivir
+        logger.exception("Fallo inesperado en el batch de sincronización frecuente")
+    finally:
+        session.close()
+
+
 def build_scheduler() -> BlockingScheduler:
     hora = os.environ.get("PULSE_SCHEDULER_HORA", _HORA_POR_DEFECTO)
     minuto = os.environ.get("PULSE_SCHEDULER_MINUTO", _MINUTO_POR_DEFECTO)
@@ -117,6 +151,12 @@ def build_scheduler() -> BlockingScheduler:
     hora_feelfit = os.environ.get("PULSE_SCHEDULER_FEELFIT_HORA", _HORA_FEELFIT_POR_DEFECTO)
     minuto_feelfit = os.environ.get(
         "PULSE_SCHEDULER_FEELFIT_MINUTO", _MINUTO_FEELFIT_POR_DEFECTO
+    )
+    intervalo_frecuente_horas = int(
+        os.environ.get(
+            "PULSE_SCHEDULER_FRECUENTE_INTERVALO_HORAS",
+            _INTERVALO_FRECUENTE_HORAS_POR_DEFECTO,
+        )
     )
 
     scheduler = BlockingScheduler()
@@ -136,6 +176,12 @@ def build_scheduler() -> BlockingScheduler:
         job_sincronizacion_feelfit,
         trigger=CronTrigger(hour=hora_feelfit, minute=minuto_feelfit),
         id="sync_feelfit",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        job_sincronizacion_frecuente,
+        trigger=IntervalTrigger(hours=intervalo_frecuente_horas),
+        id="sync_frecuente_garmin",
         replace_existing=True,
     )
     return scheduler

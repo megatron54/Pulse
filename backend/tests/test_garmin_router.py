@@ -334,3 +334,65 @@ class TestGetIntradayHistory:
         c, _ = client
         resp = c.get("/users/99999/garmin/intraday?metrica=heart_rate")
         assert resp.status_code == 404
+
+
+class TestSyncNow:
+    """Botón "actualizar ahora" del frontend (hallazgo de code-review:
+    antes no existía ningún endpoint de sync manual) - ver
+    services.garmin_manual_sync_service."""
+
+    def test_sincroniza_hoy_por_defecto_y_devuelve_el_resultado(self, client):
+        c, _ = client
+        usuario = _crear_usuario(c)
+
+        from unittest.mock import patch
+
+        from services.garmin_manual_sync_service import ManualSyncResult
+
+        resultado = ManualSyncResult(fecha=date(2026, 8, 10), puntos_intradia_nuevos=42)
+        with patch(
+            "api.routers.garmin.sync_today_for_user", return_value=resultado
+        ) as mock_sync:
+            resp = c.post(f"/users/{usuario['id']}/garmin/sync")
+
+        assert resp.status_code == 200
+        assert resp.json() == {"fecha": "2026-08-10", "puntos_intradia_nuevos": 42}
+        assert mock_sync.call_args.kwargs["target_date"] is None
+
+    def test_usuario_sin_garmin_conectado_da_404(self, client):
+        c, _ = client
+        usuario = _crear_usuario(c)
+        resp = c.post(f"/users/{usuario['id']}/garmin/sync")
+        assert resp.status_code == 404
+
+    def test_rate_limit_devuelve_429(self, client):
+        c, _ = client
+        usuario = _crear_usuario(c)
+
+        from unittest.mock import patch
+
+        from garmin_sync.client import GarminRateLimitedError
+
+        with patch(
+            "api.routers.garmin.sync_today_for_user",
+            side_effect=GarminRateLimitedError("429 too many requests"),
+        ):
+            resp = c.post(f"/users/{usuario['id']}/garmin/sync")
+
+        assert resp.status_code == 429
+
+    def test_login_invalido_devuelve_401(self, client):
+        c, _ = client
+        usuario = _crear_usuario(c)
+
+        from unittest.mock import patch
+
+        from garmin_sync.client import GarminAuthError
+
+        with patch(
+            "api.routers.garmin.sync_today_for_user",
+            side_effect=GarminAuthError("401 no autorizado"),
+        ):
+            resp = c.post(f"/users/{usuario['id']}/garmin/sync")
+
+        assert resp.status_code == 401
