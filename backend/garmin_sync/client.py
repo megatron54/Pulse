@@ -142,6 +142,28 @@ def _extraer_sleep_score(payload: Any) -> int | None:
         return None
 
 
+def _extraer_fases_sueno(payload: Any) -> dict[str, int | None]:
+    """Fases de sueño (Épica B del plan de desarrollo,
+    04-plan-desarrollo-siguiente-fase.md, Fase 1) - `dailySleepDTO` ya
+    trae `deepSleepSeconds`/`lightSleepSeconds`/`remSleepSeconds`/
+    `awakeSleepSeconds` como campos de nivel superior (mismo objeto que
+    ya usa `_extraer_sleep_score` para `sleepScores.overall.value`),
+    sin necesidad de una llamada adicional. Cada campo se extrae de
+    forma independiente - un dato ausente en una fase concreta nunca
+    descarta las demás ("unknown is not zero" campo a campo)."""
+    if not payload:
+        return {"deep": None, "light": None, "rem": None, "awake": None}
+    dto = payload.get("dailySleepDTO") if isinstance(payload, dict) else None
+    if not isinstance(dto, dict):
+        return {"deep": None, "light": None, "rem": None, "awake": None}
+    return {
+        "deep": dto.get("deepSleepSeconds"),
+        "light": dto.get("lightSleepSeconds"),
+        "rem": dto.get("remSleepSeconds"),
+        "awake": dto.get("awakeSleepSeconds"),
+    }
+
+
 def _extraer_stress_avg(payload: Any) -> int | None:
     """`get_stress_data` (forma confirmada contra una cuenta real, ver
     02-roadmap/03-vision-produccion.md Épica A - no está tipada en
@@ -361,6 +383,7 @@ class GarminClient:
         )
         raw_body_battery = self._get_body_battery_raw_cacheado(date_str)
         raw_sleep = self._llamada_segura(self._api.get_sleep_data, date_str)
+        fases_sueno = _extraer_fases_sueno(raw_sleep)
         raw_stress = self._get_stress_raw_cacheado(date_str)
         raw_rhr = self._llamada_segura(self._api.get_rhr_day, date_str)
         raw_max_metrics = self._llamada_segura(self._api.get_max_metrics, date_str)
@@ -372,6 +395,10 @@ class GarminClient:
             "training_readiness": _extraer_training_readiness(raw_readiness),
             "body_battery_am": _extraer_body_battery(raw_body_battery),
             "sleep_score": _extraer_sleep_score(raw_sleep),
+            "deep_sleep_seg": fases_sueno["deep"],
+            "light_sleep_seg": fases_sueno["light"],
+            "rem_sleep_seg": fases_sueno["rem"],
+            "awake_sleep_seg": fases_sueno["awake"],
             "stress_avg": _extraer_stress_avg(raw_stress),
             "resting_hr": _extraer_resting_hr(raw_rhr),
             "vo2max": _extraer_vo2max(raw_max_metrics),

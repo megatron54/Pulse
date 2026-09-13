@@ -155,7 +155,15 @@ class TestGetDailyRecoveryRaw:
         fake_api.get_hrv_data.return_value = {"hrvSummary": {"lastNightAvg": 65, "status": "BALANCED"}}
         fake_api.get_training_readiness.return_value = [{"level": "HIGH"}]
         fake_api.get_body_battery.return_value = [{"charged": 80, "drained": 10}]
-        fake_api.get_sleep_data.return_value = {"dailySleepDTO": {"sleepScores": {"overall": {"value": 85}}}}
+        fake_api.get_sleep_data.return_value = {
+            "dailySleepDTO": {
+                "sleepScores": {"overall": {"value": 85}},
+                "deepSleepSeconds": 5400,
+                "lightSleepSeconds": 14400,
+                "remSleepSeconds": 5040,
+                "awakeSleepSeconds": 600,
+            }
+        }
         fake_api.get_stress_data.return_value = {"avgStressLevel": 25}
         fake_api.get_rhr_day.return_value = {
             "allMetrics": {"metricsMap": {"WELLNESS_RESTING_HEART_RATE": [{"value": 54.0}]}}
@@ -171,6 +179,10 @@ class TestGetDailyRecoveryRaw:
         assert raw["training_readiness"] == "high"
         assert raw["body_battery_am"] == 80
         assert raw["sleep_score"] == 85
+        assert raw["deep_sleep_seg"] == 5400
+        assert raw["light_sleep_seg"] == 14400
+        assert raw["rem_sleep_seg"] == 5040
+        assert raw["awake_sleep_seg"] == 600
         assert raw["stress_avg"] == 25
         assert raw["resting_hr"] == 54
         assert raw["vo2max"] == 47.5
@@ -315,6 +327,68 @@ class TestExtraerPasos:
         client = self._client_logueado(fake_api)
         raw = client.get_daily_recovery_raw("2026-08-02")
         assert raw["pasos"] is None
+
+
+class TestExtraerFasesSueno:
+    """Épica B del plan de desarrollo (04-plan-desarrollo-siguiente-fase.md,
+    Fase 1): fases de sueño de `dailySleepDTO`, mismo objeto ya usado
+    por `sleep_score`."""
+
+    def _client_logueado(self, fake_api):
+        client = GarminClient(
+            token_store_dir="C:/fake/.garminconnect",
+            api_factory=_fake_api_factory(fake_api),
+        )
+        client.login()
+        return client
+
+    def test_extrae_las_cuatro_fases(self):
+        fake_api = MagicMock()
+        fake_api.get_sleep_data.return_value = {
+            "dailySleepDTO": {
+                "deepSleepSeconds": 5400,
+                "lightSleepSeconds": 14400,
+                "remSleepSeconds": 5040,
+                "awakeSleepSeconds": 600,
+            }
+        }
+        client = self._client_logueado(fake_api)
+        raw = client.get_daily_recovery_raw("2026-08-02")
+        assert raw["deep_sleep_seg"] == 5400
+        assert raw["light_sleep_seg"] == 14400
+        assert raw["rem_sleep_seg"] == 5040
+        assert raw["awake_sleep_seg"] == 600
+
+    def test_payload_sin_dailysleepdto_da_none_en_las_cuatro(self):
+        fake_api = MagicMock()
+        fake_api.get_sleep_data.return_value = {}
+        client = self._client_logueado(fake_api)
+        raw = client.get_daily_recovery_raw("2026-08-02")
+        assert raw["deep_sleep_seg"] is None
+        assert raw["light_sleep_seg"] is None
+        assert raw["rem_sleep_seg"] is None
+        assert raw["awake_sleep_seg"] is None
+
+    def test_get_sleep_data_fallido_no_tumba_el_resto(self):
+        fake_api = MagicMock()
+        fake_api.get_sleep_data.side_effect = Exception("temporalmente caído")
+        fake_api.get_hrv_data.return_value = {"hrvSummary": {"lastNightAvg": 60}}
+        client = self._client_logueado(fake_api)
+        raw = client.get_daily_recovery_raw("2026-08-02")
+        assert raw["deep_sleep_seg"] is None
+        assert raw["hrv_today"] == 60
+
+    def test_falta_solo_una_fase_no_afecta_a_las_demas(self):
+        fake_api = MagicMock()
+        fake_api.get_sleep_data.return_value = {
+            "dailySleepDTO": {"deepSleepSeconds": 5400, "lightSleepSeconds": 14400}
+        }
+        client = self._client_logueado(fake_api)
+        raw = client.get_daily_recovery_raw("2026-08-02")
+        assert raw["deep_sleep_seg"] == 5400
+        assert raw["light_sleep_seg"] == 14400
+        assert raw["rem_sleep_seg"] is None
+        assert raw["awake_sleep_seg"] is None
 
 
 class TestGetActivitiesRaw:

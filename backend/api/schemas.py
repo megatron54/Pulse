@@ -313,6 +313,10 @@ class GarminDailyMetricsOut(BaseModel):
     resting_hr: int | None
     vo2max: float | None
     pasos: int | None
+    deep_sleep_seg: int | None
+    light_sleep_seg: int | None
+    rem_sleep_seg: int | None
+    awake_sleep_seg: int | None
 
 
 class GarminIntradayPointOut(BaseModel):

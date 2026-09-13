@@ -102,6 +102,7 @@ export function GarminHealthHistoryCard({ userId }: { userId: number }) {
             datos={cronologico}
             campo="sleep_score"
           />
+          <FasesSuenoSeccion datos={cronologico} />
           <MetricaSeccion
             titulo="Estrés medio"
             unidad=""
@@ -126,6 +127,62 @@ export function GarminHealthHistoryCard({ userId }: { userId: number }) {
         </div>
       )}
     </Card>
+  );
+}
+
+const FASES_SUENO = [
+  { campo: "deep_sleep_seg", label: "Profundo", color: "#4338ca" },
+  { campo: "rem_sleep_seg", label: "REM", color: "#7c3aed" },
+  { campo: "light_sleep_seg", label: "Ligero", color: "#a5b4fc" },
+  { campo: "awake_sleep_seg", label: "Despierto", color: "#e5e7eb" },
+] as const;
+
+// Épica B del plan de desarrollo (02-roadmap/04-plan-desarrollo-siguiente-fase.md):
+// desglose de fases de sueño de la última noche con datos - una barra
+// apilada en vez de una gráfica de tendencia porque lo que importa aquí
+// es la PROPORCIÓN entre fases de una noche, no su evolución diaria.
+function FasesSuenoSeccion({ datos }: { datos: GarminHealthDay[] }) {
+  const ultimoConFases = [...datos].reverse().find((d) => d.deep_sleep_seg != null);
+  if (!ultimoConFases) return null;
+
+  const segundos = FASES_SUENO.map((fase) => ultimoConFases[fase.campo] ?? 0);
+  const total = segundos.reduce((a, b) => a + b, 0);
+  if (total === 0) return null;
+
+  return (
+    <div>
+      <div className="flex items-baseline justify-between mb-1">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
+          Fases de sueño ({ultimoConFases.fecha})
+        </h3>
+        <span className="text-sm font-bold text-foreground">{Math.round(total / 60)} min</span>
+      </div>
+      <div className="flex h-3 w-full overflow-hidden rounded-full">
+        {FASES_SUENO.map((fase, i) => {
+          const valor = segundos[i];
+          if (valor === 0) return null;
+          return (
+            <div
+              key={fase.campo}
+              style={{ width: `${(valor / total) * 100}%`, backgroundColor: fase.color }}
+              title={`${fase.label}: ${Math.round(valor / 60)} min`}
+            />
+          );
+        })}
+      </div>
+      <div className="mt-2 flex flex-wrap gap-3">
+        {FASES_SUENO.map((fase, i) => {
+          const valor = segundos[i];
+          if (valor === 0) return null;
+          return (
+            <span key={fase.campo} className="flex items-center gap-1 text-xs text-text-secondary">
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: fase.color }} />
+              {fase.label} · {Math.round(valor / 60)} min
+            </span>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

@@ -297,6 +297,10 @@ export type GarminHealthDay = {
   resting_hr: number | null;
   vo2max: number | null;
   pasos: number | null;
+  deep_sleep_seg: number | null;
+  light_sleep_seg: number | null;
+  rem_sleep_seg: number | null;
+  awake_sleep_seg: number | null;
 };
 
 // Serie minuto a minuto (petición explícita del usuario: "el ritmo

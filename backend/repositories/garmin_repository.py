@@ -46,6 +46,10 @@ def save_daily_metrics(
         resting_hr=raw.get("resting_hr"),
         vo2max=raw.get("vo2max"),
         pasos=raw.get("pasos"),
+        deep_sleep_seg=raw.get("deep_sleep_seg"),
+        light_sleep_seg=raw.get("light_sleep_seg"),
+        rem_sleep_seg=raw.get("rem_sleep_seg"),
+        awake_sleep_seg=raw.get("awake_sleep_seg"),
     )
     session.add(fila)
     session.commit()

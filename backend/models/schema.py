@@ -185,6 +185,15 @@ class GarminDailyMetrics(Base):
     stress_avg: Mapped[int | None] = mapped_column(default=None)
     resting_hr: Mapped[int | None] = mapped_column(default=None)
     pasos: Mapped[int | None] = mapped_column(default=None)
+    # Épica B del plan de desarrollo (04-plan-desarrollo-siguiente-fase.md,
+    # Fase 1): fases de sueño (deep/light/REM/awake) de `get_sleep_data`
+    # (`dailySleepDTO`) - columnas nuevas en vez de una tabla
+    # `GarminSleepDetail` separada, mismo criterio ya usado para
+    # `pasos` (un valor agregado más por día, no una serie intradía).
+    deep_sleep_seg: Mapped[int | None] = mapped_column(default=None)
+    light_sleep_seg: Mapped[int | None] = mapped_column(default=None)
+    rem_sleep_seg: Mapped[int | None] = mapped_column(default=None)
+    awake_sleep_seg: Mapped[int | None] = mapped_column(default=None)
     ingested_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 

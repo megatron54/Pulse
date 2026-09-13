@@ -24,11 +24,11 @@ por orden numérico de la tabla.
 
 Estas piezas ya tienen su research hecho o son extensión directa de código existente.
 
-1. **Épica G (slot de coach por deporte)**: añadir el bloque de `generate_context_narrative` (ya construido para Épica H/salud) a `/running`, `/ciclismo`, `/gimnasio`, con un contexto de deporte nuevo (carga aguda:crónica + adherencia). Reutiliza Capa 3 tal cual, sin motor de reglas nuevo.
+1. ✅ **Hecho** — **Épica G (slot de coach por deporte)**: `generate_context_narrative` (Capa 3, reutilizada tal cual) integrado como `GET /garmin/activities/narrative`, contexto de carga semanal (sesiones y km de la semana actual vs. media de las 4 previas) por categoría, visible en la ficha de detalle de cada deporte (`SportActivityHistoryCard`).
 2. **Épica G (detalle de series/reps de gimnasio)**: ingesta de `get_activity_exercise_sets` (nombres de campo ya confirmados en investigación #9 del vision doc) + vista de detalle por sesión de fuerza. Cierra el MUST-HAVE #2 del punto 4.
 3. **Épica H (extender coach a nutrición)**: una vez exista contexto de nutrición suficientemente rico (ver Fase 2, punto 6), añadir `generate_context_narrative` para nutrición. Bloqueada por la Fase 2 si se quiere un contexto con datos reales de macros diarios, no solo el resultado del motor.
 4. **Épica 8 (informe exportable)**: `PeriodicSummaryCard` ya agrega los datos; falta solo la capa de export a PDF (ej. `weasyprint` o render HTML→PDF del propio frontend). Trabajo acotado, sin research nueva.
-5. **Épica B (fases de sueño detalladas)**: `get_sleep_data` ya confirmado que expone deep/light/REM/awake (research ya hecha) - falta tabla `GarminSleepDetail` + persistencia + UI. Extensión directa del pipeline de Garmin ya existente, mismo patrón que recovery diario.
+5. ✅ **Hecho** — **Épica B (fases de sueño detalladas)**: columnas `deep_sleep_seg`/`light_sleep_seg`/`rem_sleep_seg`/`awake_sleep_seg` en `GarminDailyMetrics` (no una tabla `GarminSleepDetail` separada, mismo criterio ya usado para `pasos`) + desglose visual (barra apilada) en el histórico de Salud y recovery.
 
 **Por qué primero**: ninguna de estas 5 piezas requiere investigación dedicada nueva ni decisiones de producto pendientes de confirmar con el usuario - son ejecutables ya, con TDD normal.
 

@@ -32,6 +32,14 @@ mono-usuario - no hay compromiso de compatibilidad de API entre versiones).
   (solo el día pedido) y job de scheduler de sync incremental frecuente
   (cada 2h configurable) para datos quasi en tiempo real sin repetir el
   backfill histórico.
+- Coach narrativo (Capa 3) por deporte: `GET /users/{id}/garmin/activities/narrative`
+  reutiliza `generate_context_narrative` (Épica H) con un contexto propio de
+  carga semanal (sesiones y km de la semana actual vs. media de las 4
+  previas) para running/ciclismo/gimnasio, visible en la ficha de detalle de
+  cada categoría.
+- Fases de sueño (profundo/ligero/REM/despierto) de `get_sleep_data`, nuevas
+  columnas en `GarminDailyMetrics` y desglose visual (barra apilada) en el
+  histórico de Salud y recovery.
 
 ### Corregido
 - Rate-limiting al conectar Garmin: el backfill de 90 días (~900 llamadas)

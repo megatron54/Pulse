@@ -49,6 +49,10 @@ describe("GarminHealthHistoryCard", () => {
         resting_hr: null,
         vo2max: null,
         pasos: null,
+        deep_sleep_seg: null,
+        light_sleep_seg: null,
+        rem_sleep_seg: null,
+        awake_sleep_seg: null,
       },
     ]);
 
@@ -75,6 +79,10 @@ describe("GarminHealthHistoryCard", () => {
         resting_hr: 54,
         vo2max: null,
         pasos: null,
+        deep_sleep_seg: null,
+        light_sleep_seg: null,
+        rem_sleep_seg: null,
+        awake_sleep_seg: null,
       },
     ]);
 
@@ -116,6 +124,10 @@ describe("GarminHealthHistoryCard", () => {
         resting_hr: null,
         vo2max: null,
         pasos: null,
+        deep_sleep_seg: null,
+        light_sleep_seg: null,
+        rem_sleep_seg: null,
+        awake_sleep_seg: null,
       },
       {
         fecha: "2026-08-01",
@@ -128,6 +140,10 @@ describe("GarminHealthHistoryCard", () => {
         resting_hr: null,
         vo2max: null,
         pasos: null,
+        deep_sleep_seg: null,
+        light_sleep_seg: null,
+        rem_sleep_seg: null,
+        awake_sleep_seg: null,
       },
     ]);
 
@@ -154,11 +170,69 @@ describe("GarminHealthHistoryCard", () => {
         resting_hr: null,
         vo2max: null,
         pasos: null,
+        deep_sleep_seg: null,
+        light_sleep_seg: null,
+        rem_sleep_seg: null,
+        awake_sleep_seg: null,
       },
     ]);
 
     render(<GarminHealthHistoryCard userId={1} />);
 
     await waitFor(() => expect(screen.getByText(/estrés medio/i)).toBeInTheDocument());
+  });
+
+  it("muestra las fases de sueño de la última noche con datos", async () => {
+    vi.mocked(api.getGarminHealthHistory).mockResolvedValue([
+      {
+        fecha: "2026-08-06",
+        hrv_value: null,
+        hrv_status: null,
+        body_battery_am: null,
+        training_readiness: null,
+        sleep_score: null,
+        stress_avg: null,
+        resting_hr: null,
+        vo2max: null,
+        pasos: null,
+        deep_sleep_seg: 5400,
+        light_sleep_seg: 14400,
+        rem_sleep_seg: 5040,
+        awake_sleep_seg: 600,
+      },
+    ]);
+
+    render(<GarminHealthHistoryCard userId={1} />);
+
+    await waitFor(() => expect(screen.getByText(/fases de sueño/i)).toBeInTheDocument());
+    expect(screen.getByText(/profundo/i)).toBeInTheDocument();
+    expect(screen.getByText(/rem/i)).toBeInTheDocument();
+    expect(screen.getByText(/ligero/i)).toBeInTheDocument();
+  });
+
+  it("no muestra la sección de fases de sueño si ningún día trae esos datos", async () => {
+    vi.mocked(api.getGarminHealthHistory).mockResolvedValue([
+      {
+        fecha: "2026-08-06",
+        hrv_value: 49,
+        hrv_status: null,
+        body_battery_am: null,
+        training_readiness: null,
+        sleep_score: 82,
+        stress_avg: null,
+        resting_hr: null,
+        vo2max: null,
+        pasos: null,
+        deep_sleep_seg: null,
+        light_sleep_seg: null,
+        rem_sleep_seg: null,
+        awake_sleep_seg: null,
+      },
+    ]);
+
+    render(<GarminHealthHistoryCard userId={1} />);
+
+    await waitFor(() => expect(screen.getByText(/sueño \(score\)/i)).toBeInTheDocument());
+    expect(screen.queryByText(/fases de sueño/i)).not.toBeInTheDocument();
   });
 });

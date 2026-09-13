@@ -64,6 +64,10 @@ class TestSaveDailyMetrics:
             "resting_hr": 54,
             "vo2max": 47.5,
             "pasos": 8432,
+            "deep_sleep_seg": 5400,
+            "light_sleep_seg": 14400,
+            "rem_sleep_seg": 5040,
+            "awake_sleep_seg": 600,
             "raw_json": {"hrv": {}, "sleep": {}},
         }
         fila = save_daily_metrics(session, usuario.id, date(2026, 8, 2), raw)
@@ -77,6 +81,10 @@ class TestSaveDailyMetrics:
         assert fila.resting_hr == 54
         assert fila.vo2max == 47.5
         assert fila.pasos == 8432
+        assert fila.deep_sleep_seg == 5400
+        assert fila.light_sleep_seg == 14400
+        assert fila.rem_sleep_seg == 5040
+        assert fila.awake_sleep_seg == 600
 
     def test_campos_ausentes_en_el_raw_quedan_none_no_provocan_error(self, session, usuario):
         # Épica A (02-roadmap/03-vision-produccion.md): hrv_status,
@@ -90,6 +98,10 @@ class TestSaveDailyMetrics:
         assert fila.resting_hr is None
         assert fila.vo2max is None
         assert fila.pasos is None
+        assert fila.deep_sleep_seg is None
+        assert fila.light_sleep_seg is None
+        assert fila.rem_sleep_seg is None
+        assert fila.awake_sleep_seg is None
 
     def test_es_append_only_no_sobreescribe_sincronizaciones_previas(self, session, usuario):
         fecha = date(2026, 8, 2)

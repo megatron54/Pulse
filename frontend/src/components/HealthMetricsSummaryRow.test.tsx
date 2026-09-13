@@ -45,7 +45,11 @@ describe("HealthMetricsSummaryRow", () => {
         resting_hr: 52,
         vo2max: null,
         pasos: null,
-      },
+      deep_sleep_seg: null,
+      light_sleep_seg: null,
+      rem_sleep_seg: null,
+      awake_sleep_seg: null,
+    },
     ]);
 
     render(<HealthMetricsSummaryRow userId={1} />);
