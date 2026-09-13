@@ -18,6 +18,30 @@ mono-usuario - no hay compromiso de compatibilidad de API entre versiones).
   layout inspirados en Garmin Connect/Strava/MyFitnessPal (rail de
   métricas, feed de actividades, diario de macros, formularios
   reagrupados).
+- Ingesta de pasos diarios de Garmin (`GarminDailyMetrics.pasos`), visibles
+  en el hero de "Hoy" junto a VFC/Body Battery/sueño/estrés.
+- Ejes, unidad y leyenda visibles en las gráficas de páginas de detalle
+  (Cuerpo, Entrenamiento/Recuperación/Análisis) - el `AreaTrendChart`
+  minimalista sin ejes se mantiene solo en el mini-trend de "Hoy".
+- Página "Entrenamiento" fusiona Recuperación y Análisis en pestañas,
+  eliminando tarjetas duplicadas entre las tres rutas antiguas.
+- `BodyGoalInsightCard` en "Cuerpo": compara la tendencia real de peso
+  (báscula Feelfit) contra la fase de peso activa del usuario y explica si
+  va en línea o desviada, sin inventar un objetivo numérico inexistente.
+- Endpoint de sync manual bajo demanda `POST /users/{id}/garmin/sync`
+  (solo el día pedido) y job de scheduler de sync incremental frecuente
+  (cada 2h configurable) para datos quasi en tiempo real sin repetir el
+  backfill histórico.
+
+### Corregido
+- Rate-limiting al conectar Garmin: el backfill de 90 días (~900 llamadas)
+  corría de forma síncrona dentro de la petición HTTP de alta y podía
+  dejarla colgada varios minutos. Ahora la petición devuelve el usuario en
+  cuanto login+perfil tienen éxito y el backfill continúa en background.
+
+### Cambiado
+- Navegación reducida de 7 a 5 secciones de primer nivel: Hoy, Cuerpo,
+  Entrenamiento, Nutrición, Coach - Cuerpo pasa a segundo lugar.
 
 ## [0.2.0] - 2026-08-10
 

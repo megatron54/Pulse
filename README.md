@@ -34,12 +34,12 @@ Detalle completo en [`01-arquitectura/`](01-arquitectura/).
 
 ## Qué funciona hoy
 
-- **Garmin Connect real**: único mecanismo de alta de usuario (sin onboarding manual), backfill histórico automático, sincronización nocturna de recovery (HRV/Body Battery/sleep/training readiness/estrés minuto a minuto) y actividades — corre como servicio Docker propio (`scheduler`).
+- **Garmin Connect real**: único mecanismo de alta de usuario (sin onboarding manual). El backfill histórico de 90 días corre en background (no bloquea el alta), con sync incremental frecuente (cada 2h) del día en curso además del nocturno completo, y un endpoint de sync manual bajo demanda ("actualizar ahora") — recovery (HRV/Body Battery/sleep/training readiness/estrés minuto a minuto), pasos y actividades. Corre como servicio Docker propio (`scheduler`).
 - **Báscula Feelfit real**: conexión custom vía la API de la báscula, sincronización nocturna automática de la composición de bioimpedancia completa (peso, % grasa, músculo, hueso, % agua, BMI), no solo peso.
 - **wger**: catálogo de ejercicios (el diario de comidas ya no usa wger, ver más abajo).
 - **Motor de reglas**: nutrición (TDEE + macros por fase), planes de fase de peso con duración determinada (déficit/mantenimiento/recomposición/superávit — el sistema recomienda, el usuario confirma), progresión (1RM, doble progresión, autorregulación RIR/APRE), periodización (readiness diario, ACWR real), guardrails (deload forzado, pausa de déficit por mala recuperación sostenida).
 - **Diario de hábitos** correlacionado con recovery (estilo WHOOP Journal), resumen periódico de tendencias.
-- **Frontend**: dashboard visual (gráficas reales, no listados), design system propio Apple-clean con tema claro/oscuro real y patrones de layout inspirados en Garmin Connect/Strava/MyFitnessPal — ver [`frontend/README.md`](frontend/README.md) y [`01-arquitectura/04-design-system-v2.md`](01-arquitectura/04-design-system-v2.md).
+- **Frontend**: navegación de 5 secciones (Hoy/Cuerpo/Entrenamiento/Nutrición/Coach — Entrenamiento fusiona Recuperación y Análisis en pestañas), dashboard visual (gráficas reales con ejes/leyenda en las páginas de detalle, no listados), insight de objetivo de composición corporal en Cuerpo (tendencia de peso vs. fase activa), design system propio Apple-clean con tema claro/oscuro real y patrones de layout inspirados en Garmin Connect/Strava/MyFitnessPal — ver [`frontend/README.md`](frontend/README.md) y [`01-arquitectura/04-design-system-v2.md`](01-arquitectura/04-design-system-v2.md).
 
 ## Quickstart
 
@@ -87,6 +87,7 @@ npm run tauri build
 1. [01-fases-desarrollo.md](02-roadmap/01-fases-desarrollo.md) — Roadmap original por fases (MVP → v1 → v2)
 2. [02-plan-autonomo.md](02-roadmap/02-plan-autonomo.md) — Plan de ejecución autónomo por fases (A-J)
 3. **[03-vision-produccion.md](02-roadmap/03-vision-produccion.md)** — Documento vivo: estado real de cada épica, hallazgos, decisiones pendientes. **Empieza aquí.**
+4. [04-plan-desarrollo-siguiente-fase.md](02-roadmap/04-plan-desarrollo-siguiente-fase.md) — Plan de desarrollo priorizado y secuenciado a partir del backlog de `03-vision-produccion.md`
 
 ### 📦 recursos/ — Material descargado y referencias
 - `recursos/repos/` — Repos GitHub clonados localmente (código real reutilizable, no versionado)
