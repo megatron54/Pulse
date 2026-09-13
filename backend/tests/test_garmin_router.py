@@ -11,7 +11,14 @@ from sqlalchemy.pool import StaticPool
 
 from api.dependencies import get_db
 from api.main import app
-from models.schema import Base, GarminActivity, GarminDailyMetrics, GarminIntradayMetric, ReadinessLog
+from models.schema import (
+    Base,
+    GarminActivity,
+    GarminDailyMetrics,
+    GarminExerciseSet,
+    GarminIntradayMetric,
+    ReadinessLog,
+)
 
 
 @pytest.fixture()
@@ -323,6 +330,48 @@ class TestGetSportNarrative:
     def test_usuario_inexistente_da_404(self, client):
         c, _ = client
         resp = c.get("/users/99999/garmin/activities/narrative?categoria=running")
+        assert resp.status_code == 404
+
+
+class TestGetExerciseSets:
+    """Épica G del plan de desarrollo (Fase 1, punto 2)."""
+
+    def test_devuelve_las_series_de_una_actividad_de_gimnasio(self, client):
+        c, engine = client
+        usuario = _crear_usuario(c)
+        with Session(engine) as session:
+            session.add(
+                GarminExerciseSet(
+                    user_id=usuario["id"],
+                    activity_id="1",
+                    numero_serie=0,
+                    tipo_serie="ACTIVE",
+                    repeticiones=10,
+                    peso_kg=60.0,
+                    categoria_ejercicio="BENCH_PRESS",
+                    duracion_seg=45,
+                )
+            )
+            session.commit()
+
+        resp = c.get(f"/users/{usuario['id']}/garmin/activities/1/exercise-sets")
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body) == 1
+        assert body[0]["categoria_ejercicio"] == "BENCH_PRESS"
+        assert body[0]["peso_kg"] == 60.0
+
+    def test_actividad_sin_series_devuelve_lista_vacia(self, client):
+        c, _ = client
+        usuario = _crear_usuario(c)
+        resp = c.get(f"/users/{usuario['id']}/garmin/activities/999/exercise-sets")
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    def test_usuario_inexistente_da_404(self, client):
+        c, _ = client
+        resp = c.get("/users/99999/garmin/activities/1/exercise-sets")
         assert resp.status_code == 404
 
 

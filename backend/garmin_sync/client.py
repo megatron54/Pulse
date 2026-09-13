@@ -466,6 +466,27 @@ class GarminClient:
         actividades = self._api.get_activities_by_date(start_date_str, end_date_str)
         return actividades or []
 
+    def get_exercise_sets_raw(self, activity_id: str) -> list[dict[str, Any]]:
+        """Series crudas (`exerciseSets`) de una actividad de fuerza, vía
+        `get_activity_exercise_sets` - Épica G del plan de desarrollo
+        (Fase 1, punto 2). Igual que `get_activities_raw`, sin normalizar
+        (eso es `garmin_sync.exercise_set_mapper`).
+
+        Un fallo aquí (ej. actividad sin sets, endpoint devuelve error)
+        nunca debe tumbar el sync de actividades del resto del lote -
+        se degrada a lista vacía, mismo criterio "unknown is not zero"
+        que `_llamada_segura`."""
+        if self._api is None:
+            raise RuntimeError("login() debe llamarse antes de sincronizar datos")
+        try:
+            payload = self._api.get_activity_exercise_sets(activity_id)
+        except Exception:
+            return []
+        if not isinstance(payload, dict):
+            return []
+        sets = payload.get("exerciseSets")
+        return sets if isinstance(sets, list) else []
+
     def get_user_profile_raw(self) -> dict[str, Any]:
         """Perfil básico del usuario (nombre, altura, peso, fecha de
         nacimiento, sexo) - Épica de conexión Garmin desde la propia app

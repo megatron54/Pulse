@@ -11,11 +11,12 @@ from sqlalchemy.orm import Session
 
 from models.schema import Base, GarminActivity, UserProfile
 from repositories.garmin_intraday_repository import save_intraday_points
-from repositories.garmin_repository import save_activity_if_new
+from repositories.garmin_repository import save_activity_if_new, save_exercise_sets_if_new
 from services.errors import EntityNotFoundError
 from services.garmin_query_service import (
     CategoriaDeporte,
     get_activity_history_for_user,
+    get_exercise_sets_for_user,
     get_intraday_history_for_user,
     get_weekly_volume_for_user,
 )
@@ -237,3 +238,35 @@ class TestGetIntradayHistoryForUser:
     def test_usuario_inexistente_lanza_entity_not_found(self, session):
         with pytest.raises(EntityNotFoundError):
             get_intraday_history_for_user(session, 99999, "heart_rate", date(2026, 8, 8))
+
+
+class TestGetExerciseSetsForUser:
+    def test_devuelve_las_series_ya_ingeridas_de_una_actividad(self, session, usuario):
+        save_exercise_sets_if_new(
+            session,
+            usuario.id,
+            "111",
+            [
+                {
+                    "numero_serie": 0,
+                    "tipo_serie": "ACTIVE",
+                    "repeticiones": 10,
+                    "peso_kg": 60.0,
+                    "categoria_ejercicio": "BENCH_PRESS",
+                    "duracion_seg": 45,
+                    "raw_json": {},
+                }
+            ],
+        )
+
+        series = get_exercise_sets_for_user(session, usuario.id, "111")
+
+        assert len(series) == 1
+        assert series[0].categoria_ejercicio == "BENCH_PRESS"
+
+    def test_actividad_sin_series_devuelve_lista_vacia(self, session, usuario):
+        assert get_exercise_sets_for_user(session, usuario.id, "999") == []
+
+    def test_usuario_inexistente_lanza_entity_not_found(self, session):
+        with pytest.raises(EntityNotFoundError):
+            get_exercise_sets_for_user(session, 99999, "111")

@@ -279,6 +279,45 @@ class GarminActivity(Base):
     ingested_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
+class GarminExerciseSet(Base):
+    """Épica G del plan de desarrollo (04-plan-desarrollo-siguiente-fase.md,
+    Fase 1, punto 2): desglose de series/reps/peso de una sesión de
+    gimnasio, vía `get_activity_exercise_sets`. Nombres de campo
+    (`setType`/`repetitionCount`/`weight`/`category`) tomados del
+    payload documentado de la API de Garmin Connect - igual que la
+    Épica D, sin verificar aún contra actividades reales de fuerza del
+    usuario (cuenta de prueba sin sesiones de gimnasio sincronizadas
+    todavía), `raw_json` queda guardado para poder re-mapear si algún
+    nombre resultara distinto en la práctica.
+
+    `numero_serie` es el índice de la serie dentro de la actividad (0,
+    1, 2...) tal como la devuelve Garmin, no un ID propio - junto con
+    (user_id, activity_id) da la unicidad real, mismo criterio que
+    `uq_garmin_activity_user_activity`."""
+
+    __tablename__ = "garmin_exercise_set"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "activity_id",
+            "numero_serie",
+            name="uq_garmin_exercise_set_user_activity_numero",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user_profile.id"), index=True)
+    activity_id: Mapped[str] = mapped_column(String(50), index=True)
+    numero_serie: Mapped[int] = mapped_column(Integer)
+    tipo_serie: Mapped[str | None] = mapped_column(String(20), default=None)
+    repeticiones: Mapped[int | None] = mapped_column(default=None)
+    peso_kg: Mapped[float | None] = mapped_column(default=None)
+    categoria_ejercicio: Mapped[str | None] = mapped_column(String(100), default=None)
+    duracion_seg: Mapped[int | None] = mapped_column(default=None)
+    raw_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, default=None)
+    ingested_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 class BodyMeasurements(Base):
     """Append-only. `bodyfat_pct_rango_min/max` en vez de un único
     número: nunca se muestra una precisión falsa al usuario (ver

@@ -272,6 +272,18 @@ export type GarminActivity = {
   training_effect: number | null;
 };
 
+// Épica G del plan de desarrollo (04-plan-desarrollo-siguiente-fase.md,
+// Fase 1, punto 2): una serie de una sesión de gimnasio. peso_kg es
+// null en series de calentamiento a peso corporal, nunca 0 inventado.
+export type GarminExerciseSet = {
+  numero_serie: number;
+  tipo_serie: string | null;
+  repeticiones: number | null;
+  peso_kg: number | null;
+  categoria_ejercicio: string | null;
+  duracion_seg: number | null;
+};
+
 // Épica 10 del plan de expansión: un punto de la gráfica de volumen
 // semanal por deporte - distancia_total_m/duracion_total_seg son null
 // si ninguna actividad de esa semana trae ese campo (nunca 0 inventado).
@@ -436,6 +448,9 @@ export const api = {
         categoria ? `&categoria=${categoria}` : ""
       }`
     ),
+
+  getGarminExerciseSets: (userId: number, activityId: string) =>
+    request<GarminExerciseSet[]>(`/users/${userId}/garmin/activities/${activityId}/exercise-sets`),
 
   getGarminWeeklyVolume: (
     userId: number,

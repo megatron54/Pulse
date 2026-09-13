@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from models.schema import GarminActivity, GarminDailyMetrics
+from models.schema import GarminActivity, GarminDailyMetrics, GarminExerciseSet
 
 _DIAS_BASELINE = 28
 _DIAS_TENDENCIA = 7
@@ -147,6 +147,51 @@ def save_activity_if_new(session: Session, user_id: int, actividad: dict[str, An
         session.rollback()
         return False
     return True
+
+
+def save_exercise_sets_if_new(
+    session: Session, user_id: int, activity_id: str, sets: list[dict[str, Any]]
+) -> int:
+    """Persiste las series de `garmin_sync.exercise_set_mapper.
+    map_raw_exercise_set` para una actividad, idempotente por diseño -
+    mismo patrón que `save_activity_if_new`: si la actividad ya tiene
+    series guardadas (resync del mismo rango de fechas), no duplica.
+    Se comprueba una sola vez por actividad (no serie a serie) porque
+    Garmin siempre devuelve el conjunto completo de series de una
+    actividad en una sola llamada, nunca series sueltas nuevas sobre
+    una actividad ya sincronizada. Devuelve cuántas series se
+    insertaron."""
+    ya_existe = (
+        session.query(GarminExerciseSet)
+        .filter_by(user_id=user_id, activity_id=activity_id)
+        .first()
+        is not None
+    )
+    if ya_existe:
+        return 0
+
+    insertadas = 0
+    for serie in sets:
+        session.add(GarminExerciseSet(user_id=user_id, activity_id=activity_id, **serie))
+        insertadas += 1
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        return 0
+    return insertadas
+
+
+def get_exercise_sets_for_activity(
+    session: Session, user_id: int, activity_id: str
+) -> list[GarminExerciseSet]:
+    stmt = (
+        select(GarminExerciseSet)
+        .where(GarminExerciseSet.user_id == user_id)
+        .where(GarminExerciseSet.activity_id == activity_id)
+        .order_by(GarminExerciseSet.numero_serie.asc())
+    )
+    return list(session.execute(stmt).scalars().all())
 
 
 def get_activity_history(

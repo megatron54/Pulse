@@ -44,6 +44,14 @@ mono-usuario - no hay compromiso de compatibilidad de API entre versiones).
   exporta el informe vía el diálogo de impresión nativo del navegador
   ("Guardar como PDF"), sin depender de una librería de generación de PDF
   nueva.
+- Desglose de series/reps/peso de sesiones de gimnasio (`get_activity_exercise_sets`),
+  ingerido solo para actividades nuevas (nunca se relee el detalle de una
+  ya vista, por el mismo motivo de riesgo de bloqueo de cuenta ya
+  documentado) y visible como detalle expandible bajo cada actividad de
+  gimnasio en su histórico. Nombres de campo de Garmin (`setType`,
+  `repetitionCount`, `weight`, `category`) sin verificar aún contra una
+  sesión de fuerza real del usuario - mismo caveat de honestidad que la
+  agrupación de `typeKey` por categoría.
 
 ### Corregido
 - Rate-limiting al conectar Garmin: el backfill de 90 días (~900 llamadas)

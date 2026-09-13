@@ -319,6 +319,21 @@ class GarminDailyMetricsOut(BaseModel):
     awake_sleep_seg: int | None
 
 
+class GarminExerciseSetOut(BaseModel):
+    """Épica G del plan de desarrollo (Fase 1, punto 2): una serie de
+    una sesión de gimnasio. `peso_kg` es None en series de calentamiento
+    a peso corporal - "unknown is not zero", nunca se asume 0 kg."""
+
+    numero_serie: int
+    tipo_serie: str | None
+    repeticiones: int | None
+    peso_kg: float | None
+    categoria_ejercicio: str | None
+    duracion_seg: int | None
+
+    model_config = {"from_attributes": True}
+
+
 class GarminIntradayPointOut(BaseModel):
     """Un punto de la serie minuto a minuto (petición explícita del
     usuario: "quiero todo ese histórico, no me vale que cojas la media

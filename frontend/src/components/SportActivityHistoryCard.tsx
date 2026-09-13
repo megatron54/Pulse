@@ -5,6 +5,7 @@ import type { LucideIcon } from "lucide-react";
 import { api, ApiError, type GarminActivity } from "@/lib/api";
 import { formatDistancia, formatDuracion } from "@/lib/activityFormat";
 import { CoachNarrativeBlock } from "./CoachNarrativeBlock";
+import { ExerciseSetsDetail } from "./ExerciseSetsDetail";
 import { ActivityListItem } from "./ui/ActivityListItem";
 import { Card, CardTitle } from "./ui/Card";
 import { EmptyState } from "./ui/EmptyState";
@@ -43,6 +44,7 @@ export function SportActivityHistoryCard({
   const [actividades, setActividades] = useState<GarminActivity[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [intentos, setIntentos] = useState(0);
+  const [expandida, setExpandida] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelado = false;
@@ -89,16 +91,29 @@ export function SportActivityHistoryCard({
       {!error && actividades !== null && actividades.length > 0 && (
         <div className="flex flex-col gap-2">
           {actividades.map((act) => (
-            <ActivityListItem
-              key={act.activity_id}
-              icon={icono}
-              title={act.tipo.replace(/_/g, " ")}
-              subtitle={act.fecha}
-              metrics={[
-                { label: "Duración", value: formatDuracion(act.duracion_seg) },
-                { label: "Distancia", value: formatDistancia(act.distancia_m) },
-              ]}
-            />
+            <div key={act.activity_id}>
+              <div
+                onClick={
+                  categoria === "gimnasio"
+                    ? () => setExpandida((actual) => (actual === act.activity_id ? null : act.activity_id))
+                    : undefined
+                }
+                className={categoria === "gimnasio" ? "cursor-pointer" : undefined}
+              >
+                <ActivityListItem
+                  icon={icono}
+                  title={act.tipo.replace(/_/g, " ")}
+                  subtitle={act.fecha}
+                  metrics={[
+                    { label: "Duración", value: formatDuracion(act.duracion_seg) },
+                    { label: "Distancia", value: formatDistancia(act.distancia_m) },
+                  ]}
+                />
+              </div>
+              {categoria === "gimnasio" && expandida === act.activity_id && (
+                <ExerciseSetsDetail userId={userId} activityId={act.activity_id} />
+              )}
+            </div>
           ))}
         </div>
       )}

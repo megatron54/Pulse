@@ -448,6 +448,64 @@ class TestGetActivitiesRaw:
         fake_api.get_activities_by_date.assert_not_called()
 
 
+class TestGetExerciseSetsRaw:
+    """`get_activity_exercise_sets` de python-garminconnect - a
+    diferencia de get_activities_raw, un fallo aquí (actividad sin
+    sets, endpoint da error) se degrada a lista vacía en vez de
+    propagar, para que `services.garmin_activity_service` nunca
+    descarte una actividad recién ingerida por esto."""
+
+    def _client_logueado(self, fake_api):
+        client = GarminClient(
+            token_store_dir="C:/fake/.garminconnect",
+            api_factory=_fake_api_factory(fake_api),
+        )
+        client.login()
+        return client
+
+    def test_devuelve_la_lista_de_exercisesets_del_payload(self):
+        fake_api = MagicMock()
+        fake_api.get_activity_exercise_sets.return_value = {
+            "exerciseSets": [{"setType": "ACTIVE", "repetitionCount": 10}]
+        }
+        client = self._client_logueado(fake_api)
+
+        sets = client.get_exercise_sets_raw("999")
+
+        assert sets == [{"setType": "ACTIVE", "repetitionCount": 10}]
+        fake_api.get_activity_exercise_sets.assert_called_once_with("999")
+
+    def test_payload_sin_exercisesets_devuelve_lista_vacia(self):
+        fake_api = MagicMock()
+        fake_api.get_activity_exercise_sets.return_value = {}
+        client = self._client_logueado(fake_api)
+
+        assert client.get_exercise_sets_raw("999") == []
+
+    def test_payload_none_devuelve_lista_vacia(self):
+        fake_api = MagicMock()
+        fake_api.get_activity_exercise_sets.return_value = None
+        client = self._client_logueado(fake_api)
+
+        assert client.get_exercise_sets_raw("999") == []
+
+    def test_excepcion_de_la_api_se_degrada_a_lista_vacia_en_vez_de_propagar(self):
+        fake_api = MagicMock()
+        fake_api.get_activity_exercise_sets.side_effect = RuntimeError("boom")
+        client = self._client_logueado(fake_api)
+
+        assert client.get_exercise_sets_raw("999") == []
+
+    def test_operar_sin_login_previo_lanza_runtime_error(self):
+        fake_api = MagicMock()
+        client = GarminClient(
+            token_store_dir="C:/fake/.garminconnect",
+            api_factory=_fake_api_factory(fake_api),
+        )
+        with pytest.raises(RuntimeError):
+            client.get_exercise_sets_raw("999")
+
+
 class TestGetUserProfileRaw:
     """Épica de conexión Garmin desde la propia app (petición explícita
     del usuario: "sin cuenta local, que al conectar Garmin se saquen

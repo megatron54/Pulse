@@ -17,6 +17,7 @@ from api.dependencies import get_db, verify_api_key
 from api.schemas import (
     GarminActivityOut,
     GarminDailyMetricsOut,
+    GarminExerciseSetOut,
     GarminIntradayPointOut,
     GarminManualSyncOut,
     HealthNarrativeOut,
@@ -32,6 +33,7 @@ from services.garmin_query_service import (
     CategoriaDeporte,
     get_activity_history_for_user,
     get_daily_metrics_history_for_user,
+    get_exercise_sets_for_user,
     get_intraday_history_for_user,
     get_weekly_volume_for_user,
 )
@@ -122,6 +124,19 @@ def get_sport_narrative(
     if resultado is None:
         return SportNarrativeOut(text=None, source=None)
     return SportNarrativeOut(text=resultado.text, source=resultado.source)
+
+
+@router.get("/activities/{activity_id}/exercise-sets", response_model=list[GarminExerciseSetOut])
+def get_exercise_sets(
+    user_id: int,
+    activity_id: str,
+    db: Session = Depends(get_db),
+) -> list[GarminExerciseSetOut]:
+    """Series/reps/peso de una sesión de gimnasio (Épica G, Fase 1
+    punto 2) - lista vacía si la actividad no es de gimnasio o no tiene
+    series ingeridas."""
+    sets = get_exercise_sets_for_user(db, user_id, activity_id)
+    return [GarminExerciseSetOut.model_validate(s, from_attributes=True) for s in sets]
 
 
 @router.get("/activities/volume", response_model=list[WeeklyVolumeOut])

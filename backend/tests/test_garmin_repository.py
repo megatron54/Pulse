@@ -12,14 +12,16 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from models.schema import Base, GarminActivity, GarminDailyMetrics, UserProfile
+from models.schema import Base, GarminActivity, GarminDailyMetrics, GarminExerciseSet, UserProfile
 from repositories.garmin_repository import (
     get_activity_history,
     get_daily_metrics_history,
+    get_exercise_sets_for_activity,
     get_hrv_baseline_28d,
     get_hrv_trend_7d,
     save_activity_if_new,
     save_daily_metrics,
+    save_exercise_sets_if_new,
 )
 
 
@@ -446,3 +448,69 @@ class TestGetDailyMetricsHistory:
         fechas = [f.fecha for f in historial]
         assert hoy - timedelta(days=6) in fechas
         assert hoy - timedelta(days=7) not in fechas
+
+
+def _series_de_ejemplo():
+    return [
+        {
+            "numero_serie": 0,
+            "tipo_serie": "ACTIVE",
+            "repeticiones": 10,
+            "peso_kg": 60.0,
+            "categoria_ejercicio": "BENCH_PRESS",
+            "duracion_seg": 45,
+            "raw_json": {"setType": "ACTIVE"},
+        },
+        {
+            "numero_serie": 1,
+            "tipo_serie": "REST",
+            "repeticiones": None,
+            "peso_kg": None,
+            "categoria_ejercicio": None,
+            "duracion_seg": 60,
+            "raw_json": {"setType": "REST"},
+        },
+    ]
+
+
+class TestSaveExerciseSetsIfNew:
+    def _series(self):
+        return _series_de_ejemplo()
+
+    def test_inserta_todas_las_series_de_una_actividad_nueva(self, session, usuario):
+        insertadas = save_exercise_sets_if_new(session, usuario.id, "222", self._series())
+        assert insertadas == 2
+        filas = session.query(GarminExerciseSet).filter_by(user_id=usuario.id).all()
+        assert len(filas) == 2
+
+    def test_reintentar_la_misma_actividad_no_duplica(self, session, usuario):
+        save_exercise_sets_if_new(session, usuario.id, "222", self._series())
+        insertadas_de_nuevo = save_exercise_sets_if_new(session, usuario.id, "222", self._series())
+
+        assert insertadas_de_nuevo == 0
+        assert session.query(GarminExerciseSet).filter_by(user_id=usuario.id).count() == 2
+
+    def test_el_mismo_activity_id_en_dos_usuarios_distintos_no_choca(self, session, usuario):
+        otro = UserProfile(
+            nombre="Otro", altura_cm=170.0, fecha_nacimiento=date(1990, 1, 1), sexo="F"
+        )
+        session.add(otro)
+        session.commit()
+
+        save_exercise_sets_if_new(session, usuario.id, "222", self._series())
+        insertadas = save_exercise_sets_if_new(session, otro.id, "222", self._series())
+
+        assert insertadas == 2
+        assert session.query(GarminExerciseSet).count() == 4
+
+
+class TestGetExerciseSetsForActivity:
+    def test_devuelve_las_series_ordenadas_por_numero_de_serie(self, session, usuario):
+        save_exercise_sets_if_new(session, usuario.id, "222", list(reversed(_series_de_ejemplo())))
+
+        series = get_exercise_sets_for_activity(session, usuario.id, "222")
+
+        assert [s.numero_serie for s in series] == [0, 1]
+
+    def test_actividad_sin_series_ingeridas_devuelve_lista_vacia(self, session, usuario):
+        assert get_exercise_sets_for_activity(session, usuario.id, "999") == []

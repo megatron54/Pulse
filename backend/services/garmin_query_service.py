@@ -10,9 +10,19 @@ from enum import Enum
 
 from sqlalchemy.orm import Session
 
-from models.schema import GarminActivity, GarminDailyMetrics, GarminIntradayMetric, UserProfile
+from models.schema import (
+    GarminActivity,
+    GarminDailyMetrics,
+    GarminExerciseSet,
+    GarminIntradayMetric,
+    UserProfile,
+)
 from repositories.garmin_intraday_repository import get_intraday_history
-from repositories.garmin_repository import get_activity_history, get_daily_metrics_history
+from repositories.garmin_repository import (
+    get_activity_history,
+    get_daily_metrics_history,
+    get_exercise_sets_for_activity,
+)
 from services.errors import EntityNotFoundError
 
 _DIAS_HISTORIAL_POR_DEFECTO = 90
@@ -61,6 +71,14 @@ _TIPOS_GARMIN_POR_CATEGORIA: dict[CategoriaDeporte, list[str]] = {
 }
 
 
+def tipos_garmin_de(categoria: CategoriaDeporte) -> list[str]:
+    """Lista de `typeKey` reales de Garmin agrupados bajo una categoría -
+    expuesto para que otros servicios (ej. `garmin_activity_service`,
+    para decidir si una actividad es de gimnasio) reutilicen la misma
+    agrupación sin duplicarla."""
+    return _TIPOS_GARMIN_POR_CATEGORIA[categoria]
+
+
 def get_activity_history_for_user(
     session: Session,
     user_id: int,
@@ -72,6 +90,17 @@ def get_activity_history_for_user(
         raise EntityNotFoundError(f"No existe UserProfile con id={user_id}")
     tipos = _TIPOS_GARMIN_POR_CATEGORIA[categoria] if categoria is not None else None
     return get_activity_history(session, user_id, as_of, days, tipos=tipos)
+
+
+def get_exercise_sets_for_user(
+    session: Session, user_id: int, activity_id: str
+) -> list[GarminExerciseSet]:
+    """Series de gimnasio de una actividad concreta (Épica G, Fase 1
+    punto 2) - lista vacía si la actividad no tiene series ingeridas
+    (nunca ingerida, o no era de gimnasio), nunca un error."""
+    if session.get(UserProfile, user_id) is None:
+        raise EntityNotFoundError(f"No existe UserProfile con id={user_id}")
+    return get_exercise_sets_for_activity(session, user_id, activity_id)
 
 
 def get_daily_metrics_history_for_user(

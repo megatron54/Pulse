@@ -22,7 +22,9 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from garmin_sync.activity_mapper import InvalidActivityError, map_raw_activity
-from repositories.garmin_repository import save_activity_if_new
+from garmin_sync.exercise_set_mapper import map_raw_exercise_set
+from repositories.garmin_repository import save_activity_if_new, save_exercise_sets_if_new
+from services.garmin_query_service import CategoriaDeporte, tipos_garmin_de
 
 
 @dataclass(frozen=True)
@@ -43,6 +45,8 @@ def sync_activities(
         start_date.isoformat(), end_date.isoformat()
     )
 
+    tipos_gimnasio = tipos_garmin_de(CategoriaDeporte.GIMNASIO)
+
     ingresadas = 0
     omitidas = 0
     invalidas = 0
@@ -55,7 +59,27 @@ def sync_activities(
 
         if save_activity_if_new(session, user_id, actividad):
             ingresadas += 1
+            if actividad["tipo"] in tipos_gimnasio:
+                _sync_exercise_sets(session, user_id, garmin_client, actividad["activity_id"])
         else:
             omitidas += 1
 
     return ActivitySyncResult(ingresadas=ingresadas, omitidas=omitidas, invalidas=invalidas)
+
+
+def _sync_exercise_sets(
+    session: Session, user_id: int, garmin_client: Any, activity_id: str
+) -> None:
+    """Serie de gimnasio de una actividad recién ingresada (Épica G,
+    Fase 1 punto 2) - solo se pide detalle para actividades NUEVAS
+    (nunca releer detalle de actividades ya vistas, ver nota de riesgo
+    de bloqueo de cuenta del punto 2 de investigación). Un fallo aquí
+    (actividad sin sets, o el propio `get_exercise_sets_raw` ya
+    degradado a lista vacía) nunca debe descartar la actividad recién
+    guardada - mismo aislamiento por actividad que el resto de este
+    módulo."""
+    raw_sets = garmin_client.get_exercise_sets_raw(activity_id)
+    if not raw_sets:
+        return
+    sets = [map_raw_exercise_set(raw, numero_serie=i) for i, raw in enumerate(raw_sets)]
+    save_exercise_sets_if_new(session, user_id, activity_id, sets)
