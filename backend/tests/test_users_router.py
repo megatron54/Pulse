@@ -15,7 +15,7 @@ from api.dependencies import get_db
 from api.main import app
 from garmin_sync.client import GarminAuthError, GarminRateLimitedError
 from models.schema import Base, GarminCredentials, UserProfile
-from services.garmin_onboarding_service import GarminPerfilIncompletoError
+from services.garmin_onboarding_service import ConexionGarminResultado, GarminPerfilIncompletoError
 
 
 @pytest.fixture()
@@ -47,7 +47,10 @@ class TestGarminConnect:
 
         with (
             patch(
-                "api.routers.users.connect_new_user_via_garmin", return_value=usuario_creado
+                "api.routers.users.connect_or_reconnect_via_garmin",
+                return_value=ConexionGarminResultado(
+                    usuario=usuario_creado, es_nuevo=True, token_store_dir="/tmp/x"
+                ),
             ) as mock_connect,
             patch("api.routers.users._ejecutar_backfill_en_background"),
         ):
@@ -80,7 +83,12 @@ class TestGarminConnect:
             session.refresh(usuario_creado)
 
         with (
-            patch("api.routers.users.connect_new_user_via_garmin", return_value=usuario_creado),
+            patch(
+                "api.routers.users.connect_or_reconnect_via_garmin",
+                return_value=ConexionGarminResultado(
+                    usuario=usuario_creado, es_nuevo=True, token_store_dir="/tmp/x"
+                ),
+            ),
             patch("api.routers.users._ejecutar_backfill_en_background") as mock_backfill,
         ):
             resp = c.post(
@@ -94,7 +102,7 @@ class TestGarminConnect:
     def test_perfil_incompleto_devuelve_422_con_los_campos_faltantes(self, client):
         c, _ = client
         with patch(
-            "api.routers.users.connect_new_user_via_garmin",
+            "api.routers.users.connect_or_reconnect_via_garmin",
             side_effect=GarminPerfilIncompletoError(["sexo", "altura_cm"]),
         ):
             resp = c.post(
@@ -116,7 +124,10 @@ class TestGarminConnect:
 
         with (
             patch(
-                "api.routers.users.connect_new_user_via_garmin", return_value=usuario_creado
+                "api.routers.users.connect_or_reconnect_via_garmin",
+                return_value=ConexionGarminResultado(
+                    usuario=usuario_creado, es_nuevo=True, token_store_dir="/tmp/x"
+                ),
             ) as mock_connect,
             patch("api.routers.users._ejecutar_backfill_en_background"),
         ):
@@ -130,7 +141,7 @@ class TestGarminConnect:
     def test_credenciales_invalidas_devuelve_401(self, client):
         c, _ = client
         with patch(
-            "api.routers.users.connect_new_user_via_garmin",
+            "api.routers.users.connect_or_reconnect_via_garmin",
             side_effect=GarminAuthError("401 no autorizado"),
         ):
             resp = c.post(
@@ -144,7 +155,7 @@ class TestGarminConnect:
     def test_rate_limit_devuelve_429(self, client):
         c, _ = client
         with patch(
-            "api.routers.users.connect_new_user_via_garmin",
+            "api.routers.users.connect_or_reconnect_via_garmin",
             side_effect=GarminRateLimitedError("429 too many requests"),
         ):
             resp = c.post("/users/garmin-connect", json={"email": "a@b.com", "password": "x"})
@@ -165,7 +176,12 @@ class TestGarminConnect:
             session.refresh(usuario_creado)
 
         with (
-            patch("api.routers.users.connect_new_user_via_garmin", return_value=usuario_creado),
+            patch(
+                "api.routers.users.connect_or_reconnect_via_garmin",
+                return_value=ConexionGarminResultado(
+                    usuario=usuario_creado, es_nuevo=True, token_store_dir="/tmp/x"
+                ),
+            ),
             patch("api.routers.users._ejecutar_backfill_en_background"),
         ):
             resp = c.post(

@@ -19,6 +19,9 @@ from services.garmin_onboarding_service import (
     GarminPerfilIncompletoError,
     backfill_new_user_history,
     connect_new_user_via_garmin,
+    connect_or_reconnect_via_garmin,
+    find_user_by_garmin_email,
+    reconnect_existing_user_via_garmin,
 )
 
 
@@ -168,6 +171,113 @@ class TestConnectNewUserViaGarmin:
         fake_api.login.assert_called_once()
 
 
+class TestFindUserByGarminEmail:
+    def test_encuentra_el_usuario_por_email_normalizado(self, session):
+        usuario = UserProfile(
+            nombre="Miguel", sexo="M", altura_cm=176.0, fecha_nacimiento=date(2002, 11, 28)
+        )
+        session.add(usuario)
+        session.flush()
+        session.add(
+            GarminCredentials(
+                user_id=usuario.id,
+                token_store_dir="/data/garmin-tokens/pulse-user-1",
+                garmin_email="miguel@example.com",
+                activo=True,
+            )
+        )
+        session.commit()
+
+        encontrado = find_user_by_garmin_email(session, "  Miguel@Example.com ")
+
+        assert encontrado is not None
+        assert encontrado.id == usuario.id
+
+    def test_devuelve_none_si_el_email_nunca_se_vio(self, session):
+        assert find_user_by_garmin_email(session, "nadie@example.com") is None
+
+
+class TestReconnectExistingUserViaGarmin:
+    def test_reactiva_las_credenciales_reutilizando_el_token_store_dir_existente(self, session):
+        usuario = UserProfile(
+            nombre="Miguel", sexo="M", altura_cm=176.0, fecha_nacimiento=date(2002, 11, 28)
+        )
+        session.add(usuario)
+        session.flush()
+        cred = GarminCredentials(
+            user_id=usuario.id,
+            token_store_dir="/data/garmin-tokens/pulse-user-1",
+            garmin_email="miguel@example.com",
+            activo=False,
+        )
+        session.add(cred)
+        session.commit()
+
+        fake_api = MagicMock()
+        reconnect_existing_user_via_garmin(
+            session,
+            usuario=usuario,
+            email="miguel@example.com",
+            password="hunter2",
+            api_factory=_api_factory(fake_api),
+        )
+
+        session.refresh(cred)
+        assert cred.activo is True
+        fake_api.login.assert_called_once()
+
+
+class TestConnectOrReconnectViaGarmin:
+    def test_email_ya_visto_reconecta_en_vez_de_crear_un_usuario_duplicado(self, session):
+        usuario = UserProfile(
+            nombre="Miguel", sexo="M", altura_cm=176.0, fecha_nacimiento=date(2002, 11, 28)
+        )
+        session.add(usuario)
+        session.flush()
+        session.add(
+            GarminCredentials(
+                user_id=usuario.id,
+                token_store_dir="/data/garmin-tokens/pulse-user-1",
+                garmin_email="miguel@example.com",
+                activo=False,
+            )
+        )
+        session.commit()
+
+        fake_api = MagicMock()
+        resultado = connect_or_reconnect_via_garmin(
+            session,
+            email="miguel@example.com",
+            password="hunter2",
+            token_store_dir="/data/garmin-tokens/pulse-user-nuevo-ignorado",
+            api_factory=_api_factory(fake_api),
+        )
+
+        assert resultado.es_nuevo is False
+        assert resultado.usuario.id == usuario.id
+        assert resultado.token_store_dir == "/data/garmin-tokens/pulse-user-1"
+        assert session.query(UserProfile).count() == 1
+
+    def test_email_nuevo_crea_un_usuario(self, session):
+        fake_api = MagicMock()
+        fake_api.get_full_name.return_value = "Miguel"
+        fake_api.get_user_profile.return_value = {
+            "userData": {"gender": "MALE", "weight": 77000.0, "height": 176.0, "birthDate": "2002-11-28"}
+        }
+
+        resultado = connect_or_reconnect_via_garmin(
+            session,
+            email="miguel@example.com",
+            password="hunter2",
+            token_store_dir="/data/garmin-tokens/pulse-user-1",
+            api_factory=_api_factory(fake_api),
+        )
+
+        assert resultado.es_nuevo is True
+        assert resultado.usuario.nombre == "Miguel"
+        assert session.query(UserProfile).count() == 1
+
+
 class TestBackfillNewUserHistory:
     def test_reutiliza_la_sesion_ya_logueada_para_el_backfill_completo(self, session):
         usuario = UserProfile(
@@ -202,6 +312,41 @@ class TestBackfillNewUserHistory:
         fake_api.get_activities_by_date.assert_called_once_with("2026-08-08", "2026-08-10")
         assert fake_api.get_hrv_data.call_count == 3
         fake_api.login.assert_called_once()
+
+    def test_marca_la_frontera_de_historial_sincronizado_tras_completar(self, session):
+        usuario = UserProfile(
+            nombre="Miguel", sexo="M", altura_cm=176.0, fecha_nacimiento=date(2002, 11, 28)
+        )
+        session.add(usuario)
+        session.flush()
+        session.add(
+            GarminCredentials(
+                user_id=usuario.id, token_store_dir="/data/garmin-tokens/pulse-user-1", activo=True
+            )
+        )
+        session.commit()
+
+        fake_api = MagicMock()
+        fake_api.get_activities_by_date.return_value = []
+        fake_api.get_hrv_data.return_value = None
+        fake_api.get_training_readiness.return_value = None
+        fake_api.get_body_battery.return_value = None
+        fake_api.get_sleep_data.return_value = None
+        fake_api.get_stress_data.return_value = None
+        fake_api.get_rhr_day.return_value = None
+        fake_api.get_max_metrics.return_value = None
+
+        backfill_new_user_history(
+            session,
+            user_id=usuario.id,
+            token_store_dir="/data/garmin-tokens/pulse-user-1",
+            api_factory=_api_factory(fake_api),
+            backfill_dias=3,
+            hoy=date(2026, 8, 10),
+        )
+
+        cred = session.query(GarminCredentials).filter_by(user_id=usuario.id).one()
+        assert cred.historial_sincronizado_desde == date(2026, 8, 8)
 
     def test_no_lanza_si_el_backfill_falla_por_completo(self, session):
         # `garmin_backfill_service` ya aísla sus propios fallos día a

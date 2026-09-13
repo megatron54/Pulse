@@ -107,22 +107,22 @@ export function PeriodicSummaryCard({
               )}
               <div className="flex gap-4 text-center">
                 <div>
-                  <p className="text-2xl font-bold text-recovery-high">
+                  <p className="text-2xl font-bold text-recovery-high tabular-nums">
                     {resumen.distribucion_readiness.green}
                   </p>
-                  <p className="text-xs text-text-secondary uppercase">Green</p>
+                  <p className="text-xs font-medium text-text-secondary tracking-wide">Óptimo</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-recovery-medium">
+                  <p className="text-2xl font-bold text-recovery-medium tabular-nums">
                     {resumen.distribucion_readiness.yellow}
                   </p>
-                  <p className="text-xs text-text-secondary uppercase">Yellow</p>
+                  <p className="text-xs font-medium text-text-secondary tracking-wide">Moderado</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-recovery-low">
+                  <p className="text-2xl font-bold text-recovery-low tabular-nums">
                     {resumen.distribucion_readiness.red}
                   </p>
-                  <p className="text-xs text-text-secondary uppercase">Red</p>
+                  <p className="text-xs font-medium text-text-secondary tracking-wide">Bajo</p>
                 </div>
               </div>
             </div>

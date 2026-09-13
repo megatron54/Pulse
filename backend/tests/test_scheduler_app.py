@@ -17,6 +17,7 @@ class TestBuildScheduler:
             "sync_actividades_garmin",
             "sync_feelfit",
             "sync_frecuente_garmin",
+            "profundizacion_historial_garmin",
         }
 
     def test_usa_hora_por_defecto_04_00_si_no_hay_env(self, monkeypatch):

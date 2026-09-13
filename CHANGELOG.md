@@ -7,6 +7,25 @@ mono-usuario - no hay compromiso de compatibilidad de API entre versiones).
 ## [Unreleased]
 
 ### Añadido
+- Formulario propio para conectar la báscula Feelfit desde la página
+  Cuerpo (`FeelfitConnectForm`), sin pasar por Samsung Health/Apple
+  Health/Fitbit/Health Connect/Google Fit - el backend ya hablaba
+  directo con la API en la nube de Feelfit pero no existía forma de
+  usarlo desde el frontend.
+- Detección de reconexión de una cuenta de Garmin ya vinculada (por
+  `garmin_email`, no secreto) en `POST /users/garmin-connect`: perder el
+  `pulse_user_id` de localStorage (nuevo navegador, caché borrada) ya no
+  crea un `UserProfile` duplicado ni repite el backfill completo de 90
+  días - causa real del rate-limiting de Garmin reportado por el usuario.
+  Un email ya visto reconecta (`200 OK`, reutiliza el `token_store_dir`
+  existente, dispara solo un sync ligero del día en curso) en vez de dar
+  de alta una cuenta nueva (`201 Created`, backfill completo).
+- Profundización gradual del histórico de Garmin más allá de los 90 días
+  iniciales: job nocturno (`profundizacion_historial_garmin`) que retrocede
+  hasta 30 días más por pasada (configurable vía
+  `PULSE_GARMIN_HISTORIAL_DIAS_POR_NOCHE`) hasta un máximo de ~2 años
+  (`PULSE_GARMIN_HISTORIAL_MAX_DIAS`), evitando el volumen de peticiones de
+  un backfill único de años que dispararía el mismo rate-limit.
 - Persistencia completa de la composición de bioimpedancia de la báscula
   Feelfit (músculo, hueso, % agua, BMI) - antes se descartaba y solo se
   guardaba peso/% de grasa, pese a que la báscula ya la reportaba en cada
@@ -71,6 +90,11 @@ mono-usuario - no hay compromiso de compatibilidad de API entre versiones).
   corría de forma síncrona dentro de la petición HTTP de alta y podía
   dejarla colgada varios minutos. Ahora la petición devuelve el usuario en
   cuanto login+perfil tienen éxito y el backfill continúa en background.
+- Página "Hoy" (y cualquier consulta a métricas diarias de Garmin) rota
+  por columnas (`pasos`, fases de sueño) presentes en el modelo pero
+  nunca creadas en Postgres (`UndefinedColumn`) - la migración aditiva
+  de `ensure_schema.py` no se había actualizado al añadir esas columnas
+  en una sesión anterior. Añadida la migración que faltaba.
 
 ### Cambiado
 - Navegación reducida de 7 a 5 secciones de primer nivel: Hoy, Cuerpo,

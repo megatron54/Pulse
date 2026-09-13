@@ -134,6 +134,24 @@ class GarminCredentials(Base):
         ForeignKey("user_profile.id"), unique=True, index=True
     )
     token_store_dir: Mapped[str] = mapped_column(String(500))
+    # Identificador NO secreto de la cuenta de Garmin (nunca la
+    # contraseña) - normalizado a minúsculas antes de guardar. Permite
+    # reconocer una reconexión de una cuenta YA existente en
+    # `garmin_onboarding_service.connect_or_reconnect_via_garmin` en vez
+    # de crear un `UserProfile` duplicado cada vez que se pierde el
+    # `pulse_user_id` de localStorage (hallazgo real: 4 usuarios
+    # duplicados "Miguel" en la misma base de datos antes de esto).
+    # Nullable por compatibilidad con filas creadas antes de esta
+    # columna (migración aditiva, ver scripts/ensure_schema.py).
+    garmin_email: Mapped[str | None] = mapped_column(String(255), unique=True, index=True, default=None)
+    # Marca hasta qué día (inclusive, hacia atrás) ya se ha completado
+    # el backfill histórico de este usuario - permite que
+    # `garmin_history_deepening_service` extienda el histórico hacia
+    # atrás en pasadas nocturnas acotadas en vez de un único backfill
+    # masivo (petición explícita del usuario: quiere todo su histórico,
+    # no solo 90 días, pero sin arriesgar un bloqueo de cuenta por
+    # volumen de peticiones).
+    historial_sincronizado_desde: Mapped[date | None] = mapped_column(Date, default=None)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 

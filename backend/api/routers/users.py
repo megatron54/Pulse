@@ -5,7 +5,7 @@ import os
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_db, verify_api_key
@@ -13,10 +13,11 @@ from api.schemas import GarminConnectRequest, UserCreateRequest, UserOut
 from garmin_sync.client import GarminAuthError, GarminRateLimitedError
 from models.database import get_session
 from models.schema import UserProfile
+from services.garmin_manual_sync_service import sync_today_for_user
 from services.garmin_onboarding_service import (
     GarminPerfilIncompletoError,
     backfill_new_user_history,
-    connect_new_user_via_garmin,
+    connect_or_reconnect_via_garmin,
 )
 
 logger = logging.getLogger("pulse.users")
@@ -44,6 +45,21 @@ def _ejecutar_backfill_en_background(user_id: int, token_store_dir: str) -> None
         session.close()
 
 
+def _ejecutar_sync_ligero_en_background(user_id: int) -> None:
+    """Equivalente a `_ejecutar_backfill_en_background` pero para la rama
+    de reconexión: un usuario ya existente no necesita backfill (sus
+    datos históricos ya están en la base de datos), solo traer el día de
+    hoy cuanto antes - reutiliza el mismo camino que el botón "sincronizar
+    ahora" (`POST /garmin/sync`), con su propia sesión de base de datos."""
+    session = get_session()
+    try:
+        sync_today_for_user(session, user_id)
+    except Exception:  # noqa: BLE001 - tarea en background, el scheduler nocturno reintentará
+        logger.exception("Fallo el sync ligero en background del usuario %s", user_id)
+    finally:
+        session.close()
+
+
 def _directorio_tokens_por_defecto() -> Path:
     # Mismo criterio que scripts/garmin_pair.py (PULSE_GARMIN_TOKENS_DIR,
     # con fallback a ~/.garminconnect) - un solo lugar de verdad para
@@ -60,17 +76,27 @@ def create_user(payload: UserCreateRequest, db: Session = Depends(get_db)) -> Us
     return usuario
 
 
-@router.post("/garmin-connect", response_model=UserOut, status_code=201)
+@router.post("/garmin-connect", response_model=UserOut)
 def garmin_connect(
     payload: GarminConnectRequest,
     background_tasks: BackgroundTasks,
+    response: Response,
     db: Session = Depends(get_db),
 ) -> UserProfile:
-    """Alta de un usuario nuevo conectando su cuenta de Garmin - sustituye
+    """Alta de un usuario nuevo conectando su cuenta de Garmin, O reconexión
+    de una cuenta de Garmin ya vinculada a un usuario existente - sustituye
     al formulario manual de onboarding (petición explícita del usuario:
     "sin cuenta local, que al conectar Garmin se saquen esos datos de
     ahí"). `email`/`password` viajan solo en esta petición HTTPS, nunca
-    se persisten (ver `GarminConnectRequest`/`connect_new_user_via_garmin`).
+    se persisten (ver `GarminConnectRequest`/`connect_or_reconnect_via_garmin`).
+
+    Hallazgo real (rate-limit reportado por el usuario): sin distinguir
+    estas dos ramas, perder `pulse_user_id` de localStorage obligaba a
+    crear un `UserProfile` duplicado y repetir el backfill completo de
+    90 días en cada "login" - la causa real del rate-limiting. Ahora se
+    busca primero por `garmin_email` (`find_user_by_garmin_email`): si ya
+    existe, se reconecta (sin backfill, `200 OK`) en vez de crear una
+    cuenta nueva (`201 Created`).
 
     El directorio de tokens usa un UUID en vez de un id de usuario (que
     todavía no existe en este punto) - no tiene que coincidir con
@@ -106,15 +132,22 @@ def garmin_connect(
         if valor is not None
     }
     try:
-        usuario = connect_new_user_via_garmin(
+        resultado = connect_or_reconnect_via_garmin(
             db,
             email=payload.email,
             password=payload.password,
             token_store_dir=token_store_dir,
             overrides=overrides,
         )
-        background_tasks.add_task(_ejecutar_backfill_en_background, usuario.id, token_store_dir)
-        return usuario
+        if resultado.es_nuevo:
+            response.status_code = 201
+            background_tasks.add_task(
+                _ejecutar_backfill_en_background, resultado.usuario.id, resultado.token_store_dir
+            )
+        else:
+            response.status_code = 200
+            background_tasks.add_task(_ejecutar_sync_ligero_en_background, resultado.usuario.id)
+        return resultado.usuario
     except GarminPerfilIncompletoError as exc:
         raise HTTPException(
             status_code=422,

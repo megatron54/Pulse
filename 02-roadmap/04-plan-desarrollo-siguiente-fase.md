@@ -34,6 +34,20 @@ terceros) es ahora el proveedor preferido; Gemini se mantiene como
 alternativa. **Falta la mitad de este trabajo: probarlo contra un
 servidor Ollama real** - ver Fase 1 de este plan.
 
+Añadido el 2026-09-13 (sesión de uso real, no planificada): rate-limiting
+real de Garmin reportado por el usuario, causado por `garmin_connect`
+creando siempre un `UserProfile` nuevo (sin detectar cuenta ya conectada)
+- corregido con detección de reconexión por `garmin_email` +
+profundización gradual del histórico (job nocturno, ver CHANGELOG). De
+paso se encontró y corrigió un bug de producción real: `garmin_daily_
+metrics.pasos` y las 4 columnas de fases de sueño existían en el modelo
+pero nunca se migraron a Postgres, rompiendo toda consulta de métricas
+diarias (incluida la página "Hoy" completa). Se añadió también el
+formulario de conexión de Feelfit que faltaba en el frontend (el backend
+ya existía, sin UI). Ver Fase 0 (nueva) para el siguiente foco: el
+usuario sigue viendo el frontend como "AI slop" pese a la reconstrucción
+v2.1.
+
 ## Cómo se ha priorizado este plan (criterio, no solo orden numérico)
 
 1. **Terminar lo empezado antes de abrir algo nuevo**: el proveedor Ollama
@@ -51,6 +65,55 @@ servidor Ollama real** - ver Fase 1 de este plan.
 4. **Deuda técnica real detectada, no solo "nice to have"**: ninguna se
    encontró de peso en esta sesión más allá de lo ya limpiado - se anota
    en la Fase 2 por si aparece más según se avance.
+
+## Fase 0 — Rediseño visual del frontend (prioridad actual, en curso)
+
+Añadida el 2026-09-13. El usuario, tras ver el frontend reconstruido
+(v2.1, ver más abajo), lo sigue describiendo como "AI slop" - genérico,
+sin personalidad visual propia - y aportó una referencia concreta: un
+dashboard fintech (fondo lavanda/gris muy claro, tarjetas blancas
+redondeadas con sombra suave, chips de icono de color pastel, deltas con
+punto de color + flecha, un gauge/donut como pieza hero para una única
+métrica compuesta, avatares circulares en fila, nav inferior en píldora
+negra con iconos). No se copia literalmente (es un dominio fintech, no
+fitness/salud) pero señala elementos concretos transferibles que el
+frontend actual NO tiene:
+
+1. **Fondo con temperatura de color, no gris neutro plano**: `globals.css`
+   usa hoy un gris neutro (`#F5F5F7` claro / `#121214` oscuro) sin ningún
+   tinte - la referencia usa un lavanda/azul muy desaturado que le da
+   personalidad sin sacrificar legibilidad. Elegir un tinte propio de
+   Pulse (no lavanda genérico - coherente con el semantic color ya
+   definido en `04-design-system-v2.md`, ej. un tinte muy sutil hacia el
+   azul/verde de "recovery").
+2. **Chips de icono de color por categoría**, no solo texto/números
+   sueltos - cada `StatTile` de la referencia tiene un icono en un
+   círculo de fondo pastel (no monocromo) antes del label. Hoy
+   `StatTile` (ver `frontend/src/components/ui/`) es más plano.
+3. **Un hero gauge/donut real para UNA métrica compuesta** - la
+   referencia lo usa para "Cash Flow Health 86/100"; Pulse ya tiene el
+   concepto equivalente (readiness RED/YELLOW/GREEN) pero se muestra
+   como texto/semáforo, no como pieza visual circular de un solo vistazo
+   en el hero de "Hoy" (`RecoveryStatusCard.tsx`).
+4. **Deltas con punto de color + flecha + "vs. periodo anterior"** de
+   forma consistente en cada tarjeta numérica, patrón ya parcialmente
+   usado (`PeriodicSummaryCard`) pero no generalizado a todas las
+   tarjetas de KPI.
+5. **Nav inferior en píldora** (icono activo relleno en círculo negro)
+   en vez de la barra plana actual (`Nav.tsx`) - más "app nativa", menos
+   "sitio web con tabs".
+6. **Avatares/chips circulares en fila** para navegación rápida entre
+   categorías (en la referencia son personas; en Pulse serían deportes/
+   categorías de actividad - running, gimnasio, ciclismo, etc.) - encaja
+   con el patrón ya existente de fichas de detalle por categoría de
+   actividad (narrativa Capa 3 por deporte, ver Épica H).
+
+**Cómo ejecutarlo sin volver a caer en "AI slop"**: no es una reescritura
+completa de un día - cada punto se prueba en UNA pantalla primero (Hoy,
+que ya es el hero de la app), se verifica con Playwright (patrón ya
+establecido en este proyecto) en claro/oscuro/mobile, y solo se propaga
+al resto de páginas tras confirmación visual explícita del usuario -
+mismo criterio que ya evitó over-engineering en la sesión de v2.1.
 
 ## Fase 1 — Integración Ollama — ✅ Hecha y verificada contra un servidor real
 

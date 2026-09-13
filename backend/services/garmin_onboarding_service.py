@@ -15,6 +15,7 @@ solo se guarda el `token_store_dir` resultante en `GarminCredentials`,
 igual que ya hacía el script manual."""
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any, Callable
 
@@ -25,6 +26,35 @@ from models.schema import GarminCredentials, UserProfile
 from services.garmin_backfill_service import backfill_full_history
 
 _CAMPOS_REQUERIDOS = ("nombre", "sexo", "altura_cm", "fecha_nacimiento")
+
+
+def _normalizar_email(email: str) -> str:
+    return email.strip().lower()
+
+
+def find_user_by_garmin_email(session: Session, email: str) -> UserProfile | None:
+    """Busca un usuario YA conectado con esa cuenta de Garmin, por el
+    `garmin_email` (no secreto) guardado en `GarminCredentials` -
+    permite distinguir "reconectar una cuenta existente" de "dar de
+    alta una cuenta nueva" en `connect_or_reconnect_via_garmin`.
+    `None` si el email nunca se vio antes (incluye credenciales
+    creadas antes de que existiera esta columna, que quedan con
+    `garmin_email=None` y por tanto nunca hacen match)."""
+    credenciales = (
+        session.query(GarminCredentials)
+        .filter(GarminCredentials.garmin_email == _normalizar_email(email))
+        .one_or_none()
+    )
+    if credenciales is None:
+        return None
+    return session.get(UserProfile, credenciales.user_id)
+
+
+@dataclass(frozen=True)
+class ConexionGarminResultado:
+    usuario: UserProfile
+    es_nuevo: bool
+    token_store_dir: str
 
 # Rango de backfill histórico por defecto tras conectar una cuenta
 # nueva (petición explícita del usuario: "debería extraerse todo el
@@ -123,12 +153,95 @@ def connect_new_user_via_garmin(
     session.flush()  # asigna usuario.id sin cerrar la transacción
 
     session.add(
-        GarminCredentials(user_id=usuario.id, token_store_dir=token_store_dir, activo=True)
+        GarminCredentials(
+            user_id=usuario.id,
+            token_store_dir=token_store_dir,
+            garmin_email=_normalizar_email(email),
+            activo=True,
+        )
     )
     session.commit()
     session.refresh(usuario)
 
     return usuario
+
+
+def reconnect_existing_user_via_garmin(
+    session: Session,
+    *,
+    usuario: UserProfile,
+    email: str,
+    password: str,
+    api_factory: Callable[..., Any] | None = None,
+    mfa_code_prompt: Callable[[], str] | None = None,
+) -> None:
+    """Reconecta una cuenta de Garmin YA vinculada a `usuario` (hallazgo
+    real: sin esto, perder el `pulse_user_id` de localStorage - nuevo
+    navegador, caché borrada, otro dispositivo - obligaba a crear un
+    `UserProfile` duplicado y repetir el backfill completo de 90 días,
+    la causa real del rate-limit de Garmin reportado por el usuario).
+
+    Reutiliza el `token_store_dir` YA existente de la primera conexión:
+    `GarminClient.login()` intenta primero el token OAuth cacheado ahí
+    (ver `garmin_sync.client`) y solo hace un login con contraseña de
+    verdad si ese token expiró - normalmente un simple "reconectar" no
+    dispara ninguna petición extra de volumen a Garmin. NO se toca el
+    histórico ya sincronizado ni se dispara ningún backfill: los datos
+    de este usuario ya están en la base de datos."""
+    credenciales = session.query(GarminCredentials).filter_by(user_id=usuario.id).one()
+    client = GarminClient(
+        token_store_dir=credenciales.token_store_dir,
+        email=email,
+        password=password,
+        api_factory=api_factory,
+        mfa_code_prompt=mfa_code_prompt,
+    )
+    client.login()
+    credenciales.activo = True
+    session.commit()
+
+
+def connect_or_reconnect_via_garmin(
+    session: Session,
+    *,
+    email: str,
+    password: str,
+    token_store_dir: str,
+    overrides: dict[str, Any] | None = None,
+    api_factory: Callable[..., Any] | None = None,
+    mfa_code_prompt: Callable[[], str] | None = None,
+) -> ConexionGarminResultado:
+    """Punto de entrada único del router: decide entre "reconectar una
+    cuenta ya vista" y "dar de alta una cuenta nueva" según
+    `find_user_by_garmin_email`, para que `garmin_connect` nunca vuelva
+    a crear un `UserProfile` duplicado de una cuenta de Garmin que ya
+    existe en la base de datos (ver docstring de
+    `reconnect_existing_user_via_garmin`)."""
+    usuario_existente = find_user_by_garmin_email(session, email)
+    if usuario_existente is not None:
+        reconnect_existing_user_via_garmin(
+            session,
+            usuario=usuario_existente,
+            email=email,
+            password=password,
+            api_factory=api_factory,
+            mfa_code_prompt=mfa_code_prompt,
+        )
+        credenciales = session.query(GarminCredentials).filter_by(user_id=usuario_existente.id).one()
+        return ConexionGarminResultado(
+            usuario=usuario_existente, es_nuevo=False, token_store_dir=credenciales.token_store_dir
+        )
+
+    usuario_nuevo = connect_new_user_via_garmin(
+        session,
+        email=email,
+        password=password,
+        token_store_dir=token_store_dir,
+        overrides=overrides,
+        api_factory=api_factory,
+        mfa_code_prompt=mfa_code_prompt,
+    )
+    return ConexionGarminResultado(usuario=usuario_nuevo, es_nuevo=True, token_store_dir=token_store_dir)
 
 
 def backfill_new_user_history(
@@ -164,10 +277,21 @@ def backfill_new_user_history(
     client.login()
 
     hoy = hoy or date.today()
+    inicio = hoy - timedelta(days=backfill_dias - 1)
     backfill_full_history(
         session,
         user_id=user_id,
         garmin_client=client,
-        start_date=hoy - timedelta(days=backfill_dias - 1),
+        start_date=inicio,
         end_date=hoy,
     )
+
+    # Marca la "frontera" del histórico ya sincronizado - punto de
+    # partida de `garmin_history_deepening_service` para seguir
+    # extendiendo hacia atrás en pasadas nocturnas acotadas, en vez de
+    # repetir este mismo rango cada vez (petición explícita del
+    # usuario: quiere todo su histórico, no solo estos días iniciales).
+    credenciales = session.query(GarminCredentials).filter_by(user_id=user_id).one_or_none()
+    if credenciales is not None:
+        credenciales.historial_sincronizado_desde = inicio
+        session.commit()

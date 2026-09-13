@@ -86,6 +86,18 @@ export type GarminConnectInput = {
   sexo?: "M" | "F";
 };
 
+// Conexión de la báscula Feelfit de un usuario YA EXISTENTE (a
+// diferencia de Garmin, que da de alta al usuario desde cero) - importa
+// todo el histórico de mediciones disponible en la cuenta.
+export type FeelfitConnectInput = {
+  email: string;
+  password: string;
+};
+
+export type FeelfitConnectResult = {
+  mediciones_importadas: number;
+};
+
 export type BodyMeasurement = {
   id: number;
   fecha: string;
@@ -358,6 +370,11 @@ export const api = {
   getUser: (id: number) => request<User>(`/users/${id}`),
   connectGarmin: (data: GarminConnectInput) =>
     request<User>("/users/garmin-connect", { method: "POST", body: JSON.stringify(data) }),
+  connectFeelfit: (userId: number, data: FeelfitConnectInput) =>
+    request<FeelfitConnectResult>(`/users/${userId}/feelfit-connect`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 
   createBodyMeasurement: (userId: number, data: BodyMeasurementInput) =>
     request<BodyMeasurement>(`/users/${userId}/body-measurements`, {

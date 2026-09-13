@@ -29,6 +29,11 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 from models.database import get_session
+from services.garmin_history_deepening_service import (
+    DIAS_MAXIMO_HISTORIAL_POR_DEFECTO,
+    DIAS_POR_PASADA_POR_DEFECTO,
+    deepen_history_for_all_users,
+)
 from services.scheduler_service import (
     run_daily_activity_sync_for_all_users,
     run_daily_feelfit_sync_for_all_users,
@@ -54,6 +59,11 @@ _MINUTO_FEELFIT_POR_DEFECTO = "30"
 # anteriores): el volumen de peticiones a Garmin por pasada es idéntico
 # al del job nocturno, solo cambia la cadencia.
 _INTERVALO_FRECUENTE_HORAS_POR_DEFECTO = "2"
+# Profundización de histórico ("quiero todo mi historial, no solo 90
+# días") - corre 45 min después del sync nocturno (mismo Garmin, mismo
+# usuario, evita competir con los otros tres jobs de las 04:xx).
+_HORA_PROFUNDIZACION_POR_DEFECTO = "4"
+_MINUTO_PROFUNDIZACION_POR_DEFECTO = "45"
 
 
 def job_sincronizacion_diaria() -> None:
@@ -139,6 +149,35 @@ def job_sincronizacion_frecuente() -> None:
         session.close()
 
 
+def job_profundizacion_historial() -> None:
+    """Extiende el histórico ya sincronizado hacia atrás en pasadas
+    nocturnas acotadas - ver docstring de
+    `garmin_history_deepening_service`. Mismo patrón de aislamiento que
+    el resto de jobs: un fallo inesperado no debe tumbar el proceso del
+    scheduler."""
+    session = get_session()
+    try:
+        dias_por_pasada = int(
+            os.environ.get("PULSE_GARMIN_HISTORIAL_DIAS_POR_NOCHE", str(DIAS_POR_PASADA_POR_DEFECTO))
+        )
+        dias_maximo = int(
+            os.environ.get("PULSE_GARMIN_HISTORIAL_MAX_DIAS", str(DIAS_MAXIMO_HISTORIAL_POR_DEFECTO))
+        )
+        resultado = deepen_history_for_all_users(
+            session, dias_por_pasada=dias_por_pasada, dias_maximo_historial=dias_maximo
+        )
+        logger.info(
+            "profundización de histórico completada: avanzados=%s completos=%s fallidos=%s",
+            resultado.usuarios_avanzados,
+            resultado.usuarios_completos,
+            resultado.usuarios_fallidos,
+        )
+    except Exception:  # noqa: BLE001 - el proceso del scheduler debe sobrevivir
+        logger.exception("Fallo inesperado profundizando el histórico de Garmin")
+    finally:
+        session.close()
+
+
 def build_scheduler() -> BlockingScheduler:
     hora = os.environ.get("PULSE_SCHEDULER_HORA", _HORA_POR_DEFECTO)
     minuto = os.environ.get("PULSE_SCHEDULER_MINUTO", _MINUTO_POR_DEFECTO)
@@ -157,6 +196,12 @@ def build_scheduler() -> BlockingScheduler:
             "PULSE_SCHEDULER_FRECUENTE_INTERVALO_HORAS",
             _INTERVALO_FRECUENTE_HORAS_POR_DEFECTO,
         )
+    )
+    hora_profundizacion = os.environ.get(
+        "PULSE_SCHEDULER_HISTORIAL_HORA", _HORA_PROFUNDIZACION_POR_DEFECTO
+    )
+    minuto_profundizacion = os.environ.get(
+        "PULSE_SCHEDULER_HISTORIAL_MINUTO", _MINUTO_PROFUNDIZACION_POR_DEFECTO
     )
 
     scheduler = BlockingScheduler()
@@ -182,6 +227,12 @@ def build_scheduler() -> BlockingScheduler:
         job_sincronizacion_frecuente,
         trigger=IntervalTrigger(hours=intervalo_frecuente_horas),
         id="sync_frecuente_garmin",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        job_profundizacion_historial,
+        trigger=CronTrigger(hour=hora_profundizacion, minute=minuto_profundizacion),
+        id="profundizacion_historial_garmin",
         replace_existing=True,
     )
     return scheduler

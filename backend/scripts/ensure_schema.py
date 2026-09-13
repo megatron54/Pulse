@@ -97,6 +97,54 @@ def _migrar_columnas_aditivas(engine) -> None:
                 )
         print(f"OK: migración aditiva body_measurements bioimpedancia aplicada ({sorted(faltantes)}).")
 
+    if "garmin_credentials" in inspector.get_table_names():
+        columnas_garmin = {c["name"] for c in inspector.get_columns("garmin_credentials")}
+        if "garmin_email" not in columnas_garmin:
+            with engine.begin() as conn:
+                conn.execute(
+                    text("ALTER TABLE garmin_credentials ADD COLUMN garmin_email VARCHAR(255)")
+                )
+                conn.execute(
+                    text(
+                        "CREATE UNIQUE INDEX uq_garmin_credentials_garmin_email "
+                        "ON garmin_credentials (garmin_email)"
+                    )
+                )
+            print("OK: migración aditiva garmin_credentials.garmin_email aplicada.")
+        if "historial_sincronizado_desde" not in columnas_garmin:
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "ALTER TABLE garmin_credentials ADD COLUMN historial_sincronizado_desde DATE"
+                    )
+                )
+            print("OK: migración aditiva garmin_credentials.historial_sincronizado_desde aplicada.")
+
+    if "garmin_daily_metrics" in inspector.get_table_names():
+        columnas_daily = {c["name"] for c in inspector.get_columns("garmin_daily_metrics")}
+        if "pasos" not in columnas_daily:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE garmin_daily_metrics ADD COLUMN pasos INTEGER"))
+            print("OK: migración aditiva garmin_daily_metrics.pasos aplicada.")
+
+        columnas_fases_sueno = {
+            "deep_sleep_seg",
+            "light_sleep_seg",
+            "rem_sleep_seg",
+            "awake_sleep_seg",
+        }
+        faltantes_sueno = columnas_fases_sueno - columnas_daily
+        if faltantes_sueno:
+            with engine.begin() as conn:
+                for columna in faltantes_sueno:
+                    conn.execute(
+                        text(f"ALTER TABLE garmin_daily_metrics ADD COLUMN {columna} INTEGER")
+                    )
+            print(
+                "OK: migración aditiva garmin_daily_metrics fases de sueño aplicada "
+                f"({sorted(faltantes_sueno)})."
+            )
+
 
 def main() -> None:
     engine = create_pulse_engine()
