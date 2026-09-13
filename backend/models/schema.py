@@ -184,6 +184,7 @@ class GarminDailyMetrics(Base):
     vo2max: Mapped[float | None] = mapped_column(default=None)
     stress_avg: Mapped[int | None] = mapped_column(default=None)
     resting_hr: Mapped[int | None] = mapped_column(default=None)
+    pasos: Mapped[int | None] = mapped_column(default=None)
     ingested_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 

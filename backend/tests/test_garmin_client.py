@@ -161,6 +161,7 @@ class TestGetDailyRecoveryRaw:
             "allMetrics": {"metricsMap": {"WELLNESS_RESTING_HEART_RATE": [{"value": 54.0}]}}
         }
         fake_api.get_max_metrics.return_value = [{"generic": {"vo2MaxPreciseValue": 47.5}}]
+        fake_api.get_stats.return_value = {"totalSteps": 8432}
 
         client = self._client_logueado(fake_api)
         raw = client.get_daily_recovery_raw("2026-08-02")
@@ -173,6 +174,7 @@ class TestGetDailyRecoveryRaw:
         assert raw["stress_avg"] == 25
         assert raw["resting_hr"] == 54
         assert raw["vo2max"] == 47.5
+        assert raw["pasos"] == 8432
         fake_api.get_hrv_data.assert_called_once_with("2026-08-02")
 
     def test_un_campo_fallido_no_tumba_a_los_demas(self):
@@ -272,6 +274,47 @@ class TestGetDailyRecoveryRaw:
         raw = client.get_daily_recovery_raw("2026-08-02")
 
         assert raw["resting_hr"] is None
+
+
+class TestExtraerPasos:
+    def _client_logueado(self, fake_api):
+        client = GarminClient(
+            token_store_dir="C:/fake/.garminconnect",
+            api_factory=_fake_api_factory(fake_api),
+        )
+        client.login()
+        return client
+
+    def test_extrae_total_steps_de_get_stats(self):
+        fake_api = MagicMock()
+        fake_api.get_stats.return_value = {"totalSteps": 12345}
+        client = self._client_logueado(fake_api)
+        raw = client.get_daily_recovery_raw("2026-08-02")
+        assert raw["pasos"] == 12345
+        fake_api.get_stats.assert_called_once_with("2026-08-02")
+
+    def test_payload_sin_total_steps_da_none(self):
+        fake_api = MagicMock()
+        fake_api.get_stats.return_value = {}
+        client = self._client_logueado(fake_api)
+        raw = client.get_daily_recovery_raw("2026-08-02")
+        assert raw["pasos"] is None
+
+    def test_get_stats_fallido_no_tumba_el_resto(self):
+        fake_api = MagicMock()
+        fake_api.get_stats.side_effect = Exception("temporalmente caído")
+        fake_api.get_hrv_data.return_value = {"hrvSummary": {"lastNightAvg": 60}}
+        client = self._client_logueado(fake_api)
+        raw = client.get_daily_recovery_raw("2026-08-02")
+        assert raw["pasos"] is None
+        assert raw["hrv_today"] == 60
+
+    def test_valor_negativo_se_trata_como_ausente(self):
+        fake_api = MagicMock()
+        fake_api.get_stats.return_value = {"totalSteps": -1}
+        client = self._client_logueado(fake_api)
+        raw = client.get_daily_recovery_raw("2026-08-02")
+        assert raw["pasos"] is None
 
 
 class TestGetActivitiesRaw:

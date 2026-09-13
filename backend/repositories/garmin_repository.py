@@ -45,6 +45,7 @@ def save_daily_metrics(
         stress_avg=raw.get("stress_avg"),
         resting_hr=raw.get("resting_hr"),
         vo2max=raw.get("vo2max"),
+        pasos=raw.get("pasos"),
     )
     session.add(fila)
     session.commit()

@@ -206,6 +206,25 @@ def _extraer_vo2max(payload: Any) -> float | None:
         return None
 
 
+def _extraer_pasos(payload: Any) -> int | None:
+    """`get_stats(date)` (alias de `get_user_summary`) - resumen diario
+    de actividad. `totalSteps` es el campo documentado de forma
+    consistente por la comunidad (garmin-grafana y similares, ver
+    00-research/04-reutilizacion-open-source.md) para el total de
+    pasos del día. "unknown is not zero": si el dispositivo aún no ha
+    sincronizado pasos ese día, Garmin puede omitir la clave o devolver
+    None - nunca se convierte eso en un 0 inventado."""
+    if not payload:
+        return None
+    try:
+        valor = payload["totalSteps"]
+    except (KeyError, TypeError):
+        return None
+    if not isinstance(valor, (int, float)) or valor < 0:
+        return None
+    return int(valor)
+
+
 def _extraer_serie(
     payload: Any, clave_array: str, *, descartar_negativos: bool = False
 ) -> list[tuple[int, float]]:
@@ -345,6 +364,7 @@ class GarminClient:
         raw_stress = self._get_stress_raw_cacheado(date_str)
         raw_rhr = self._llamada_segura(self._api.get_rhr_day, date_str)
         raw_max_metrics = self._llamada_segura(self._api.get_max_metrics, date_str)
+        raw_stats = self._llamada_segura(self._api.get_stats, date_str)
 
         return {
             "hrv_today": _extraer_hrv(raw_hrv),
@@ -355,6 +375,7 @@ class GarminClient:
             "stress_avg": _extraer_stress_avg(raw_stress),
             "resting_hr": _extraer_resting_hr(raw_rhr),
             "vo2max": _extraer_vo2max(raw_max_metrics),
+            "pasos": _extraer_pasos(raw_stats),
             "raw_json": {
                 "hrv": raw_hrv,
                 "training_readiness": raw_readiness,
@@ -363,6 +384,7 @@ class GarminClient:
                 "stress": raw_stress,
                 "rhr": raw_rhr,
                 "max_metrics": raw_max_metrics,
+                "stats": raw_stats,
             },
         }
 

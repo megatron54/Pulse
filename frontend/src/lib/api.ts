@@ -296,6 +296,7 @@ export type GarminHealthDay = {
   stress_avg: number | null;
   resting_hr: number | null;
   vo2max: number | null;
+  pasos: number | null;
 };
 
 // Serie minuto a minuto (petición explícita del usuario: "el ritmo
