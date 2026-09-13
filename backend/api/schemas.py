@@ -347,6 +347,17 @@ class HealthNarrativeOut(BaseModel):
     source: str | None  # "llm" | "template" | None
 
 
+class SportNarrativeOut(BaseModel):
+    """Épica G2 del plan de desarrollo (04-plan-desarrollo-siguiente-fase.md,
+    Fase 1): explicación conversacional (Capa 3) de la tendencia de
+    carga semanal de una categoría de deporte. `text`/`source` son
+    `None` cuando todavía no hay ninguna actividad de esa categoría
+    registrada (nunca se inventa una tendencia sin datos)."""
+
+    text: str | None
+    source: str | None  # "llm" | "template" | None
+
+
 class WeeklyVolumeOut(BaseModel):
     """Épica 10 del plan de expansión: un punto de la gráfica de
     volumen semanal por deporte. `distancia_total_m`/`duracion_total_seg`

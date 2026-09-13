@@ -317,6 +317,14 @@ export type HealthNarrative = {
   source: "llm" | "template" | null;
 };
 
+// Épica G2 del plan de desarrollo (04-plan-desarrollo-siguiente-fase.md,
+// Fase 1): explicación conversacional (Capa 3) de la tendencia de carga
+// semanal de una categoría de deporte - mismo contrato que HealthNarrative.
+export type SportNarrative = {
+  text: string | null;
+  source: "llm" | "template" | null;
+};
+
 export type PeriodicSummary = {
   dias_con_checkin_readiness: number;
   distribucion_readiness: { green: number; yellow: number; red: number };
@@ -445,6 +453,15 @@ export const api = {
 
   getGarminHealthNarrative: (userId: number, fecha = todayLocalDate()) =>
     request<HealthNarrative>(`/users/${userId}/garmin/health-narrative?fecha=${fecha}`),
+
+  getGarminSportNarrative: (
+    userId: number,
+    categoria: "running" | "ciclismo" | "gimnasio",
+    asOf = todayLocalDate()
+  ) =>
+    request<SportNarrative>(
+      `/users/${userId}/garmin/activities/narrative?categoria=${categoria}&as_of=${asOf}`
+    ),
 
   getPeriodicSummary: (userId: number, days = 7, asOf = todayLocalDate()) =>
     request<PeriodicSummary>(

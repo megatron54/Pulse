@@ -10,6 +10,7 @@ vi.mock("@/lib/api", async () => {
     api: {
       ...actual.api,
       getGarminHealthNarrative: vi.fn(),
+      getGarminSportNarrative: vi.fn(),
     },
   };
 });
@@ -17,6 +18,7 @@ vi.mock("@/lib/api", async () => {
 describe("CoachNarrativeBlock", () => {
   beforeEach(() => {
     vi.mocked(api.getGarminHealthNarrative).mockReset();
+    vi.mocked(api.getGarminSportNarrative).mockReset();
   });
 
   it("no renderiza nada si todavía no hay una decisión de la que hablar (text/source null)", async () => {
@@ -42,5 +44,18 @@ describe("CoachNarrativeBlock", () => {
     const { container } = render(<CoachNarrativeBlock userId={1} />);
     await waitFor(() => expect(api.getGarminHealthNarrative).toHaveBeenCalled());
     expect(container.textContent).toBe("");
+  });
+
+  it("con categoria consulta la narrativa de deporte en vez de la de salud", async () => {
+    vi.mocked(api.getGarminSportNarrative).mockResolvedValue({
+      text: "Esta semana llevas más sesiones de running que las 4 anteriores.",
+      source: "template",
+    });
+    render(<CoachNarrativeBlock userId={1} categoria="running" />);
+    await waitFor(() =>
+      expect(screen.getByText(/más sesiones de running/i)).toBeInTheDocument()
+    );
+    expect(api.getGarminHealthNarrative).not.toHaveBeenCalled();
+    expect(api.getGarminSportNarrative).toHaveBeenCalledWith(1, "running");
   });
 });

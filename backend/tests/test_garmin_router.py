@@ -277,6 +277,55 @@ class TestGetWeeklyVolume:
         assert resp.status_code == 404
 
 
+class TestGetSportNarrative:
+    """Épica G2 del plan de desarrollo (04-plan-desarrollo-siguiente-fase.md,
+    Fase 1)."""
+
+    def test_sin_actividades_devuelve_text_y_source_none(self, client):
+        c, _ = client
+        usuario = _crear_usuario(c)
+        resp = c.get(
+            f"/users/{usuario['id']}/garmin/activities/narrative?categoria=running&as_of=2026-09-09"
+        )
+        assert resp.status_code == 200
+        assert resp.json() == {"text": None, "source": None}
+
+    def test_con_actividades_devuelve_una_narrativa_real(self, client):
+        c, engine = client
+        usuario = _crear_usuario(c)
+        with Session(engine) as session:
+            session.add(
+                GarminActivity(
+                    user_id=usuario["id"],
+                    activity_id="1",
+                    fecha=date(2026, 9, 9),
+                    tipo="running",
+                    duracion_seg=1800,
+                    distancia_m=5000.0,
+                )
+            )
+            session.commit()
+
+        resp = c.get(
+            f"/users/{usuario['id']}/garmin/activities/narrative?categoria=running&as_of=2026-09-09"
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["text"] is not None
+        assert body["source"] == "template"
+
+    def test_categoria_es_obligatoria(self, client):
+        c, _ = client
+        usuario = _crear_usuario(c)
+        resp = c.get(f"/users/{usuario['id']}/garmin/activities/narrative")
+        assert resp.status_code == 422
+
+    def test_usuario_inexistente_da_404(self, client):
+        c, _ = client
+        resp = c.get("/users/99999/garmin/activities/narrative?categoria=running")
+        assert resp.status_code == 404
+
+
 class TestGetIntradayHistory:
     """Petición explícita del usuario: "el ritmo cardiaco, body
     battery, etc son valores que cambian cada minuto, quiero todo ese

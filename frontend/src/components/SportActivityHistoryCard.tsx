@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { api, ApiError, type GarminActivity } from "@/lib/api";
 import { formatDistancia, formatDuracion } from "@/lib/activityFormat";
+import { CoachNarrativeBlock } from "./CoachNarrativeBlock";
 import { ActivityListItem } from "./ui/ActivityListItem";
 import { Card, CardTitle } from "./ui/Card";
 import { EmptyState } from "./ui/EmptyState";
@@ -80,6 +81,7 @@ export function SportActivityHistoryCard({
           }}
         />
       )}
+      {!error && <CoachNarrativeBlock userId={userId} categoria={categoria} />}
       {!error && actividades === null && <LoadingState lines={2} />}
       {!error && actividades !== null && actividades.length === 0 && (
         <EmptyState icon={icono} message={mensajeVacio} />

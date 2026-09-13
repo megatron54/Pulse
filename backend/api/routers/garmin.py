@@ -20,10 +20,12 @@ from api.schemas import (
     GarminIntradayPointOut,
     GarminManualSyncOut,
     HealthNarrativeOut,
+    SportNarrativeOut,
     WeeklyVolumeOut,
 )
 from coach.gemini_client import build_gemini_client_if_configured
 from coach.health_narrative_service import generate_health_narrative_for_user
+from coach.sport_narrative_service import generate_sport_narrative_for_user
 from garmin_sync.client import GarminAuthError, GarminRateLimitedError
 from services.garmin_manual_sync_service import sync_today_for_user
 from services.garmin_query_service import (
@@ -95,6 +97,31 @@ def get_health_narrative(
     if resultado is None:
         return HealthNarrativeOut(text=None, source=None)
     return HealthNarrativeOut(text=resultado.text, source=resultado.source)
+
+
+@router.get("/activities/narrative", response_model=SportNarrativeOut)
+def get_sport_narrative(
+    user_id: int,
+    categoria: CategoriaDeporte = Query(
+        ..., description="Categoría de deporte (running/ciclismo/gimnasio)."
+    ),
+    as_of: date | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> SportNarrativeOut:
+    """Explicación conversacional (Capa 3, Épica G2) de la tendencia de
+    carga semanal de `categoria` (sesiones de esta semana frente a la
+    media de las 4 semanas previas) - alimenta el slot de coach de
+    `/running`, `/ciclismo`, `/gimnasio`."""
+    resultado = generate_sport_narrative_for_user(
+        db,
+        user_id,
+        categoria=categoria,
+        as_of=as_of or date.today(),
+        gemini_client=build_gemini_client_if_configured(),
+    )
+    if resultado is None:
+        return SportNarrativeOut(text=None, source=None)
+    return SportNarrativeOut(text=resultado.text, source=resultado.source)
 
 
 @router.get("/activities/volume", response_model=list[WeeklyVolumeOut])
