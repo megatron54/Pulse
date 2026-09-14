@@ -29,7 +29,7 @@ describe("IntradayMetricCard", () => {
     vi.mocked(api.getGarminIntradayHistory).mockResolvedValue([]);
     render(<IntradayMetricCard userId={1} />);
     await waitFor(() =>
-      expect(screen.getByText(/todavía no hay datos minuto a minuto/i)).toBeInTheDocument()
+      expect(screen.getByText(/garmin todavía no ha sincronizado la serie de hoy/i)).toBeInTheDocument()
     );
   });
 
@@ -62,6 +62,6 @@ describe("IntradayMetricCard", () => {
       { timestamp_utc: "2026-08-09T06:02:00", valor: 62 },
     ]);
     render(<IntradayMetricCard userId={1} />);
-    await waitFor(() => expect(screen.getByText(/2 puntos/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/2 mediciones registradas hoy/i)).toBeInTheDocument());
   });
 });

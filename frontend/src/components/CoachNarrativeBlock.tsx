@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Sparkles } from "lucide-react";
 import { api, type HealthNarrative } from "@/lib/api";
 
 /** Épica H del plan de expansión (02-roadmap/03-vision-produccion.md):
@@ -51,10 +50,10 @@ export function CoachNarrativeBlock({
 
   if (!narrativa || !narrativa.text) return null;
 
-  return (
-    <div className="mb-4 flex items-start gap-2 rounded-xl border border-accent/20 bg-accent/5 px-4 py-3">
-      <Sparkles aria-hidden="true" size={16} className="mt-0.5 shrink-0 text-accent" />
-      <p className="text-sm text-foreground text-pretty">{narrativa.text}</p>
-    </div>
-  );
+  // v3: párrafo, no una tarjeta teñida con un icono de chispas dentro
+  // de otra tarjeta. La caja `bg-accent/5` + `Sparkles` era justo el
+  // patrón "generado por IA" que se rechaza, y además anidaba un
+  // contenedor dentro de otro (doctrina 2). Quien lo encuadra ahora es
+  // el divisor de 1px de la tarjeta que lo contiene.
+  return <p className="t-body text-pretty text-ink-2">{narrativa.text}</p>;
 }

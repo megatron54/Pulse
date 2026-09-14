@@ -1,9 +1,10 @@
 # Visión de producto: Pulse como app de producción (WHOOP/Garmin-like)
 
-> **⚠️ AVISO (reconstrucción del frontend v2):** cualquier decisión de
+> **⚠️ AVISO (reconstrucción del frontend v3):** cualquier decisión de
 > diseño VISUAL mencionada en este documento (rediseño estilo WHOOP,
 > rediseño estilo Apple posterior) queda **derogada**. La única fuente
-> de verdad de diseño vigente es `01-arquitectura/04-design-system-v2.md`.
+> de verdad de diseño vigente es `01-arquitectura/05-design-system-v3.md`
+> (v2 también quedó derogado, ver `04-design-system-v2.md`).
 > Las decisiones de PRODUCTO/backlog de este documento (qué épicas
 > están hechas/pendientes) siguen vigentes sin cambios.
 

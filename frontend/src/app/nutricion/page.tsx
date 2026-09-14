@@ -24,7 +24,7 @@ export default function NutricionPage() {
   return (
     <main className="content-container py-6 md:py-8">
       <PageHeader title="Nutrición" subtitle="Tu plan y tu objetivo de macros." />
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-5">
         <FadeIn>
           <NutritionTargetCard userId={user.id} />
         </FadeIn>

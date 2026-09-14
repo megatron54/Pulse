@@ -1,4 +1,22 @@
-# Design System v2 — única fuente de verdad (Fase 0 de la reconstrucción del frontend)
+# Design System v2 — DEROGADO (histórico)
+
+> ⛔ **Derogado por [`05-design-system-v3.md`](05-design-system-v3.md).**
+> Este documento ya no es la fuente de verdad: se conserva solo como
+> registro de la iteración v2 y de por qué se abandonó. Cualquier
+> decisión de diseño se toma contra v3.
+>
+> Motivo de la derogación: el usuario real rechazó el resultado de v2 en
+> los mismos términos con los que había rechazado v1 ("me recuerda a AI
+> slop", "hay aún mucho estilo con neón", "lo mismo con los
+> emoticonos", "hay muchas palabras que se cortan, no es un diseño de
+> alto nivel") y pidió rehacer el frontend entero desde cero, "no solo
+> el estilo y colores, TODO". v3 no es una capa más encima de v2: es una
+> reconstrucción con doctrina explícita y numerada, precisamente para no
+> volver a acumular capas incrementales.
+>
+> Lo que sigue es el texto original de v2, sin modificar.
+
+---
 
 > **Este documento sustituye a cualquier decisión de diseño previa.** El
 > rediseño WHOOP (`02-roadmap/03-vision-produccion.md`) y el rediseño

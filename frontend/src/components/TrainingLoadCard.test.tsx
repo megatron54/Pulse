@@ -32,7 +32,7 @@ describe("TrainingLoadCard", () => {
     render(<TrainingLoadCard userId={1} />);
 
     await waitFor(() => expect(screen.getByText("1.20")).toBeInTheDocument());
-    expect(screen.queryByText(/historial insuficiente/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/orientativa/i)).not.toBeInTheDocument();
   });
 
   it("muestra un aviso de historial insuficiente cuando datos_suficientes es false, sin ocultar el numero", async () => {
@@ -48,7 +48,9 @@ describe("TrainingLoadCard", () => {
     render(<TrainingLoadCard userId={1} />);
 
     await waitFor(() => expect(screen.getByText("1.00")).toBeInTheDocument());
-    expect(screen.getByText(/historial insuficiente/i)).toBeInTheDocument();
+    // El aviso dice cuántos días faltan y con plural resuelto, no un
+    // "Historial insuficiente (5 de 28 días)" telegráfico.
+    expect(screen.getByText(/solo hay 5 días de los 28/i)).toBeInTheDocument();
   });
 
   it("muestra un mensaje explicito cuando no hay ningun historial todavia (acwr null)", async () => {
@@ -64,11 +66,11 @@ describe("TrainingLoadCard", () => {
     render(<TrainingLoadCard userId={1} />);
 
     await waitFor(() =>
-      expect(screen.getByText(/todavía no hay suficiente historial/i)).toBeInTheDocument()
+      expect(screen.getByText(/aún no hay suficientes sesiones/i)).toBeInTheDocument()
     );
   });
 
-  it("marca visualmente el ACWR de riesgo (>1.5) de forma distinta al normal", async () => {
+  it("marca la zona de carga muy alta con el color semántico negativo", async () => {
     vi.mocked(api.getTrainingLoad).mockResolvedValue({
       acute_avg_7d: 150,
       chronic_avg_28d: 90,
@@ -81,10 +83,13 @@ describe("TrainingLoadCard", () => {
     render(<TrainingLoadCard userId={1} />);
 
     await waitFor(() => expect(screen.getByText("1.67")).toBeInTheDocument());
-    expect(screen.getByText("1.67")).toHaveClass("text-recovery-low");
+    // La cifra es neutra (v3: el color no decora un número); lo que se
+    // colorea es la etiqueta que interpreta la zona.
+    expect(screen.getByText("1.67")).toHaveClass("text-ink");
+    expect(screen.getByText("Carga muy alta")).toHaveClass("text-neg");
   });
 
-  it("expone el riesgo por texto, no solo por color (WCAG 1.4.1)", async () => {
+  it("expone la zona de carga por texto, no solo por color (WCAG 1.4.1)", async () => {
     vi.mocked(api.getTrainingLoad).mockResolvedValue({
       acute_avg_7d: 150,
       chronic_avg_28d: 90,
@@ -96,6 +101,7 @@ describe("TrainingLoadCard", () => {
 
     render(<TrainingLoadCard userId={1} />);
 
-    await waitFor(() => expect(screen.getByText(/riesgo alto/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/carga muy alta/i)).toBeInTheDocument());
+    expect(screen.getByText(/fuerza una semana de descarga/i)).toBeInTheDocument();
   });
 });

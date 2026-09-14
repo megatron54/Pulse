@@ -59,6 +59,23 @@ class TestGetExerciseCategories:
         resp = client.get("/exercises/categories")
         assert resp.status_code == 502
 
+    def test_el_detalle_del_502_no_filtra_el_error_interno(self, client, wger_doble):
+        # La auditoría del frontend encontró este texto escrito tal cual
+        # en la pantalla de Entrenamiento: "Fallo de conexión con wger:
+        # [Errno 111] Connection refused". El cliente muestra el
+        # `detail` del error, así que el detalle tiene que estar escrito
+        # para una persona: sin errno de sistema y sin nombrar la
+        # dependencia interna. El texto real va al log.
+        wger_doble.excepcion_a_lanzar = WgerRequestError(
+            "Fallo de conexión con wger: [Errno 111] Connection refused"
+        )
+        resp = client.get("/exercises/categories")
+        assert resp.status_code == 502
+        detalle = resp.json()["detail"]
+        assert "wger" not in detalle.lower()
+        assert "errno" not in detalle.lower()
+        assert "catálogo de ejercicios" in detalle
+
     def test_error_de_auth_con_wger_da_502(self, client, wger_doble):
         # WgerAuthError también se mapea a 502: es un fallo del proxy
         # hacia wger, no un fallo de autenticación del propio cliente

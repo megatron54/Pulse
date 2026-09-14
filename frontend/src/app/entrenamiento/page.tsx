@@ -7,8 +7,9 @@ import { TrainingLoadCard } from "@/components/TrainingLoadCard";
 import { ExercisePicker } from "@/components/ExercisePicker";
 import { SesionesEntrenamiento } from "@/components/SesionesEntrenamiento";
 import { GarminHealthHistoryCard } from "@/components/GarminHealthHistoryCard";
-import { HealthMetricsSummaryRow } from "@/components/HealthMetricsSummaryRow";
+import { HealthMetricsTodayCard } from "@/components/HealthMetricsTodayCard";
 import { IntradayMetricCard } from "@/components/IntradayMetricCard";
+import { ReadinessTrendCard } from "@/components/ReadinessTrendCard";
 import { CoachNarrativeBlock } from "@/components/CoachNarrativeBlock";
 import { PeriodicSummaryCard } from "@/components/PeriodicSummaryCard";
 import { HabitJournalCard } from "@/components/HabitJournalCard";
@@ -26,14 +27,14 @@ const TABS = [
 ] as const;
 
 /**
- * Entrenamiento (reconstrucción v2 - 01-arquitectura/04-design-system-v2.md,
- * Fase 5 completa): fusiona en una sola página lo que antes vivía
- * disperso en 3 rutas (Entrenamiento, Recuperación, Análisis) - queja
- * explícita del usuario ("información desperdigada, sin cohesión entre
- * lo que se muestra y para qué sirve"). Las 4 pestañas comparten el
- * mismo eje temático (todo lo relacionado con entrenar y recuperarse),
- * a diferencia de "Hoy" (vistazo del día) y "Cuerpo" (composición
- * corporal/peso frente a objetivos).
+ * Entrenamiento (Design System v3 - 01-arquitectura/05-design-system-v3.md):
+ * fusiona en una sola página lo que antes vivía disperso en 3 rutas
+ * (Entrenamiento, Recuperación, Análisis) - queja explícita del usuario
+ * ("información desperdigada, sin cohesión entre lo que se muestra y
+ * para qué sirve"). Las 4 pestañas comparten el mismo eje temático
+ * (todo lo relacionado con entrenar y recuperarse), a diferencia de
+ * "Hoy" (vistazo del día), "Cuerpo" (composición corporal/peso frente a
+ * objetivos) y "Perfil" (ajustes y conexiones).
  *
  * "Sesiones" = lo que hice, "Plan" = lo que planifico, "Recuperación" =
  * detalle completo de Garmin (antes /salud), "Análisis" = tendencias
@@ -54,7 +55,7 @@ export default function EntrenamientoPage() {
       {tab === "sesiones" && <SesionesEntrenamiento userId={user.id} />}
 
       {tab === "plan" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
           <TrainingLoadCard userId={user.id} />
           <WeeklyScheduleForm userId={user.id} />
           <div className="lg:col-span-2">
@@ -63,15 +64,26 @@ export default function EntrenamientoPage() {
         </div>
       )}
 
+      {/* Orden de lectura de la pestaña: narrativa (qué significa) →
+          cifras de la última medida → tendencia del mes → detalle
+          intradía → histórico completo. Una sola columna: son bloques
+          que se leen en secuencia, y a 1280px dos columnas obligaban a
+          saltar la vista de un lado al otro para seguir el hilo. */}
       {tab === "recuperacion" && (
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-5">
           <FadeIn>
             <CoachNarrativeBlock userId={user.id} />
           </FadeIn>
           <FadeIn delay={0.03}>
-            <HealthMetricsSummaryRow userId={user.id} />
+            <HealthMetricsTodayCard userId={user.id} />
           </FadeIn>
           <FadeIn delay={0.05}>
+            {/* Su sitio, tras salir de "Hoy": una tendencia de 30 días
+                no responde "cómo estoy hoy", pero sí "cómo ha ido el
+                mes", que es la pregunta de esta pestaña. */}
+            <ReadinessTrendCard userId={user.id} />
+          </FadeIn>
+          <FadeIn delay={0.07}>
             <IntradayMetricCard userId={user.id} />
           </FadeIn>
           <FadeIn delay={0.1}>
@@ -80,12 +92,14 @@ export default function EntrenamientoPage() {
         </div>
       )}
 
+      {/* También en una columna: `PeriodicSummaryCard` lleva tabla y
+          `HabitJournalCard` dos secciones, y a media anchura las dos
+          apretaban el contenido (doctrina 3, la tabla necesita su
+          ancho). */}
       {tab === "analisis" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <div className="flex flex-col gap-5">
           <PeriodicSummaryCard userId={user.id} refreshKey={0} />
-          <div className="lg:col-span-2">
-            <HabitJournalCard userId={user.id} />
-          </div>
+          <HabitJournalCard userId={user.id} />
         </div>
       )}
     </main>

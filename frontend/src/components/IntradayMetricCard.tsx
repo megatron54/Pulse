@@ -1,33 +1,43 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Activity } from "lucide-react";
 import { api, ApiError, todayLocalDate, type GarminIntradayMetrica } from "@/lib/api";
-import { AreaTrendChart } from "./ui/AreaTrendChart";
+import { plural } from "@/lib/fechas";
+import { TrendChart } from "./ui/TrendChart";
 import { SegmentedControl } from "./ui/SegmentedControl";
-import { Card, CardTitle } from "./ui/Card";
+import { Card } from "./ui/Card";
 import { EmptyState } from "./ui/EmptyState";
 import { ErrorState } from "./ui/ErrorState";
 import { LoadingState } from "./ui/LoadingState";
-import { PALETA } from "@/lib/theme";
 
-const PESTANAS: { valor: GarminIntradayMetrica; label: string; color: string; unidad: string }[] = [
-  { valor: "heart_rate", label: "Ritmo cardíaco", color: PALETA.recoveryLow, unidad: " bpm" },
-  { valor: "body_battery", label: "Body Battery", color: PALETA.accent, unidad: "" },
-  { valor: "stress", label: "Estrés", color: PALETA.sleep, unidad: "" },
+const PESTANAS: readonly {
+  valor: GarminIntradayMetrica;
+  label: string;
+  etiquetaSerie: string;
+  unidad: string;
+  /** Límites físicos de la métrica: el eje no debe rotular un Body
+   *  Battery de 102 ni un estrés negativo. El pulso no los lleva - no
+   *  hay un techo que tenga sentido dibujar. */
+  rango?: readonly [number, number];
+}[] = [
+  { valor: "heart_rate", label: "Pulso", etiquetaSerie: "Pulso", unidad: " ppm" },
+  { valor: "body_battery", label: "Body Battery", etiquetaSerie: "Body Battery", unidad: "", rango: [0, 100] },
+  { valor: "stress", label: "Estrés", etiquetaSerie: "Estrés", unidad: "", rango: [0, 100] },
 ];
 
 /**
- * Serie minuto a minuto de un día (petición explícita del usuario:
- * "el ritmo cardiaco, body battery, etc son valores que cambian cada
- * minuto, quiero todo ese histórico, no me vale que cojas la media
- * del día"). Complementa a `GarminHealthHistoryCard` (que muestra UN
- * valor agregado por día) con el detalle real dentro de un día.
+ * Serie minuto a minuto del día en curso. Petición explícita del
+ * usuario: "el ritmo cardiaco, body battery, etc son valores que
+ * cambian cada minuto, quiero todo ese histórico, no me vale que cojas
+ * la media del día".
  *
- * "Unknown is not zero": si el scheduler todavía no ha sincronizado
- * la serie de ese día (o Garmin no tenía suficientes datos), se
- * comunica honestamente en vez de mostrar una gráfica vacía sin
- * explicación.
+ * v3: un solo color de datos (antes rojo/azul/violeta según la
+ * pestaña - color decorativo, porque las tres series son igual de
+ * neutras), unidad correcta en el pulso (" ppm", no " bpm", que es la
+ * sigla inglesa) y el recuento de puntos con su plural resuelto.
+ *
+ * Si el scheduler todavía no ha sincronizado la serie de hoy se dice
+ * así, en vez de dibujar una gráfica vacía.
  */
 export function IntradayMetricCard({ userId }: { userId: number }) {
   const [metrica, setMetrica] = useState<GarminIntradayMetrica>("heart_rate");
@@ -59,8 +69,8 @@ export function IntradayMetricCard({ userId }: { userId: number }) {
 
   return (
     <Card>
-      <CardTitle>Minuto a minuto (hoy)</CardTitle>
-      <div className="mb-4">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+        <h2 className="t-section text-ink">Minuto a minuto de hoy</h2>
         <SegmentedControl
           options={PESTANAS.map(({ valor, label }) => ({ value: valor, label }))}
           value={metrica}
@@ -68,6 +78,7 @@ export function IntradayMetricCard({ userId }: { userId: number }) {
           ariaLabel="Métrica intradía"
         />
       </div>
+
       {error && (
         <ErrorState
           message={error}
@@ -79,23 +90,22 @@ export function IntradayMetricCard({ userId }: { userId: number }) {
       )}
       {!error && puntos === null && <LoadingState lines={3} />}
       {!error && puntos !== null && puntos.length === 0 && (
-        <EmptyState
-          icon={Activity}
-          message="Todavía no hay datos minuto a minuto sincronizados hoy."
-        />
+        <EmptyState message="Garmin todavía no ha sincronizado la serie de hoy. Suele llegar tras la primera sincronización del reloj del día." />
       )}
       {!error && puntos !== null && puntos.length > 0 && (
         <div className="flex flex-col gap-2">
-          <AreaTrendChart
+          <TrendChart
             data={datosGrafica}
-            color={pestanaActiva.color}
             unidad={pestanaActiva.unidad}
-            alto={160}
             decimales={0}
-            mostrarEjes
+            rango={pestanaActiva.rango}
+            etiqueta={pestanaActiva.etiquetaSerie}
+            alto={170}
             formatoEjeX="hora"
           />
-          <p className="text-xs text-text-secondary">{puntos.length} puntos hoy</p>
+          <p className="t-secondary text-ink-3">
+            {plural(puntos.length, "medición registrada hoy", "mediciones registradas hoy")}.
+          </p>
         </div>
       )}
     </Card>

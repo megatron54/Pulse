@@ -5,29 +5,32 @@ import { motion, useReducedMotion } from "motion/react";
 import { motionTokens, springs } from "@/lib/motion-tokens";
 
 /**
- * Botón compartido (Design System v2): feedback con spring físico
- * (`motion/react`), anillo de foco visible (WCAG 2.4.7), área táctil
- * mínima de 44×44px en la variante `ghost` (WCAG 2.5.5). Colores del
- * tema único Apple-clean (`--color-accent`), funcionan en claro/oscuro.
+ * Botón compartido (Design System v3).
+ *
+ * El cambio de fondo respecto a v2 es deliberado y es el corazón de la
+ * doctrina 1 ("el color es información, nunca decoración"): la acción
+ * primaria ya NO es azul saturado, sino neutro de alto contraste
+ * (`--action`: casi negro en claro, casi blanco en oscuro). Un botón
+ * azul brillante en cada tarjeta competía con los datos y era una de
+ * las fuentes del aspecto "neón" que se rechaza.
+ *
+ * Se mantiene el anillo de foco visible (WCAG 2.4.7), el área táctil
+ * mínima de 44px en `ghost` (WCAG 2.5.5) y el spring de `motion/react`
+ * respetando `prefers-reduced-motion`.
  */
 const BASE =
-  "inline-flex items-center justify-center gap-2 rounded-lg font-semibold " +
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent " +
+  "inline-flex items-center justify-center gap-2 rounded-md font-medium " +
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink " +
   "focus-visible:ring-offset-2 focus-visible:ring-offset-surface " +
-  "disabled:cursor-not-allowed disabled:opacity-60";
+  "disabled:cursor-not-allowed disabled:opacity-50";
 
 const VARIANTES = {
-  // text-white fijo (no text-foreground): el botón primario siempre
-  // tiene fondo azul de acento en claro Y oscuro, así que el texto
-  // debe ser siempre claro - text-foreground cambiaría a negro en
-  // modo claro y sería ilegible sobre el mismo azul.
-  primary: `${BASE} bg-accent text-white px-4 py-2.5 text-sm disabled:bg-surface-muted disabled:text-text-secondary`,
-  secondary:
-    `${BASE} bg-surface-muted text-foreground px-4 py-2.5 text-sm ` +
-    "disabled:bg-surface-muted disabled:text-text-secondary",
-  ghost:
-    `${BASE} min-h-11 min-w-11 px-3 text-accent text-sm font-medium ` +
-    "hover:bg-accent/10 disabled:hover:bg-transparent",
+  // `text-action-ink` (no `text-white`): al ser el fondo casi blanco en
+  // modo oscuro, un texto blanco fijo sería ilegible. El par
+  // action/action-ink se invierte junto con el tema.
+  primary: `${BASE} bg-action text-action-ink px-3.5 py-2 t-body`,
+  secondary: `${BASE} border border-line bg-surface text-ink px-3.5 py-2 t-body hover:bg-canvas`,
+  ghost: `${BASE} min-h-11 min-w-11 px-3 text-ink-2 t-body hover:text-ink hover:bg-canvas`,
 } as const;
 
 export function Button({

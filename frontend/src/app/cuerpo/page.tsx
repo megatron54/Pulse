@@ -5,7 +5,6 @@ import { useUser } from "@/lib/UserContext";
 import { BodyMeasurementForm } from "@/components/BodyMeasurementForm";
 import { BodyCompositionTile } from "@/components/BodyCompositionTile";
 import { BodyGoalInsightCard } from "@/components/BodyGoalInsightCard";
-import { FeelfitConnectForm } from "@/components/FeelfitConnectForm";
 import { WeightTrendCard } from "@/components/WeightTrendCard";
 import { FadeIn } from "@/components/ui/FadeIn";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -20,6 +19,11 @@ import { PageHeader } from "@/components/ui/PageHeader";
  * el método Navy con cinta métrica sigue siendo la única fuente de
  * verdad para eso, coherente con el principio "nunca falsa precisión"
  * ya aplicado aquí mismo.
+ *
+ * La conexión de la báscula Feelfit ya no vive aquí: gestionar una
+ * integración es un ajuste, no una vista de datos corporales, y su
+ * sitio es Perfil > Conexiones (donde además se ve el estado real de
+ * la conexión, no solo un formulario para volver a conectarla).
  */
 export default function CuerpoPage() {
   const user = useUser();
@@ -28,23 +32,22 @@ export default function CuerpoPage() {
   return (
     <main className="content-container py-6 md:py-8">
       <PageHeader title="Cuerpo" subtitle="Peso, medidas y su evolución." />
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-5">
         <FadeIn>
           <WeightTrendCard userId={user.id} refreshKey={weightRefreshKey} />
         </FadeIn>
         <FadeIn delay={0.03}>
           <BodyGoalInsightCard userId={user.id} />
         </FadeIn>
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
           <FadeIn delay={0.05} className="lg:flex-1 lg:min-w-0 empty:hidden">
             <BodyCompositionTile userId={user.id} refreshKey={weightRefreshKey} />
           </FadeIn>
-          <FadeIn delay={0.1} className="flex flex-col gap-6 lg:w-[22rem] lg:shrink-0">
+          <FadeIn delay={0.1} className="flex flex-col gap-5 lg:w-[22rem] lg:shrink-0">
             <BodyMeasurementForm
               userId={user.id}
               onSaved={() => setWeightRefreshKey((k) => k + 1)}
             />
-            <FeelfitConnectForm userId={user.id} />
           </FadeIn>
         </div>
       </div>

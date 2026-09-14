@@ -24,7 +24,11 @@ from engine.periodization import (
 from models.schema import AuditLog, UserProfile
 from repositories.readiness_log_repository import get_latest_readiness_level, set_volumen_pct_ajustado
 from repositories.training_block_repository import get_planned_session_for_date
-from services.errors import EntityNotFoundError
+from services.errors import (
+    EntityNotFoundError,
+    NoActiveWeeklyPlanError,
+    ReadinessNotComputedError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +75,7 @@ def compute_daily_session(
 
     readiness = get_latest_readiness_level(session, user_id, target_date)
     if readiness is None:
-        raise ValueError(
+        raise ReadinessNotComputedError(
             f"No hay readiness calculado para user_id={user_id} en {target_date}: "
             "ejecutar sync_and_compute_readiness primero"
         )
@@ -79,7 +83,7 @@ def compute_daily_session(
     if planned_session is None:
         planned_session = get_planned_session_for_date(session, user_id, target_date)
         if planned_session is None:
-            raise ValueError(
+            raise NoActiveWeeklyPlanError(
                 f"No se proporcionó planned_session y no hay plan semanal activo "
                 f"para user_id={user_id} en {target_date}: crea un TrainingBlock con "
                 "WeeklySchedule, o pasa planned_session explícitamente."

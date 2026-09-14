@@ -3,6 +3,7 @@ diferencia de Garmin, que da de alta al usuario desde cero - ver
 services.feelfit_onboarding_service para el porqué)."""
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 
@@ -20,6 +21,9 @@ router = APIRouter(
     tags=["feelfit"],
     dependencies=[Depends(verify_api_key)],
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 def _directorio_tokens_por_defecto() -> Path:
@@ -45,7 +49,15 @@ def feelfit_connect(
             token_store_dir=token_store_dir,
         )
     except EntityNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        # No `str(exc)`: el mensaje de dominio es "No existe UserProfile
+        # con id=5", que nombra una tabla interna y se mostraría tal cual
+        # en la pantalla de Cuerpo - el mismo problema que la auditoría
+        # del frontend encontró en /exercises. El texto real va al log.
+        logger.warning("Alta de Feelfit para un usuario inexistente: %s", exc)
+        raise HTTPException(
+            status_code=404,
+            detail="No encontramos tu perfil. Vuelve a entrar en la app e inténtalo de nuevo.",
+        ) from exc
     except FeelfitAuthError as exc:
         raise HTTPException(
             status_code=401,

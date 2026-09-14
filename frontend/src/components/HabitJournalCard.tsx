@@ -1,21 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Check } from "lucide-react";
 import { api, ApiError, HABITOS, type Habito, type HabitCorrelation } from "@/lib/api";
-import { Card, CardTitle } from "./ui/Card";
+import { plural } from "@/lib/fechas";
+import { Card } from "./ui/Card";
 import { Button } from "./ui/Button";
+import { DataList, DataRow } from "./ui/DataList";
 import { FormField, fieldInputClass } from "./ui/FormField";
 
-/**
- * Diario de hábitos correlacionado con recovery (Épica MUST-HAVE #3 de
- * 02-roadmap/03-vision-produccion.md, análogo al "Journal" de WHOOP).
- * Dos partes independientes en la misma tarjeta: (1) marcar los
- * hábitos de hoy, (2) consultar si un hábito concreto se correlaciona
- * con más días RED al día siguiente - solo si hay muestra suficiente
- * (ver services/habit_correlation_service.py en el backend).
- */
-const _ETIQUETAS: Record<Habito, string> = {
+const ETIQUETAS: Record<Habito, string> = {
   alcohol: "Alcohol",
   cafeina_tarde: "Cafeína por la tarde",
   comida_tardia: "Comida tardía",
@@ -26,15 +19,54 @@ const _ETIQUETAS: Record<Habito, string> = {
   viaje: "Viaje",
 };
 
-function HabitCheckboxes({ userId }: { userId: number }) {
+/** Mínimo de días en cada grupo que exige el backend para dar una
+ *  correlación (ver `services/habit_correlation_service.py`). */
+const MUESTRA_MINIMA = 5;
+
+/**
+ * Diario de hábitos y su correlación con la recuperación (Entrenamiento
+ * › Recuperación).
+ *
+ * v3 arregla dos cosas de fondo además del estilo:
+ *
+ *  - **"Días RED"** era el nombre interno de la zona de recuperación en
+ *    la interfaz, en inglés y en mayúsculas. El usuario ve "días con
+ *    recuperación baja", que es lo mismo dicho en su idioma.
+ *  - **Los dos porcentajes no se comparaban.** Estaban en dos líneas
+ *    sueltas, uno de ellos en rojo "porque es el malo", y el usuario
+ *    tenía que restar mentalmente. Ahora la tarjeta dice la conclusión:
+ *    cuánto más (o menos) frecuente es un día malo tras ese hábito.
+ *
+ * Se mantiene intacta la regla honesta del backend: sin muestra
+ * suficiente no se da ningún porcentaje, y se dice cuántos días faltan.
+ */
+export function HabitJournalCard({ userId }: { userId: number }) {
+  return (
+    <Card plano>
+      <div className="p-5">
+        <h2 className="t-section text-ink">Diario de hábitos</h2>
+        <p className="t-secondary mt-1 max-w-prose text-pretty text-ink-3">
+          Lo que marcas aquí se cruza con tu recuperación del día siguiente. Con suficientes días,
+          Pulse puede decirte qué te pasa factura.
+        </p>
+        <div className="mt-4">
+          <HabitosDeHoy userId={userId} />
+        </div>
+      </div>
+      <CorrelacionSeccion userId={userId} />
+    </Card>
+  );
+}
+
+function HabitosDeHoy({ userId }: { userId: number }) {
   const [seleccionados, setSeleccionados] = useState<Set<Habito>>(new Set());
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [guardado, setGuardado] = useState(false);
 
-  function toggle(habito: Habito) {
-    setSeleccionados((prev) => {
-      const siguiente = new Set(prev);
+  function alternar(habito: Habito) {
+    setSeleccionados((previo) => {
+      const siguiente = new Set(previo);
       if (siguiente.has(habito)) {
         siguiente.delete(habito);
       } else {
@@ -60,7 +92,7 @@ function HabitCheckboxes({ userId }: { userId: number }) {
 
   return (
     <div>
-      <p className="text-sm text-text-secondary mb-3">¿Ocurrió hoy alguno de estos?</p>
+      <h3 className="t-micro mb-2 text-ink-3">¿Ha pasado hoy alguna de estas cosas?</h3>
       <div className="flex flex-wrap gap-2">
         {HABITOS.map((habito) => {
           const activo = seleccionados.has(habito);
@@ -69,112 +101,146 @@ function HabitCheckboxes({ userId }: { userId: number }) {
               key={habito}
               type="button"
               aria-pressed={activo}
-              onClick={() => toggle(habito)}
-              className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
+              onClick={() => alternar(habito)}
+              // Mismo lenguaje que ChipFilter: el estado marcado se ve
+              // por relleno Y por borde, no solo por color de fondo.
+              className={`t-body min-h-11 whitespace-nowrap rounded-md border px-3.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ink ${
                 activo
-                  ? "bg-accent text-white"
-                  : "bg-surface-muted text-text-secondary hover:text-foreground"
+                  ? "border-action bg-action font-medium text-action-ink"
+                  : "border-line bg-surface text-ink-2 hover:text-ink"
               }`}
             >
-              {_ETIQUETAS[habito]}
+              {ETIQUETAS[habito]}
             </button>
           );
         })}
       </div>
       {error && (
-        <p role="alert" className="text-recovery-low text-sm mt-2">
+        <p role="alert" className="t-body mt-3 text-neg">
           {error}
         </p>
       )}
-      <Button onClick={guardar} disabled={guardando} className="mt-4">
-        {guardando ? (
-          "Guardando..."
-        ) : guardado ? (
-          <>
-            Guardado <Check aria-hidden="true" size={14} />
-          </>
-        ) : (
-          "Guardar"
+      <div className="mt-4 flex flex-wrap items-center gap-4">
+        <Button onClick={guardar} disabled={guardando}>
+          {guardando ? "Guardando…" : "Guardar el día"}
+        </Button>
+        {guardado && !guardando && (
+          <p role="status" className="t-body text-pos">
+            Guardado.
+          </p>
         )}
-      </Button>
+      </div>
     </div>
   );
 }
 
-function HabitCorrelationView({ userId }: { userId: number }) {
+function CorrelacionSeccion({ userId }: { userId: number }) {
   const [habitoElegido, setHabitoElegido] = useState<Habito | "">("");
   const [correlacion, setCorrelacion] = useState<HabitCorrelation | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function onSelect(habito: string) {
+  async function elegir(habito: string) {
     setHabitoElegido(habito as Habito);
     setCorrelacion(null);
     setError(null);
     if (!habito) return;
     try {
-      const resultado = await api.getHabitCorrelation(userId, habito as Habito);
-      setCorrelacion(resultado);
+      setCorrelacion(await api.getHabitCorrelation(userId, habito as Habito));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No se pudo calcular la correlación.");
     }
   }
 
+  const etiqueta = habitoElegido ? ETIQUETAS[habitoElegido].toLowerCase() : "";
+
   return (
-    <div className="mt-6 pt-6 border-t border-surface-border">
-      <FormField label="Ver correlación con recovery" htmlFor="habito-correlacion">
+    <section className="border-t border-line px-5 py-4">
+      <h3 className="t-section mb-3 text-ink">Qué te pasa factura</h3>
+      <FormField label="Ver correlación con tu recuperación" htmlFor="habito-correlacion">
         <select
           id="habito-correlacion"
           value={habitoElegido}
-          onChange={(e) => onSelect(e.target.value)}
+          onChange={(e) => elegir(e.target.value)}
           className={fieldInputClass}
         >
-          <option value="">Elige un hábito...</option>
+          <option value="">Elige un hábito…</option>
           {HABITOS.map((habito) => (
             <option key={habito} value={habito}>
-              {_ETIQUETAS[habito]}
+              {ETIQUETAS[habito]}
             </option>
           ))}
         </select>
       </FormField>
+
       {error && (
-        <p role="alert" className="text-recovery-low text-sm mt-2">
+        <p role="alert" className="t-body mt-3 text-neg">
           {error}
         </p>
       )}
+
       {correlacion && !correlacion.datos_suficientes && (
-        <p className="text-sm text-text-secondary mt-3 italic">
-          Todavía no hay suficientes datos para este hábito ({correlacion.dias_con_habito_con_dato}{" "}
-          días con, {correlacion.dias_sin_habito_con_dato} sin). Necesitamos al menos 5 de cada.
+        <p className="t-body mt-4 max-w-prose text-pretty text-ink-2">
+          Todavía no hay días suficientes para decir nada honesto sobre{" "}
+          {etiqueta}: hacen falta {MUESTRA_MINIMA} días con y {MUESTRA_MINIMA} sin, y por ahora hay{" "}
+          {plural(correlacion.dias_con_habito_con_dato, "día", "días")} con y{" "}
+          {plural(correlacion.dias_sin_habito_con_dato, "día", "días")} sin.
         </p>
       )}
+
       {correlacion?.datos_suficientes && (
-        <div className="mt-3 flex flex-col gap-1 text-sm">
-          <p className="text-text-secondary">
-            Días RED tras marcarlo:{" "}
-            <span className="text-recovery-low font-semibold">
-              {Math.round((correlacion.pct_red_con_habito ?? 0) * 100)}%
-            </span>{" "}
-            ({correlacion.dias_con_habito_con_dato} muestras)
-          </p>
-          <p className="text-text-secondary">
-            Días RED sin marcarlo:{" "}
-            <span className="text-text-secondary font-semibold">
-              {Math.round((correlacion.pct_red_sin_habito ?? 0) * 100)}%
-            </span>{" "}
-            ({correlacion.dias_sin_habito_con_dato} muestras)
-          </p>
-        </div>
+        <Veredicto correlacion={correlacion} etiqueta={etiqueta} />
       )}
-    </div>
+    </section>
   );
 }
 
-export function HabitJournalCard({ userId }: { userId: number }) {
+function Veredicto({
+  correlacion,
+  etiqueta,
+}: {
+  correlacion: HabitCorrelation;
+  etiqueta: string;
+}) {
+  const con = Math.round((correlacion.pct_red_con_habito ?? 0) * 100);
+  const sin = Math.round((correlacion.pct_red_sin_habito ?? 0) * 100);
+  const diferencia = con - sin;
+
   return (
-    <Card>
-      <CardTitle>Diario de hábitos</CardTitle>
-      <HabitCheckboxes userId={userId} />
-      <HabitCorrelationView userId={userId} />
-    </Card>
+    <div className="mt-4">
+      {/* La conclusión primero y en palabras: el color solo refuerza lo
+          que la frase ya dice (WCAG 1.4.1). */}
+      <p
+        className={`t-body max-w-prose text-pretty ${
+          diferencia >= 15 ? "text-warn" : diferencia <= -15 ? "text-pos" : "text-ink-2"
+        }`}
+      >
+        {diferencia >= 15 &&
+          `Tras un día con ${etiqueta} amaneces con la recuperación baja ${diferencia} puntos más a menudo.`}
+        {diferencia <= -15 &&
+          `Tras un día con ${etiqueta} amaneces con la recuperación baja ${Math.abs(diferencia)} puntos menos a menudo.`}
+        {diferencia > -15 &&
+          diferencia < 15 &&
+          `Con ${etiqueta} o sin ello, tu recuperación del día siguiente se comporta parecido.`}
+      </p>
+      <div className="mt-3">
+        <DataList>
+          <DataRow
+            label="Días con recuperación baja tras marcarlo"
+            nota={`${plural(correlacion.dias_con_habito_con_dato, "día medido", "días medidos")}`}
+          >
+            <span className="tabular">{con} %</span>
+          </DataRow>
+          <DataRow
+            label="Días con recuperación baja sin marcarlo"
+            nota={`${plural(correlacion.dias_sin_habito_con_dato, "día medido", "días medidos")}`}
+          >
+            <span className="tabular">{sin} %</span>
+          </DataRow>
+        </DataList>
+      </div>
+      <p className="t-secondary mt-3 max-w-prose text-pretty text-ink-3">
+        Es una correlación con tu propia muestra, no una causa demostrada.
+      </p>
+    </div>
   );
 }

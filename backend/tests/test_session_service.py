@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from engine.periodization import SessionType
 from models.schema import AuditLog, Base, ReadinessLog, TrainingBlock, UserProfile, WeeklySchedule
+from services.errors import NoActiveWeeklyPlanError, ReadinessNotComputedError
 from services.session_service import compute_daily_session
 
 
@@ -88,6 +89,21 @@ class TestComputeDailySessionAutoDerivedPlan:
         _sembrar_readiness(session, usuario.id, hoy, "green")
         with pytest.raises(ValueError):
             compute_daily_session(session, usuario.id, target_date=hoy)
+
+    def test_distingue_falta_de_recovery_de_falta_de_plan(self, session, usuario):
+        """La interfaz necesita saber CUÁL de las dos precondiciones
+        falta para poder decir qué hacer: con un ValueError genérico solo
+        podía mostrar "falta una de las dos"."""
+        hoy = date(2026, 8, 3)
+
+        with pytest.raises(ReadinessNotComputedError) as sin_recovery:
+            compute_daily_session(session, usuario.id, target_date=hoy)
+        assert sin_recovery.value.motivo == "sin_recovery"
+
+        _sembrar_readiness(session, usuario.id, hoy, "green")
+        with pytest.raises(NoActiveWeeklyPlanError) as sin_plan:
+            compute_daily_session(session, usuario.id, target_date=hoy)
+        assert sin_plan.value.motivo == "sin_plan"
 
     def test_dia_sin_entrada_en_el_schedule_lanza_valueerror(self, session, usuario):
         hoy = date(2026, 8, 4)  # martes, sin entrada en el schedule de abajo

@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { api, ApiError, type Exercise, type ExerciseCategory } from "@/lib/api";
-import { Card, CardTitle } from "./ui/Card";
+import { Card } from "./ui/Card";
+import { EmptyState } from "./ui/EmptyState";
+import { LoadingState } from "./ui/LoadingState";
 import { FormField, fieldInputClass } from "./ui/FormField";
 
 /**
@@ -36,7 +38,9 @@ export function ExercisePicker() {
       })
       .catch((err) => {
         if (cancelado) return;
-        setError(err instanceof ApiError ? err.message : "No se pudo cargar el catálogo de wger.");
+        setError(
+          err instanceof ApiError ? err.message : "No se pudo cargar el catálogo de ejercicios.",
+        );
       });
     return () => {
       cancelado = true;
@@ -62,7 +66,9 @@ export function ExercisePicker() {
         if (!cancelado) setEjercicios(datos);
       } catch (err) {
         if (cancelado) return;
-        setError(err instanceof ApiError ? err.message : "No se pudo buscar ejercicios en wger.");
+        setError(
+          err instanceof ApiError ? err.message : "No se pudo buscar ejercicios en el catálogo.",
+        );
       } finally {
         if (!cancelado) setCargando(false);
       }
@@ -76,17 +82,19 @@ export function ExercisePicker() {
 
   return (
     <Card>
-      <CardTitle>Catálogo de ejercicios</CardTitle>
+      <div className="mb-4">
+        <h2 className="t-section text-ink">Catálogo de ejercicios</h2>
+        <p className="t-secondary mt-1 max-w-prose text-pretty text-ink-3">
+          Para consultar qué ejercicios hay por grupo muscular y con qué material. De momento es
+          solo consulta: todavía no se pueden añadir a una sesión.
+        </p>
+      </div>
       {error && (
-        <p role="alert" className="text-recovery-low text-sm mb-3">
+        <p role="alert" className="t-body mb-3 text-neg">
           {error}
         </p>
       )}
-      {!error && categorias === null && (
-        <p role="status" className="text-sm text-text-secondary italic">
-          Cargando categorías...
-        </p>
-      )}
+      {!error && categorias === null && <LoadingState lines={2} />}
       {!error && categorias && (
         <FormField label="Categoría de ejercicios" htmlFor="categoria-ejercicios">
           <select
@@ -103,29 +111,28 @@ export function ExercisePicker() {
           </select>
         </FormField>
       )}
-      <div className="mt-4 flex flex-col gap-2">
-        {cargando && (
-          <p role="status" className="text-sm text-text-secondary italic">
-            Buscando ejercicios...
-          </p>
-        )}
+      <div className="mt-4">
+        {cargando && <LoadingState lines={3} />}
         {!cargando && ejercicios && ejercicios.length === 0 && (
-          <p className="text-sm text-text-secondary italic">
-            No se encontraron ejercicios en esta categoría.
-          </p>
+          <EmptyState message="No hay ejercicios en esta categoría." />
         )}
-        {!cargando &&
-          ejercicios?.map((ej) => (
-            <div
-              key={ej.id}
-              className="rounded-xl border border-surface-border bg-surface px-4 py-3 text-sm"
-            >
-              <p className="text-foreground font-medium">{ej.nombre}</p>
-              {ej.equipamiento.length > 0 && (
-                <p className="text-text-secondary text-xs mt-0.5">{ej.equipamiento.join(", ")}</p>
-              )}
-            </div>
-          ))}
+        {/* Una lista con filetes de 1px, no una tarjeta por ejercicio:
+            con 50 resultados eran 50 contenedores con borde. */}
+        {!cargando && ejercicios && ejercicios.length > 0 && (
+          <ul className="divide-y divide-line">
+            {ejercicios.map((ej) => (
+              <li
+                key={ej.id}
+                className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-3 first:pt-0 last:pb-0"
+              >
+                <span className="t-body text-ink">{ej.nombre}</span>
+                {ej.equipamiento.length > 0 && (
+                  <span className="t-secondary text-ink-3">{ej.equipamiento.join(", ")}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </Card>
   );

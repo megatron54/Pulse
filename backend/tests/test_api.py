@@ -192,8 +192,16 @@ class TestBodyMeasurementHistory:
             f"/users/{usuario['id']}/body-measurements/history", params={"days": 0}
         )
         assert resp.status_code == 422
+        # El tope subió de 730 días a 10 años: el usuario pidió ver el
+        # historial completo ("I want full info, not just last 90 days")
+        # y con 730 la app no podía pedir las 275 pesadas importadas de
+        # la báscula. Sigue habiendo tope, solo que más arriba.
         resp = client.get(
             f"/users/{usuario['id']}/body-measurements/history", params={"days": 731}
+        )
+        assert resp.status_code == 200
+        resp = client.get(
+            f"/users/{usuario['id']}/body-measurements/history", params={"days": 3651}
         )
         assert resp.status_code == 422
 
@@ -557,6 +565,42 @@ class TestDailySession:
             json={"target_date": "2026-08-02", "planned_session": "strength_heavy"},
         )
         assert resp.status_code == 400
+
+    def test_el_400_incluye_un_motivo_legible_por_maquina(self, client):
+        """La interfaz necesita distinguir "falta sincronizar Garmin" de
+        "falta crear un plan", porque la acción que debe ofrecer es
+        distinta. El `detail` está escrito para los logs; `motivo` es el
+        contrato estable con el cliente."""
+        usuario = _crear_usuario(client)
+
+        sin_recovery = client.post(
+            f"/users/{usuario['id']}/session/daily",
+            json={"target_date": "2026-08-02", "planned_session": "strength_heavy"},
+        )
+        assert sin_recovery.status_code == 400
+        assert sin_recovery.json()["motivo"] == "sin_recovery"
+
+        client.post(
+            f"/users/{usuario['id']}/readiness/manual-checkin",
+            json={
+                "target_date": "2026-08-02",
+                "hrv_today": 65.0,
+                "hrv_baseline_28d": 65.0,
+                "hrv_trend_7d": 0.0,
+                "body_battery_am": 80,
+                "training_readiness": "high",
+                "sleep_score": 85,
+                "acwr": 1.0,
+                "joint_pain_flag": False,
+            },
+        )
+        # Sin `planned_session` y sin plan semanal activo: la otra rama.
+        sin_plan = client.post(
+            f"/users/{usuario['id']}/session/daily",
+            json={"target_date": "2026-08-02"},
+        )
+        assert sin_plan.status_code == 400
+        assert sin_plan.json()["motivo"] == "sin_plan"
 
     def test_usuario_inexistente_da_404(self, client):
         resp = client.post(

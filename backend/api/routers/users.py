@@ -6,13 +6,28 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_db, verify_api_key
-from api.schemas import GarminConnectRequest, UserCreateRequest, UserOut
+from api.schemas import (
+    ConexionesOut,
+    ConexionFeelfitOut,
+    ConexionGarminOut,
+    GarminConnectRequest,
+    UserCreateRequest,
+    UserOut,
+    UserUpdateRequest,
+)
 from garmin_sync.client import GarminAuthError, GarminRateLimitedError
 from models.database import get_session
-from models.schema import UserProfile
+from models.schema import (
+    BodyMeasurements,
+    FeelfitCredentials,
+    GarminCredentials,
+    GarminDailyMetrics,
+    UserProfile,
+)
 from services.garmin_manual_sync_service import sync_today_for_user
 from services.garmin_onboarding_service import (
     GarminPerfilIncompletoError,
@@ -171,3 +186,89 @@ def get_user(user_id: int, db: Session = Depends(get_db)) -> UserProfile:
     if usuario is None:
         raise HTTPException(status_code=404, detail=f"No existe usuario con id={user_id}")
     return usuario
+
+
+@router.patch("/{user_id}", response_model=UserOut)
+def update_user(
+    user_id: int, payload: UserUpdateRequest, db: Session = Depends(get_db)
+) -> UserProfile:
+    """Edición del propio perfil desde la página de Perfil.
+
+    Hasta ahora el perfil solo se podía crear (alta vía Garmin) pero no
+    corregir: si Garmin daba una altura mal o el usuario cambiaba de
+    fase de peso (`cut` -> `maintenance`), no había forma de arreglarlo
+    desde la app. `fase_peso_actual` además alimenta el objetivo
+    nutricional, así que dejarlo inmutable era un error funcional, no
+    solo de comodidad.
+
+    Un PATCH sin ningún campo es un 400, no un no-op silencioso: casi
+    siempre significa que el cliente mandó los nombres de campo mal.
+    """
+    usuario = db.get(UserProfile, user_id)
+    if usuario is None:
+        raise HTTPException(status_code=404, detail=f"No existe usuario con id={user_id}")
+
+    cambios = payload.model_dump(exclude_unset=True, exclude_none=True)
+    if not cambios:
+        raise HTTPException(status_code=400, detail="No se envió ningún campo que actualizar.")
+
+    for campo, valor in cambios.items():
+        setattr(usuario, campo, valor)
+    db.commit()
+    db.refresh(usuario)
+    return usuario
+
+
+@router.get("/{user_id}/connections", response_model=ConexionesOut)
+def get_connections(user_id: int, db: Session = Depends(get_db)) -> ConexionesOut:
+    """Estado real de las integraciones externas, para la página de Perfil.
+
+    Existe como endpoint propio en vez de deducirlo en el frontend a
+    partir de "¿hay datos?": la ausencia de datos no distingue entre
+    "no conectado", "conectado y el token caducó" y "conectado pero el
+    scheduler aún no ha corrido" (principio de "unknown is not zero").
+
+    `activo=False` cuenta como NO conectado: es la marca que deja el
+    scheduler cuando las credenciales dejan de funcionar, y mostrarlo
+    como conectado sería precisamente la falsa precisión que el
+    proyecto evita.
+    """
+    if db.get(UserProfile, user_id) is None:
+        raise HTTPException(status_code=404, detail=f"No existe usuario con id={user_id}")
+
+    garmin = db.scalar(select(GarminCredentials).where(GarminCredentials.user_id == user_id))
+    dias_garmin = db.scalar(
+        select(func.count())
+        .select_from(GarminDailyMetrics)
+        .where(GarminDailyMetrics.user_id == user_id)
+    )
+    feelfit = db.scalar(select(FeelfitCredentials).where(FeelfitCredentials.user_id == user_id))
+    # Solo las mediciones que realmente vinieron de la báscula: las
+    # manuales tienen `fuente_externa_id IS NULL` y contarlas aquí
+    # atribuiría a Feelfit datos que el usuario metió a mano.
+    mediciones_feelfit = db.scalar(
+        select(func.count())
+        .select_from(BodyMeasurements)
+        .where(
+            BodyMeasurements.user_id == user_id,
+            BodyMeasurements.metodo == "feelfit_bioimpedance",
+        )
+    )
+
+    return ConexionesOut(
+        garmin=ConexionGarminOut(
+            conectado=garmin is not None and garmin.activo,
+            email=garmin.garmin_email if garmin is not None else None,
+            historial_desde=garmin.historial_sincronizado_desde if garmin is not None else None,
+            # Paréntesis explícitos: sin conexión el valor es `None`
+            # ("no se sabe"), y con conexión pero sin días sincronizados
+            # todavía es `0`. Son dos cosas distintas y la precedencia
+            # de Python aquí se lee mal de un vistazo.
+            dias_de_historial=(dias_garmin or 0) if garmin is not None else None,
+        ),
+        feelfit=ConexionFeelfitOut(
+            conectado=feelfit is not None and feelfit.activo,
+            conectado_desde=feelfit.created_at.date() if feelfit is not None else None,
+            mediciones_importadas=mediciones_feelfit or 0,
+        ),
+    )

@@ -1,12 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CalendarClock } from "lucide-react";
-import { api, ApiError, todayLocalDate, type DailySessionResult, type SessionTypeValue } from "@/lib/api";
+import Link from "next/link";
+import {
+  api,
+  ApiError,
+  todayLocalDate,
+  type DailySessionResult,
+  type SessionTypeValue,
+} from "@/lib/api";
+import { Button } from "./ui/Button";
 import { Card, CardTitle } from "./ui/Card";
 import { EmptyState } from "./ui/EmptyState";
 import { ErrorState } from "./ui/ErrorState";
 import { LoadingState } from "./ui/LoadingState";
+import { MetricGrid, StatTile } from "./ui/StatTile";
 
 const LABELS: Record<SessionTypeValue, string> = {
   rest: "Descanso",
@@ -19,14 +27,31 @@ const LABELS: Record<SessionTypeValue, string> = {
   martial_arts_sparring: "Artes marciales (sparring)",
 };
 
+/** Qué falta, qué significa y qué hacer al respecto - uno por `motivo`
+ * del backend (`services.errors.SessionNotDecidableError`). */
+type Falta = { motivo: string | null; mensaje: string };
+
 /**
- * Nivel 2 del dashboard "Hoy" (reconstrucción v2): se carga
- * automáticamente al montar - antes requería pulsar "Ver decisión del
- * coach" y elegir manualmente qué tocaba hoy, lo cual contradice el
- * principio de "cero pasos manuales para algo que el motor de reglas
- * ya puede derivar solo" del check-in. Deriva SIEMPRE de tu plan
- * semanal activo + tu recovery real de Garmin - si falta cualquiera de
- * los dos, se explica honestamente en vez de forzar un formulario.
+ * "Qué hago hoy" (Design System v3). Segundo y último bloque de "Hoy".
+ *
+ * Se rehízo entera por tres defectos que la auditoría localizó en la
+ * versión v2 de esta misma tarjeta:
+ *
+ *  1. **Jerarquía invertida.** El `volume_pct` se pintaba a `text-3xl`
+ *     en azul de acento y el tipo de sesión a `text-lg`: el número que
+ *     dominaba la tarjeta era el ajuste, no la respuesta. Lo que el
+ *     usuario viene a leer es "Fuerza pesada"; el 85% es el detalle.
+ *  2. **La barra de progreso mentía.** Una barra llena de color de
+ *     acento sugiere "completado", cuando `volume_pct` es el volumen
+ *     RECOMENDADO respecto al planificado. Ahora es una cifra con su
+ *     unidad, como las demás métricas.
+ *  3. **El estado vacío no orientaba.** Decía "Aún no hay recovery de
+ *     hoy sincronizado de Garmin, o no tienes un plan semanal activo":
+ *     una disyunción que el usuario no puede resolver, y que además
+ *     contradecía a la tarjeta de recuperación de justo encima cuando
+ *     esta SÍ mostraba datos. El backend distingue ahora los dos casos
+ *     con un `motivo`, así que cada uno dice qué falta y ofrece la
+ *     acción que lo arregla.
  */
 export function DailySessionCard({ userId }: { userId: number }) {
   const [resultado, setResultado] = useState<DailySessionResult | null>(null);
@@ -35,8 +60,10 @@ export function DailySessionCard({ userId }: { userId: number }) {
   // activo) es un estado VACÍO esperado, no un fallo del sistema - no
   // debe anunciarse como `role="alert"` a lectores de pantalla
   // (hallazgo de code-review, BAJO).
-  const [sinDatos, setSinDatos] = useState<string | null>(null);
+  const [falta, setFalta] = useState<Falta | null>(null);
   const [intentos, setIntentos] = useState(0);
+
+  const reintentar = () => setIntentos((n) => n + 1);
 
   useEffect(() => {
     let cancelado = false;
@@ -45,15 +72,13 @@ export function DailySessionCard({ userId }: { userId: number }) {
       .then((r) => {
         if (cancelado) return;
         setError(null);
-        setSinDatos(null);
+        setFalta(null);
         setResultado(r);
       })
       .catch((err) => {
         if (cancelado) return;
         if (err instanceof ApiError && err.status === 400) {
-          setSinDatos(
-            "Aún no hay recovery de hoy sincronizado de Garmin, o no tienes un plan semanal activo."
-          );
+          setFalta({ motivo: err.motivo ?? null, mensaje: mensajeDe(err.motivo) });
         } else {
           setError(err instanceof ApiError ? err.message : "No se pudo calcular la sesión de hoy.");
         }
@@ -63,40 +88,133 @@ export function DailySessionCard({ userId }: { userId: number }) {
     };
   }, [userId, intentos]);
 
-  return (
-    <Card>
-      <CardTitle>Sesión de hoy</CardTitle>
-      {error && (
+  if (error) {
+    return (
+      <Card>
+        <CardTitle>Sesión de hoy</CardTitle>
         <ErrorState
           message={error}
           onRetry={() => {
             setError(null);
-            setIntentos((n) => n + 1);
+            reintentar();
           }}
         />
-      )}
-      {!error && sinDatos && <EmptyState icon={CalendarClock} message={sinDatos} />}
-      {!error && !sinDatos && resultado === null && <LoadingState lines={2} />}
-      {!error && !sinDatos && resultado && (
-        <div className="flex flex-col gap-3">
-          <div className="flex items-baseline gap-3 flex-wrap">
-            <span className="text-3xl font-semibold text-accent">{resultado.volume_pct}%</span>
-            <span className="text-lg font-semibold text-foreground">
-              {LABELS[resultado.session_type as SessionTypeValue] ?? resultado.session_type}
-            </span>
-            {resultado.intensity_rpe_cap !== null && (
-              <span className="text-sm text-text-secondary">RPE máx {resultado.intensity_rpe_cap}</span>
-            )}
-          </div>
-          <div className="h-1.5 w-full rounded-full bg-surface-muted overflow-hidden">
-            <div
-              className="h-full rounded-full bg-accent transition-all duration-700 ease-out"
-              style={{ width: `${Math.min(100, Math.max(0, resultado.volume_pct))}%` }}
-            />
-          </div>
-          <p className="text-sm text-text-secondary">{resultado.narrative_text}</p>
+      </Card>
+    );
+  }
+
+  if (falta) {
+    return (
+      <Card>
+        <CardTitle>Sesión de hoy</CardTitle>
+        <EmptyState message={falta.mensaje} accion={<AccionDe falta={falta} userId={userId} alResolver={reintentar} />} />
+      </Card>
+    );
+  }
+
+  if (resultado === null) {
+    return (
+      <Card>
+        <CardTitle>Sesión de hoy</CardTitle>
+        <LoadingState lines={2} />
+      </Card>
+    );
+  }
+
+  const tipo = LABELS[resultado.session_type as SessionTypeValue] ?? resultado.session_type;
+
+  // `plano` + divisor de 1px para la narrativa, mismo patrón que la
+  // tarjeta de recuperación: nunca una tarjeta dentro de otra.
+  return (
+    <Card plano>
+      <div className="flex flex-col gap-5 p-5">
+        <div>
+          <h2 className="t-section mb-2 text-ink-3">Sesión de hoy</h2>
+          <p className="t-page-title text-ink">{tipo}</p>
+        </div>
+        <MetricGrid>
+          <StatTile label="Volumen" value={resultado.volume_pct} unit="%" />
+          {resultado.intensity_rpe_cap !== null && (
+            <StatTile label="RPE máximo" value={resultado.intensity_rpe_cap} />
+          )}
+        </MetricGrid>
+      </div>
+      {resultado.narrative_text && (
+        <div className="border-t border-line px-5 py-4">
+          <p className="t-body text-pretty text-ink-2">{resultado.narrative_text}</p>
         </div>
       )}
     </Card>
+  );
+}
+
+/** El `detail` del backend está escrito para los logs ("ejecutar
+ * sync_and_compute_readiness primero"); esto es lo mismo dicho al
+ * usuario, y explicando POR QUÉ hace falta. */
+function mensajeDe(motivo: string | undefined): string {
+  if (motivo === "sin_recovery") {
+    return "Todavía no hay datos de recuperación de hoy. Pulse ajusta la sesión a cómo has dormido y recuperado, así que necesita la sincronización de Garmin antes de decidir nada.";
+  }
+  if (motivo === "sin_plan") {
+    return "No tienes un plan semanal activo. Pulse ajusta el volumen de lo que ya tengas planificado para hoy; sin plan no hay sesión que ajustar.";
+  }
+  return "Falta algún dato para decidir la sesión de hoy.";
+}
+
+function AccionDe({
+  falta,
+  userId,
+  alResolver,
+}: {
+  falta: Falta;
+  userId: number;
+  alResolver: () => void;
+}) {
+  if (falta.motivo === "sin_recovery") {
+    return <BotonSincronizar userId={userId} alTerminar={alResolver} />;
+  }
+  if (falta.motivo === "sin_plan") {
+    // Enlace, no botón: el plan semanal se crea en Entrenamiento, donde
+    // está el formulario - duplicarlo aquí escondería en la pantalla de
+    // hoy una decisión de varias semanas.
+    return (
+      <Link
+        href="/entrenamiento"
+        className="t-body rounded-md font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+      >
+        Crear mi plan semanal
+      </Link>
+    );
+  }
+  return null;
+}
+
+/** Sincronización manual del día en curso (`POST /garmin/sync`): pocas
+ * llamadas, no el backfill completo. Al terminar se vuelve a pedir la
+ * sesión, que es lo que el usuario quería en realidad. */
+function BotonSincronizar({ userId, alTerminar }: { userId: number; alTerminar: () => void }) {
+  const [estado, setEstado] = useState<"listo" | "sincronizando" | "fallo">("listo");
+
+  async function sincronizar() {
+    setEstado("sincronizando");
+    try {
+      await api.syncGarminNow(userId);
+      alTerminar();
+    } catch {
+      setEstado("fallo");
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-start gap-2">
+      <Button onClick={sincronizar} disabled={estado === "sincronizando"}>
+        {estado === "sincronizando" ? "Sincronizando…" : "Sincronizar Garmin ahora"}
+      </Button>
+      {estado === "fallo" && (
+        <p role="alert" className="t-secondary text-neg">
+          Garmin no respondió. Vuelve a intentarlo en unos minutos.
+        </p>
+      )}
+    </div>
   );
 }

@@ -11,11 +11,12 @@ import {
   type SessionTypeValue,
   type TrainingBlock,
 } from "@/lib/api";
-import { Card, CardTitle } from "./ui/Card";
+import { fechaCorta } from "@/lib/fechas";
+import { Card } from "./ui/Card";
 import { Button } from "./ui/Button";
 import { FormField, fieldInputClass } from "./ui/FormField";
 
-const DAY_LABELS: Record<DayOfWeek, string> = {
+const DIAS: Record<DayOfWeek, string> = {
   mon: "Lunes",
   tue: "Martes",
   wed: "Miércoles",
@@ -23,16 +24,6 @@ const DAY_LABELS: Record<DayOfWeek, string> = {
   fri: "Viernes",
   sat: "Sábado",
   sun: "Domingo",
-};
-
-const DAY_SHORT_LABELS: Record<DayOfWeek, string> = {
-  mon: "L",
-  tue: "M",
-  wed: "X",
-  thu: "J",
-  fri: "V",
-  sat: "S",
-  sun: "D",
 };
 
 const SESSION_LABELS: Record<SessionTypeValue, string> = {
@@ -46,12 +37,43 @@ const SESSION_LABELS: Record<SessionTypeValue, string> = {
   martial_arts_sparring: "Artes marciales (sparring)",
 };
 
-function addWeeks(dateStr: string, weeks: number): string {
-  const d = new Date(dateStr + "T00:00:00");
-  d.setDate(d.getDate() + weeks * 7);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+/** El backend acepta texto libre (`String(50)`), pero pedirle al usuario
+ *  que escriba "strength, hypertrophy, running, bjj" - el placeholder de
+ *  v2 - es pedirle que adivine el vocabulario interno en inglés. */
+const OBJETIVOS = [
+  { valor: "fuerza", label: "Ganar fuerza" },
+  { valor: "hipertrofia", label: "Ganar masa muscular" },
+  { valor: "resistencia", label: "Mejorar resistencia" },
+  { valor: "artes_marciales", label: "Artes marciales" },
+  { valor: "recomposicion", label: "Recomposición corporal" },
+  { valor: "mantenimiento", label: "Mantenerme" },
+] as const;
+
+const DURACIONES = [4, 6, 8, 12] as const;
+
+function sumarSemanas(fechaIso: string, semanas: number): string {
+  const d = new Date(fechaIso + "T00:00:00");
+  d.setDate(d.getDate() + semanas * 7);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate()
+  ).padStart(2, "0")}`;
 }
 
+/**
+ * Crear el plan semanal de un bloque de entrenamiento (Design System
+ * v3).
+ *
+ * La tira de 7 chips de v2 (uno por día, con la inicial del día y un
+ * `<select>` de 11px dentro de una caja de ~46px) es el ejemplo más
+ * claro de la queja del usuario, "hay muchas palabras que se cortan":
+ * "Intervalos de resistencia" era ilegible ahí dentro. Ahora es una
+ * fila por día con el nombre completo del día y el desplegable a ancho
+ * real: siete filas ocupan más alto, pero se leen.
+ *
+ * El objetivo del bloque pasa de texto libre en inglés a una lista de
+ * opciones en español, y la duración deja de estar fijada a 6 semanas
+ * en el código.
+ */
 export function WeeklyScheduleForm({
   userId,
   onCreated,
@@ -59,68 +81,80 @@ export function WeeklyScheduleForm({
   userId: number;
   onCreated?: (block: TrainingBlock) => void;
 }) {
-  const [objetivo, setObjetivo] = useState("strength");
+  const [objetivo, setObjetivo] = useState<string>("fuerza");
+  const [semanas, setSemanas] = useState<number>(6);
   const [fechaInicio, setFechaInicio] = useState(todayLocalDate());
-  const [schedule, setSchedule] = useState<Partial<Record<DayOfWeek, SessionTypeValue>>>({
+  const [plan, setPlan] = useState<Partial<Record<DayOfWeek, SessionTypeValue>>>({
     mon: "strength_heavy",
     wed: "strength_hypertrophy",
     fri: "endurance_intervals",
   });
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [created, setCreated] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [creado, setCreado] = useState<TrainingBlock | null>(null);
 
-  function updateDay(day: DayOfWeek, value: string) {
-    setSchedule((prev) => {
-      const next = { ...prev };
-      if (value === "") {
-        delete next[day];
+  function cambiarDia(dia: DayOfWeek, valor: string) {
+    setPlan((previo) => {
+      const siguiente = { ...previo };
+      if (valor === "") {
+        delete siguiente[dia];
       } else {
-        next[day] = value as SessionTypeValue;
+        siguiente[dia] = valor as SessionTypeValue;
       }
-      return next;
+      return siguiente;
     });
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  const fechaFin = sumarSemanas(fechaInicio, semanas);
+  const diasConEntreno = DAYS_OF_WEEK.filter((dia) => plan[dia]).length;
+
+  async function enviar(e: React.FormEvent) {
     e.preventDefault();
-    setSubmitting(true);
+    setEnviando(true);
     setError(null);
     try {
-      const block = await api.createTrainingBlock(userId, {
+      const bloque = await api.createTrainingBlock(userId, {
         fecha_inicio: fechaInicio,
-        fecha_fin: addWeeks(fechaInicio, 6),
+        fecha_fin: fechaFin,
         objetivo_prioritario: objetivo,
-        weekly_schedule: schedule,
+        weekly_schedule: plan,
       });
-      setCreated(true);
-      onCreated?.(block);
+      setCreado(bloque);
+      onCreated?.(bloque);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : String(err));
     } finally {
-      setSubmitting(false);
+      setEnviando(false);
     }
   }
 
   return (
     <Card>
-      <CardTitle>Plan semanal (6 semanas)</CardTitle>
-      <p className="text-sm text-text-secondary mb-4 -mt-2">
-        Una vez creado, la app decide sola qué toca cada día combinándolo con tu recuperación -
-        ya no hace falta elegirlo a mano en &quot;Sesión de hoy&quot;.
-      </p>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <FormField label="Objetivo prioritario del bloque" htmlFor="objetivo-bloque">
-            <input
+      <div className="mb-4">
+        <h2 className="t-section text-ink">Plan semanal</h2>
+        <p className="t-secondary mt-1 max-w-prose text-pretty text-ink-3">
+          Di qué entrenas cada día de una semana tipo. A partir de ahí Pulse decide solo qué toca
+          hoy, ajustando el volumen a tu recuperación: no tendrás que elegirlo a mano.
+        </p>
+      </div>
+
+      <form onSubmit={enviar} className="flex flex-col gap-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <FormField label="Objetivo del bloque" htmlFor="objetivo-bloque">
+            <select
               id="objetivo-bloque"
               className={fieldInputClass}
               value={objetivo}
               onChange={(e) => setObjetivo(e.target.value)}
-              placeholder="ej. strength, hypertrophy, running, bjj"
-            />
+            >
+              {OBJETIVOS.map((o) => (
+                <option key={o.valor} value={o.valor}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
           </FormField>
-          <FormField label="Fecha de inicio" htmlFor="fecha-inicio-bloque">
+          <FormField label="Empieza el" htmlFor="fecha-inicio-bloque">
             <input
               id="fecha-inicio-bloque"
               type="date"
@@ -129,47 +163,84 @@ export function WeeklyScheduleForm({
               onChange={(e) => setFechaInicio(e.target.value)}
             />
           </FormField>
-        </div>
-
-        {/* Tira semanal tipo calendario (estilo Garmin Connect): un
-            chip por día en vez de una lista vertical de <select>
-            sueltos, misma jerarquía visual que un calendario real. */}
-        <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
-          {DAYS_OF_WEEK.map((day) => (
-            <div
-              key={day}
-              className="flex flex-col gap-1.5 rounded-xl border border-surface-border bg-surface-muted p-2"
+          <FormField label="Duración" htmlFor="duracion-bloque">
+            <select
+              id="duracion-bloque"
+              className={fieldInputClass}
+              value={semanas}
+              onChange={(e) => setSemanas(Number(e.target.value))}
             >
-              <span
-                className="mx-auto flex size-6 items-center justify-center rounded-full bg-surface text-xs font-semibold text-foreground"
-                title={DAY_LABELS[day]}
-              >
-                {DAY_SHORT_LABELS[day]}
-              </span>
-              <select
-                aria-label={DAY_LABELS[day]}
-                className="w-full rounded-lg border-0 bg-transparent px-1 py-1 text-center text-[11px] text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
-                value={schedule[day] ?? ""}
-                onChange={(e) => updateDay(day, e.target.value)}
-              >
-                <option value="">Descanso</option>
-                {SESSION_TYPES.map((tipo) => (
-                  <option key={tipo} value={tipo}>
-                    {SESSION_LABELS[tipo]}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ))}
+              {DURACIONES.map((n) => (
+                <option key={n} value={n}>
+                  {n} semanas
+                </option>
+              ))}
+            </select>
+          </FormField>
         </div>
 
-        {error && <p className="text-recovery-low text-sm">{error}</p>}
-        <Button type="submit" disabled={submitting} className="self-start">
-          {submitting ? "Creando..." : "Activar plan semanal"}
-        </Button>
+        {/* Una fila por día, con el nombre del día completo y el
+            desplegable a ancho real: nada se corta (doctrina 4). */}
+        <div>
+          <h3 className="t-micro mb-2 text-ink-3">Semana tipo</h3>
+          <dl className="divide-y divide-line">
+            {DAYS_OF_WEEK.map((dia) => (
+              <div key={dia} className="flex items-center gap-4 py-2.5">
+                {/* Ancho fijo para el nombre del día: con `justify-between`
+                    el borde izquierdo de cada desplegable caía donde
+                    acabara su etiqueta ("Lunes" / "Miércoles"), y los
+                    siete quedaban desalineados en escalera. */}
+                <label htmlFor={`dia-${dia}`} className="t-body w-24 shrink-0 text-ink-2">
+                  {DIAS[dia]}
+                </label>
+                <select
+                  id={`dia-${dia}`}
+                  // `flex-1` y no `max-w-[60%]`: a 390px ese 60% son
+                  // 160px y "Intervalos de resistencia" quedaba cortado
+                  // por la flecha del desplegable - la misma queja de
+                  // palabras cortadas, un nivel más abajo. El nombre del
+                  // día ocupa poco, así que el desplegable se queda con
+                  // todo el resto de la fila (tope en escritorio, donde
+                  // un desplegable de 700px sería absurdo).
+                  className="t-body min-h-9 min-w-0 flex-1 rounded-md border border-line bg-surface px-2.5 text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-ink sm:max-w-[22rem]"
+                  value={plan[dia] ?? ""}
+                  onChange={(e) => cambiarDia(dia, e.target.value)}
+                >
+                  <option value="">Descanso</option>
+                  {SESSION_TYPES.filter((tipo) => tipo !== "rest").map((tipo) => (
+                    <option key={tipo} value={tipo}>
+                      {SESSION_LABELS[tipo]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </dl>
+        </div>
+
+        <p className="t-secondary text-ink-3">
+          {diasConEntreno === 0
+            ? "Ahora mismo el plan es de descanso los siete días."
+            : `${diasConEntreno} días de entreno por semana, del ${fechaCorta(fechaInicio)} al ${fechaCorta(fechaFin)}.`}
+        </p>
+
+        {error && (
+          <p role="alert" className="t-body text-neg">
+            {error}
+          </p>
+        )}
+        <div>
+          <Button type="submit" disabled={enviando}>
+            {enviando ? "Activando…" : "Activar plan"}
+          </Button>
+        </div>
       </form>
-      {created && (
-        <p className="mt-3 text-recovery-high text-sm font-medium">Plan semanal activado.</p>
+
+      {creado && (
+        <p role="status" className="t-body mt-4 text-pos">
+          Plan activado del {fechaCorta(creado.fecha_inicio)} al {fechaCorta(creado.fecha_fin)}. Ya
+          puedes ver la sesión de hoy en la pantalla de inicio.
+        </p>
       )}
     </Card>
   );

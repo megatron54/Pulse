@@ -10,24 +10,48 @@ import type { User } from "./api";
  * lógica de "cargando / sin usuario / con usuario" - `AppShell` ya
  * garantiza que ninguna página se monta sin un usuario válido.
  */
-const UserContext = createContext<User | null>(null);
+type ContextoUsuario = {
+  user: User;
+  /** Publica el usuario ya actualizado (tras un PATCH en Perfil). */
+  onUserChange: (usuario: User) => void;
+};
+
+const UserContext = createContext<ContextoUsuario | null>(null);
 
 export function UserProvider({
   user,
+  onUserChange,
   children,
 }: {
   user: User;
+  onUserChange: (usuario: User) => void;
   children: React.ReactNode;
 }) {
-  return <UserContext.Provider value={user}>{children}</UserContext.Provider>;
+  return (
+    <UserContext.Provider value={{ user, onUserChange }}>{children}</UserContext.Provider>
+  );
 }
 
-export function useUser(): User {
-  const user = useContext(UserContext);
-  if (!user) {
+function useContexto(): ContextoUsuario {
+  const contexto = useContext(UserContext);
+  if (!contexto) {
     throw new Error(
       "useUser() se usó fuera de <UserProvider> - AppShell debe envolver toda página que lo use."
     );
   }
-  return user;
+  return contexto;
+}
+
+export function useUser(): User {
+  return useContexto().user;
+}
+
+/**
+ * Setter del usuario del contexto, para cuando la propia app cambia el
+ * perfil (Perfil > Tus datos). Sin esto, tras guardar un cambio la
+ * cabecera seguiría saludando con el nombre viejo hasta recargar la
+ * página entera.
+ */
+export function useSetUser(): (usuario: User) => void {
+  return useContexto().onUserChange;
 }

@@ -30,6 +30,12 @@ describe("GarminConnectForm", () => {
     expect(screen.queryByLabelText(/fecha de nacimiento/i)).not.toBeInTheDocument();
   });
 
+  it("dice en qué paso está y no promete guardar la contraseña", () => {
+    render(<GarminConnectForm onConnected={vi.fn()} />);
+    expect(screen.getByText("Paso 1 de 2")).toBeInTheDocument();
+    expect(screen.getByText(/la contraseña no se guarda/i)).toBeInTheDocument();
+  });
+
   it("al conectar con éxito, llama a onConnected con el usuario creado", async () => {
     vi.mocked(api.connectGarmin).mockResolvedValue(usuarioCreado);
     const onConnected = vi.fn();

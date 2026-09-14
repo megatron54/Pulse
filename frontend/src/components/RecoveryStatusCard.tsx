@@ -1,37 +1,45 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Activity, BatteryCharging, Footprints, HeartPulse, Moon } from "lucide-react";
 import { api, ApiError, type GarminHealthDay, type ReadinessResult } from "@/lib/api";
+import { diasDesdeHoy, fechaRelativa, masRecientePorFecha } from "@/lib/fechas";
 import { CoachNarrativeBlock } from "./CoachNarrativeBlock";
-import { EmptyState } from "./ui/EmptyState";
 import { ErrorState } from "./ui/ErrorState";
 import { LoadingState } from "./ui/LoadingState";
-import { StatTile } from "./ui/StatTile";
+import { MetricGrid, StatTile } from "./ui/StatTile";
 
-const DIAS_MINI_TENDENCIA = 7;
+const DIAS_VENTANA = 7;
 
 const ZONA = {
-  green: { label: "Recovery alta", clase: "bg-recovery-high/15 text-recovery-high" },
-  yellow: { label: "Recovery media", clase: "bg-recovery-medium/15 text-recovery-medium" },
-  red: { label: "Recovery baja", clase: "bg-recovery-low/15 text-recovery-low" },
+  green: { label: "Recuperación óptima", color: "text-pos", punto: "bg-pos" },
+  yellow: { label: "Recuperación media", color: "text-warn", punto: "bg-warn" },
+  red: { label: "Recuperación baja", color: "text-neg", punto: "bg-neg" },
 } as const;
 
 /**
- * Hero de la página "Hoy" (reconstrucción v2 -
- * 01-arquitectura/04-design-system-v2.md, Fase 2): sustituye por
- * completo al check-in manual (`ReadinessCheckinForm`, eliminado) y a
- * los anillos de `RecoveryRing` (eliminado). Los datos son 100%
- * automáticos de Garmin - CERO inputs manuales.
+ * Hero de "Hoy" (Design System v3). Responde a una sola pregunta:
+ * ¿cómo estoy hoy?
  *
- * Jerarquía (nivel 1 del dashboard "Hoy"): estado semáforo primero,
- * las 3-4 métricas que lo explican debajo, la narrativa del coach al
- * final. "Unknown is not zero": si el scheduler todavía no ha
- * sincronizado hoy, se comunica explícitamente - nunca un cero
- * inventado ni una zona por defecto.
+ * Aquí vivía el bug más serio que encontró la auditoría: se leía
+ * `historial.at(-1)`, pero `GET /garmin/health-history` devuelve orden
+ * DESCENDENTE, así que `.at(-1)` era el día MÁS ANTIGUO de la ventana -
+ * con `days=7`, la app mostraba los datos de hace una semana bajo el
+ * título "Tu recovery de hoy". Se veía en la propia tarjeta: las cifras
+ * (VFC 65 ms, sueño 83) contradecían a la narrativa del coach justo
+ * debajo (50 ms, 51), que sí usaba el día correcto. Ahora se elige por
+ * fecha máxima (`masRecientePorFecha`), correcto con cualquier orden.
+ *
+ * Y se muestra DE QUÉ DÍA son los datos: si el scheduler aún no ha
+ * sincronizado hoy, decirlo es más honesto que etiquetar como "hoy" lo
+ * último que haya ("unknown is not zero" aplicado a la fecha).
+ *
+ * Sin medidor circular: el gauge de la iteración anterior presentaba
+ * Body Battery como si fuera un score global de recuperación (no lo es,
+ * y su etiqueta además desbordaba el círculo), y coloreaba el anillo con
+ * la zona, mezclando dos métricas distintas en un solo objeto.
  */
 export function RecoveryStatusCard({ userId }: { userId: number }) {
-  const [readinessHoy, setReadinessHoy] = useState<ReadinessResult[] | null>(null);
+  const [readiness, setReadiness] = useState<ReadinessResult[] | null>(null);
   const [historial, setHistorial] = useState<GarminHealthDay[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [intentos, setIntentos] = useState(0);
@@ -40,12 +48,12 @@ export function RecoveryStatusCard({ userId }: { userId: number }) {
     let cancelado = false;
     Promise.all([
       api.getReadinessHistory(userId, 1),
-      api.getGarminHealthHistory(userId, DIAS_MINI_TENDENCIA),
+      api.getGarminHealthHistory(userId, DIAS_VENTANA),
     ])
-      .then(([readiness, health]) => {
+      .then(([resultadoReadiness, salud]) => {
         if (cancelado) return;
-        setReadinessHoy(readiness);
-        setHistorial(health);
+        setReadiness(resultadoReadiness);
+        setHistorial(salud);
         setError(null);
       })
       .catch((err) => {
@@ -57,17 +65,17 @@ export function RecoveryStatusCard({ userId }: { userId: number }) {
     };
   }, [userId, intentos]);
 
-  // .at(-1) en vez de [0]: getReadinessHistory devuelve orden
-  // ascendente (más antiguo primero) - con days=1 da igual porque solo
-  // puede haber 0 o 1 fila, pero .at(-1) es correcto también si algún
-  // día se cambia el `days` de esta llamada (hallazgo de code-review).
-  const zonaHoy = readinessHoy?.at(-1)?.resultado ?? null;
-  const diaHoy = historial?.at(-1) ?? null;
-  const cargando = readinessHoy === null || historial === null;
+  const zona = masRecientePorFecha(readiness ?? [])?.resultado ?? null;
+  const dia = masRecientePorFecha(historial ?? []);
+  /** Si el día más reciente con datos es hoy mismo. Distingue "Garmin no
+   *  ha sincronizado" de "ha sincronizado, pero la recuperación aún no
+   *  se puede calcular". */
+  const datosDeHoy = dia !== null && diasDesdeHoy(dia.fecha) === 0;
+  const cargando = readiness === null || historial === null;
 
-  return (
-    <section className="rounded-2xl border border-surface-border bg-surface p-6 shadow-sm">
-      {error && (
+  if (error) {
+    return (
+      <section className="rounded-[10px] border border-line bg-surface p-5">
         <ErrorState
           message={error}
           onRetry={() => {
@@ -75,56 +83,71 @@ export function RecoveryStatusCard({ userId }: { userId: number }) {
             setIntentos((n) => n + 1);
           }}
         />
-      )}
-      {!error && cargando && <LoadingState lines={4} />}
-      {!error && !cargando && (
-        <div className="flex flex-col gap-5">
-          <div>
-            <p className="text-sm text-text-secondary">Tu recovery de hoy</p>
-            {zonaHoy ? (
-              <span
-                className={`mt-1 inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ${ZONA[zonaHoy].clase}`}
-              >
-                {ZONA[zonaHoy].label}
-              </span>
-            ) : (
-              <span className="mt-1 inline-flex items-center rounded-full bg-surface-muted px-3 py-1 text-sm font-medium text-text-secondary">
-                Aún sin datos de hoy
-              </span>
-            )}
-          </div>
+      </section>
+    );
+  }
 
-          {historial && historial.length === 0 && (
-            <EmptyState icon={HeartPulse} message="Todavía no hay datos de recovery sincronizados." />
-          )}
+  if (cargando) {
+    return (
+      <section className="rounded-[10px] border border-line bg-surface p-5">
+        <LoadingState lines={4} />
+      </section>
+    );
+  }
 
-          {diaHoy && (
-            <div className="scroll-rail -mx-1 flex gap-3 px-1">
-              {/* Orden inspirado en la home de Garmin Connect (petición
-                  explícita del usuario): sueño, body battery y pasos son
-                  los 3 vistazos principales; VFC/estrés quedan como
-                  secundarios a continuación. */}
-              {diaHoy.sleep_score != null && (
-                <StatTile icon={Moon} label="Sueño" value={diaHoy.sleep_score} />
-              )}
-              {diaHoy.body_battery_am != null && (
-                <StatTile icon={BatteryCharging} label="Body Battery" value={diaHoy.body_battery_am} />
-              )}
-              {diaHoy.pasos != null && (
-                <StatTile icon={Footprints} label="Pasos" value={diaHoy.pasos} />
-              )}
-              {diaHoy.hrv_value != null && (
-                <StatTile icon={HeartPulse} label="VFC" value={diaHoy.hrv_value} unit=" ms" />
-              )}
-              {diaHoy.stress_avg != null && (
-                <StatTile icon={Activity} label="Estrés" value={diaHoy.stress_avg} />
-              )}
+  return (
+    <section className="rounded-[10px] border border-line bg-surface">
+      <div className="flex flex-col gap-5 p-5">
+        <div>
+          {zona ? (
+            <div className="flex items-center gap-2">
+              <span aria-hidden="true" className={`size-2 rounded-full ${ZONA[zona].punto}`} />
+              <h2 className={`t-page-title ${ZONA[zona].color}`}>{ZONA[zona].label}</h2>
             </div>
+          ) : (
+            // Tres estados, no dos: "sin datos de hoy" era falso cuando
+            // Garmin YA había sincronizado hoy y lo que faltaba era el
+            // cálculo. La tarjeta se contradecía a dos líneas de
+            // distancia ("Sin datos de hoy todavía" / "Últimos datos
+            // sincronizados: hoy") y encima enseñaba las cifras de hoy
+            // justo debajo.
+            <h2 className="t-page-title text-ink-2">
+              {datosDeHoy ? "Recuperación sin calcular" : "Sin datos de hoy todavía"}
+            </h2>
           )}
-
-          <CoachNarrativeBlock userId={userId} />
+          <p className="t-secondary mt-1 text-pretty text-ink-3">
+            {!dia
+              ? "Garmin aún no ha sincronizado ningún día."
+              : zona || !datosDeHoy
+                ? `Últimos datos sincronizados: ${fechaRelativa(dia.fecha).toLowerCase()}`
+                : "Garmin ya ha sincronizado hoy. La recuperación necesita además el sueño y la variabilidad cardíaca de esta noche."}
+          </p>
         </div>
-      )}
+
+        {dia && (
+          <MetricGrid>
+            {dia.sleep_score != null && <StatTile label="Sueño" value={dia.sleep_score} />}
+            {dia.body_battery_am != null && (
+              <StatTile label="Body Battery" value={dia.body_battery_am} />
+            )}
+            {dia.hrv_value != null && <StatTile label="VFC" value={dia.hrv_value} unit=" ms" />}
+            {dia.stress_avg != null && <StatTile label="Estrés" value={dia.stress_avg} />}
+            {dia.resting_hr != null && (
+              <StatTile label="Pulso reposo" value={dia.resting_hr} unit=" ppm" />
+            )}
+            {dia.pasos != null && <StatTile label="Pasos" value={dia.pasos} />}
+          </MetricGrid>
+        )}
+      </div>
+
+      {/* Divisor de 1px en vez de meter la narrativa en otra tarjeta
+          dentro de esta (doctrina 2: prohibida la tarjeta anidada).
+          `empty:hidden` porque la narrativa no existe todos los días:
+          sin eso quedaba una franja vacía con una línea arriba, visible
+          en las capturas de la auditoría. */}
+      <div className="border-t border-line px-5 py-4 empty:hidden">
+        <CoachNarrativeBlock userId={userId} />
+      </div>
     </section>
   );
 }

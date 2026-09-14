@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { UserProvider, useUser } from "./UserContext";
+import { UserProvider, useSetUser, useUser } from "./UserContext";
 import type { User } from "./api";
 
 const usuarioFalso: User = {
@@ -20,11 +20,31 @@ function ComponenteQueUsaUser() {
 describe("UserContext", () => {
   it("useUser() devuelve el usuario cuando hay un UserProvider", () => {
     render(
-      <UserProvider user={usuarioFalso}>
+      <UserProvider user={usuarioFalso} onUserChange={() => {}}>
         <ComponenteQueUsaUser />
       </UserProvider>
     );
     expect(screen.getByText("Hola, Test")).toBeInTheDocument();
+  });
+
+  it("useSetUser() publica el usuario actualizado tras editar el perfil", () => {
+    const onUserChange = vi.fn();
+
+    function BotonGuardar() {
+      const setUser = useSetUser();
+      return (
+        <button onClick={() => setUser({ ...usuarioFalso, nombre: "Editado" })}>Guardar</button>
+      );
+    }
+
+    render(
+      <UserProvider user={usuarioFalso} onUserChange={onUserChange}>
+        <BotonGuardar />
+      </UserProvider>
+    );
+    screen.getByRole("button", { name: "Guardar" }).click();
+
+    expect(onUserChange).toHaveBeenCalledWith({ ...usuarioFalso, nombre: "Editado" });
   });
 
   it("useUser() lanza un error explícito si se usa fuera de un UserProvider", () => {

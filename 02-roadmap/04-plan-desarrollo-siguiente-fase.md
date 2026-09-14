@@ -44,9 +44,18 @@ metrics.pasos` y las 4 columnas de fases de sueño existían en el modelo
 pero nunca se migraron a Postgres, rompiendo toda consulta de métricas
 diarias (incluida la página "Hoy" completa). Se añadió también el
 formulario de conexión de Feelfit que faltaba en el frontend (el backend
-ya existía, sin UI). Ver Fase 0 (nueva) para el siguiente foco: el
-usuario sigue viendo el frontend como "AI slop" pese a la reconstrucción
-v2.1.
+ya existía, sin UI).
+
+Actualizado el 2026-09-14: **Fase 0 hecha, pero no como estaba
+planteada** - el usuario pidió rehacer el frontend desde cero en vez de
+aplicarle los seis elementos visuales de la referencia fintech que
+proponía el plan original. Ver Fase 0 para el porqué y para lo que se
+hizo (Design System v3). Estado tras esa reconstrucción: backend 737
+tests en verde (el mismo fallo conocido de `psycopg2`), frontend 242
+tests en 43 archivos, `npx tsc --noEmit` y `npx eslint src` limpios.
+Nota de arqueología, porque el párrafo de arriba se quedó desfasado:
+`AreaTrendChart` - el sustituto por el que se borró `Sparkline.tsx` -
+también se fue en v3, reemplazado por `TrendChart` (línea sin relleno).
 
 ## Cómo se ha priorizado este plan (criterio, no solo orden numérico)
 
@@ -66,54 +75,74 @@ v2.1.
    encontró de peso en esta sesión más allá de lo ya limpiado - se anota
    en la Fase 2 por si aparece más según se avance.
 
-## Fase 0 — Rediseño visual del frontend (prioridad actual, en curso)
+## Fase 0 — Reconstrucción del frontend (v3) — ✅ Hecha
 
-Añadida el 2026-09-13. El usuario, tras ver el frontend reconstruido
-(v2.1, ver más abajo), lo sigue describiendo como "AI slop" - genérico,
-sin personalidad visual propia - y aportó una referencia concreta: un
-dashboard fintech (fondo lavanda/gris muy claro, tarjetas blancas
-redondeadas con sombra suave, chips de icono de color pastel, deltas con
-punto de color + flecha, un gauge/donut como pieza hero para una única
-métrica compuesta, avatares circulares en fila, nav inferior en píldora
-negra con iconos). No se copia literalmente (es un dominio fintech, no
-fitness/salud) pero señala elementos concretos transferibles que el
-frontend actual NO tiene:
+Añadida el 2026-09-13, ejecutada el 2026-09-14. Historia corta y útil:
+el plan original de esta fase era aplicar a v2.1 seis elementos
+concretos tomados de una referencia de dashboard fintech que aportó el
+usuario (fondo con tinte lavanda, chips de icono en círculo pastel, un
+gauge/donut hero para el readiness, deltas con punto de color + flecha,
+nav inferior en píldora negra, avatares circulares en fila). **Ese plan
+queda derogado y no se retoma**, y merece la pena anotar por qué,
+porque es el tercer ciclo del mismo error:
 
-1. **Fondo con temperatura de color, no gris neutro plano**: `globals.css`
-   usa hoy un gris neutro (`#F5F5F7` claro / `#121214` oscuro) sin ningún
-   tinte - la referencia usa un lavanda/azul muy desaturado que le da
-   personalidad sin sacrificar legibilidad. Elegir un tinte propio de
-   Pulse (no lavanda genérico - coherente con el semantic color ya
-   definido en `04-design-system-v2.md`, ej. un tinte muy sutil hacia el
-   azul/verde de "recovery").
-2. **Chips de icono de color por categoría**, no solo texto/números
-   sueltos - cada `StatTile` de la referencia tiene un icono en un
-   círculo de fondo pastel (no monocromo) antes del label. Hoy
-   `StatTile` (ver `frontend/src/components/ui/`) es más plano.
-3. **Un hero gauge/donut real para UNA métrica compuesta** - la
-   referencia lo usa para "Cash Flow Health 86/100"; Pulse ya tiene el
-   concepto equivalente (readiness RED/YELLOW/GREEN) pero se muestra
-   como texto/semáforo, no como pieza visual circular de un solo vistazo
-   en el hero de "Hoy" (`RecoveryStatusCard.tsx`).
-4. **Deltas con punto de color + flecha + "vs. periodo anterior"** de
-   forma consistente en cada tarjeta numérica, patrón ya parcialmente
-   usado (`PeriodicSummaryCard`) pero no generalizado a todas las
-   tarjetas de KPI.
-5. **Nav inferior en píldora** (icono activo relleno en círculo negro)
-   en vez de la barra plana actual (`Nav.tsx`) - más "app nativa", menos
-   "sitio web con tabs".
-6. **Avatares/chips circulares en fila** para navegación rápida entre
-   categorías (en la referencia son personas; en Pulse serían deportes/
-   categorías de actividad - running, gimnasio, ciclismo, etc.) - encaja
-   con el patrón ya existente de fichas de detalle por categoría de
-   actividad (narrativa Capa 3 por deporte, ver Épica H).
+el usuario volvió a rechazar el resultado en los mismos términos con
+los que había rechazado v1 y v2 - "hay aún mucho estilo con neón tipo
+AI slop", "lo mismo con los emoticonos", "hay muchas palabras que se
+cortan, no es un diseño de alto nivel" - y pidió explícitamente
+**rehacer el frontend desde 0, "no solo el estilo y colores, TODO"**.
+Aplicar una séptima capa de adorno visual encima (que es literalmente
+lo que proponían los seis puntos: tintes, pastel, un donut, puntos de
+color) habría reproducido la queja por cuarta vez. Cuatro de los seis
+puntos eran decoración pura y hoy los prohíbe la doctrina 1 del
+`05-design-system-v3.md` (*el color es información, nunca adorno*).
 
-**Cómo ejecutarlo sin volver a caer en "AI slop"**: no es una reescritura
-completa de un día - cada punto se prueba en UNA pantalla primero (Hoy,
-que ya es el hero de la app), se verifica con Playwright (patrón ya
-establecido en este proyecto) en claro/oscuro/mobile, y solo se propaga
-al resto de páginas tras confirmación visual explícita del usuario -
-mismo criterio que ya evitó over-engineering en la sesión de v2.1.
+Lo que se hizo en su lugar:
+
+1. ✅ **Doctrina escrita y numerada antes de tocar código**
+   (`01-arquitectura/05-design-system-v3.md`), para poder citar cada
+   regla por número desde los comentarios de los componentes y que una
+   decisión de diseño sea discutible contra un documento en vez de
+   contra el gusto de quien la escribió. `04-design-system-v2.md`
+   marcado como derogado, no borrado.
+2. ✅ **Tokens de rol y escala tipográfica con nombre**, en lugar de
+   colores y tamaños elegidos caso por caso: se fue el neón, los
+   degradados, los brillos y los bordes de color.
+3. ✅ **Una pregunta por página.** "Hoy" pierde la tendencia de
+   readiness (30 círculos sin eje, sin fechas y sin cifras, con el
+   significado solo en el `title` del cursor: inexistente en móvil) y
+   el objetivo nutricional, que allí era una tarjeta cuyo único
+   contenido era un botón "calcular macros". Ambos por petición
+   explícita del usuario.
+4. ✅ **Página Perfil**, que no existía: datos propios, tema
+   claro/oscuro/automático y el estado real de las conexiones a Garmin
+   y Feelfit con su formulario de alta. Ocupa el hueco de nav que
+   dejó "Coach", que gastaba un quinto de la navegación para decir
+   "todavía no está construido".
+5. ✅ **Cero texto cortado**, verificado por captura a 390px y 1280px
+   en claro y oscuro: goteras en las cabeceras de tabla, tabla de
+   sesiones de 4 columnas con la fecha bajo el nombre, etiquetas
+   cortas propias en el nav móvil, desplegables del plan semanal a
+   ancho real.
+6. ✅ **Gráficas que no mienten**: el relleno de área con degradado se
+   retiró (el eje del peso empieza en 75 kg, así que el área no
+   representaba nada, y cerraba cada hueco de datos con una pared
+   vertical falsa hasta la base), y con él el nombre del componente
+   (`AreaTrendChart` → `TrendChart`). El donut y el gauge radial
+   también se fueron.
+7. ✅ **Sin jerga interna en pantalla**: el 502 de `/exercises` escribía
+   "Fallo de conexión con wger: [Errno 111] Connection refused" tal
+   cual en la pantalla de Entrenamiento, y el 404 de Feelfit "No existe
+   UserProfile con id=5". Ahora el usuario lee texto escrito para una
+   persona y el detalle técnico va al log del servidor, con test que lo
+   fija.
+
+**Lección para la próxima vez que aparezca una referencia visual**:
+preguntar qué problema de lectura resuelve antes de copiar sus
+elementos. Los seis puntos de esta fase venían de mirar una pantalla
+bonita, no de mirar un dato que no se entendía - y los problemas reales
+del frontend (una tendencia ilegible, cinco columnas en 390px, un
+errno de sistema en pantalla) no estaban en esa lista.
 
 ## Fase 1 — Integración Ollama — ✅ Hecha y verificada contra un servidor real
 

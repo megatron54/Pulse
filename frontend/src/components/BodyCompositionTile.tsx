@@ -1,13 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bone, Droplet, Dumbbell, Percent, Ruler } from "lucide-react";
 import { api, ApiError, type BodyMeasurement } from "@/lib/api";
 import { dedupeUltimaPorDia } from "@/lib/dedupe";
+import { fechaRelativa } from "@/lib/fechas";
 import { Card, CardTitle } from "./ui/Card";
 import { ErrorState } from "./ui/ErrorState";
 import { LoadingState } from "./ui/LoadingState";
-import { StatTile } from "./ui/StatTile";
+import { MetricGrid, StatTile } from "./ui/StatTile";
+
+/** Un año de historial, no 90 días: la última pesada puede ser de hace
+ *  meses, y con la ventana corta esta tarjeta desaparecía entera en vez
+ *  de mostrar la composición conocida con su fecha. */
+const DIAS_CONSULTA = 365;
 
 /**
  * Composición completa de bioimpedancia (báscula Feelfit): antes se
@@ -34,7 +39,7 @@ export function BodyCompositionTile({
   useEffect(() => {
     let cancelado = false;
     api
-      .getBodyMeasurementHistory(userId, 90)
+      .getBodyMeasurementHistory(userId, DIAS_CONSULTA)
       .then((datos) => {
         if (!cancelado) setMediciones(datos);
       })
@@ -63,7 +68,13 @@ export function BodyCompositionTile({
 
   if (mediciones === null) return <LoadingState lines={1} />;
 
-  const ultimo = dedupeUltimaPorDia(mediciones).at(-1);
+  // Orden explícito antes de `.at(-1)`: `dedupeUltimaPorDia` devuelve el
+  // orden de inserción del Map y no promete nada (ver ese módulo), así
+  // que sin ordenar aquí "la más reciente" dependía del orden en que
+  // llegara la respuesta.
+  const ultimo = dedupeUltimaPorDia(mediciones)
+    .sort((a, b) => a.fecha.localeCompare(b.fecha))
+    .at(-1);
   if (!ultimo) return null;
 
   const grasaEsRango =
@@ -82,38 +93,44 @@ export function BodyCompositionTile({
   return (
     <Card>
       <CardTitle>Composición corporal</CardTitle>
-      <div className="scroll-rail -mx-1 mt-3 flex gap-3 px-1">
+      {/* Cinco cifras sin fecha no dicen de cuándo son, y la última
+          pesada puede ser de hace semanas (doctrina 6). */}
+      <p className="t-secondary -mt-2 mb-4 text-ink-3">
+        Última medida: {fechaRelativa(ultimo.fecha).toLowerCase()}.
+      </p>
+      {/* v3: rejilla que se adapta, no un rail con scroll horizontal
+          (doctrina 4 - el rail cortaba el último tile a 390px y nada
+          indicaba que hubiera más a la derecha). Sin iconos: eran
+          decorativos y de colores, parte del aspecto que se rechaza. */}
+      <MetricGrid>
         {ultimo.bodyfat_pct_rango_min != null &&
           (grasaEsRango ? (
-            <div className="flex min-w-[7.5rem] shrink-0 flex-col gap-1.5 rounded-xl border border-surface-border bg-surface px-4 py-3">
-              <div className="flex items-center gap-1.5 text-text-secondary">
-                <Percent aria-hidden="true" size={14} />
-                <span className="text-xs font-medium uppercase tracking-wide">% Grasa</span>
-              </div>
-              <p className="text-xl font-semibold tabular-nums text-foreground">
-                {ultimo.bodyfat_pct_rango_min.toFixed(1)}-{ultimo.bodyfat_pct_rango_max!.toFixed(1)}%
+            // Rango real (método Navy), no un punto: la precisión falsa
+            // está prohibida, así que este caso no puede usar StatTile.
+            <div className="flex w-full flex-col gap-1">
+              <span className="t-micro text-ink-3">% Grasa</span>
+              <p className="t-metric text-ink">
+                {ultimo.bodyfat_pct_rango_min.toFixed(1)}–
+                {ultimo.bodyfat_pct_rango_max!.toFixed(1)}
+                <span className="t-body text-ink-2">%</span>
               </p>
             </div>
           ) : (
-            <StatTile
-              icon={Percent}
-              label="% Grasa"
-              value={ultimo.bodyfat_pct_rango_min}
-              unit="%"
-              decimals={1}
-            />
+            <StatTile label="% Grasa" value={ultimo.bodyfat_pct_rango_min} unit="%" decimals={1} />
           ))}
         {ultimo.muscle_kg != null && (
-          <StatTile icon={Dumbbell} label="Músculo" value={ultimo.muscle_kg} unit=" kg" decimals={1} />
+          <StatTile label="Músculo" value={ultimo.muscle_kg} unit=" kg" decimals={1} />
         )}
         {ultimo.bone_kg != null && (
-          <StatTile icon={Bone} label="Hueso" value={ultimo.bone_kg} unit=" kg" decimals={1} />
+          <StatTile label="Hueso" value={ultimo.bone_kg} unit=" kg" decimals={1} />
         )}
         {ultimo.water_pct != null && (
-          <StatTile icon={Droplet} label="Agua" value={ultimo.water_pct} unit="%" decimals={1} />
+          <StatTile label="Agua" value={ultimo.water_pct} unit="%" decimals={1} />
         )}
-        {ultimo.bmi != null && <StatTile icon={Ruler} label="BMI" value={ultimo.bmi} decimals={1} />}
-      </div>
+        {/* "IMC", no "BMI": el nombre del campo del backend es inglés,
+            la interfaz no (doctrina 9). */}
+        {ultimo.bmi != null && <StatTile label="IMC" value={ultimo.bmi} decimals={1} />}
+      </MetricGrid>
     </Card>
   );
 }

@@ -36,10 +36,10 @@ describe("NutritionPlanCard", () => {
     render(<NutritionPlanCard userId={1} />);
 
     await waitFor(() =>
-      expect(screen.getByText("Sin plan activo todavía.")).toBeInTheDocument()
+      expect(screen.getByText(/sin plan activo todavía/i)).toBeInTheDocument()
     );
     expect(api.createNutritionPlan).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: /confirmar/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /activar plan de mantenimiento/i })).toBeInTheDocument();
   });
 
   it("con plan activo vigente, muestra la fase y los dias restantes", async () => {
@@ -59,8 +59,9 @@ describe("NutritionPlanCard", () => {
     render(<NutritionPlanCard userId={1} />);
 
     await waitFor(() => expect(screen.getByText(/déficit/i)).toBeInTheDocument());
-    expect(screen.getByText(/30/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /confirmar/i })).not.toBeInTheDocument();
+    expect(screen.getByText("30 días restantes")).toBeInTheDocument();
+    // El plan vigente no se puede "reconfirmar": no hay botón que lo ofrezca.
+    expect(screen.queryByRole("button", { name: /activar plan/i })).not.toBeInTheDocument();
   });
 
   it("confirmar la recomendacion crea el plan con los datos sugeridos", async () => {
@@ -82,8 +83,8 @@ describe("NutritionPlanCard", () => {
     const user = userEvent.setup();
 
     render(<NutritionPlanCard userId={1} />);
-    await waitFor(() => expect(screen.getByRole("button", { name: /confirmar/i })).toBeInTheDocument());
-    await user.click(screen.getByRole("button", { name: /confirmar/i }));
+    await waitFor(() => expect(screen.getByRole("button", { name: /activar plan de mantenimiento/i })).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: /activar plan de mantenimiento/i }));
 
     await waitFor(() =>
       expect(api.createNutritionPlan).toHaveBeenCalledWith(

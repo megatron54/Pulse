@@ -30,8 +30,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <main className="flex-1 flex flex-col items-center justify-center gap-6 p-8">
         <div className="w-full max-w-2xl flex flex-col gap-4" role="status" aria-label="Cargando">
           <Skeleton className="h-8 w-32 mx-auto" />
-          <Skeleton className="h-40 w-full rounded-2xl" />
-          <Skeleton className="h-24 w-full rounded-2xl" />
+          {/* Mismo radio que `Card` (10px): el esqueleto debe tener la
+              forma de lo que va a aparecer, no la del radio de v2. */}
+          <Skeleton className="h-40 w-full rounded-[10px]" />
+          <Skeleton className="h-24 w-full rounded-[10px]" />
           <span className="sr-only">Cargando Pulse...</span>
         </div>
       </main>
@@ -42,17 +44,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return (
       <main className="flex flex-1 flex-col justify-center p-8">
         <div className="mx-auto mb-8 flex flex-col items-center gap-3">
-          <Image src="/icon-192.png" alt="" width={56} height={56} className="rounded-2xl" priority />
-          <h1 className="text-3xl font-semibold tracking-tight text-foreground">Pulse</h1>
+          <Image
+            src="/icon-192.png"
+            alt=""
+            width={48}
+            height={48}
+            className="rounded-[10px]"
+            priority
+          />
+          <h1 className="t-page-title text-ink">Pulse</h1>
         </div>
-        {error && <p className="mb-4 text-center text-sm text-recovery-low">{error}</p>}
+        {error && <p className="t-body mb-4 text-center text-neg">{error}</p>}
         <GarminConnectForm onConnected={loginUser} />
       </main>
     );
   }
 
   return (
-    <UserProvider user={user}>
+    <UserProvider user={user} onUserChange={loginUser}>
       <div className="flex flex-1 min-h-0">
         <Nav />
         <div className="flex-1 overflow-y-auto pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0">

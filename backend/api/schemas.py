@@ -39,6 +39,53 @@ class UserOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class UserUpdateRequest(BaseModel):
+    """Edición parcial del perfil desde la página de Perfil. Todos los
+    campos son opcionales y solo se aplican los enviados
+    (`exclude_unset`): un PATCH que omite `altura_cm` no debe poner la
+    altura a cero ni a un valor por defecto.
+
+    `model_config = {"extra": "forbid"}` a propósito: un campo mal
+    escrito (`altura` en vez de `altura_cm`) debe fallar de forma
+    ruidosa en vez de aceptarse y no cambiar nada.
+    """
+
+    model_config = {"extra": "forbid"}
+
+    nombre: str | None = Field(default=None, min_length=1, max_length=100)
+    altura_cm: float | None = Field(default=None, gt=0, le=300)
+    fecha_nacimiento: date | None = None
+    sexo: str | None = Field(default=None, pattern="^[MF]$")
+    fase_peso_actual: _FasePeso | None = None
+
+
+class ConexionGarminOut(BaseModel):
+    """Estado de la conexión con Garmin para la página de Perfil.
+
+    `email` NO es un secreto (se guarda en claro a propósito, para
+    reconocer reconexiones) y mostrarlo es justo lo que evita el
+    problema real que se dio: cuatro `UserProfile` duplicados porque no
+    había forma de ver con qué cuenta estaba vinculado Pulse.
+    Nunca se expone `token_store_dir`, que es una ruta interna.
+    """
+
+    conectado: bool
+    email: str | None = None
+    historial_desde: date | None = None
+    dias_de_historial: int | None = None
+
+
+class ConexionFeelfitOut(BaseModel):
+    conectado: bool
+    conectado_desde: date | None = None
+    mediciones_importadas: int = 0
+
+
+class ConexionesOut(BaseModel):
+    garmin: ConexionGarminOut
+    feelfit: ConexionFeelfitOut
+
+
 class GarminConnectRequest(BaseModel):
     """Alta de un usuario nuevo conectando su cuenta de Garmin
     (services.garmin_onboarding_service.connect_new_user_via_garmin).

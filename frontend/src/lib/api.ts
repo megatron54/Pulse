@@ -16,7 +16,13 @@ export class ApiError extends Error {
     // necesario para 422 estructurados como
     // GarminConnectIncompleteOut (`{campos_faltantes: [...]}`), donde
     // el mensaje de texto por sí solo pierde la lista exacta de campos.
-    public detail?: unknown
+    public detail?: unknown,
+    // Código estable de por qué falló, cuando el backend lo da
+    // (`services.errors.SessionNotDecidableError.motivo`). El `message`
+    // está escrito para los logs ("ejecutar sync_and_compute_readiness
+    // primero"); `motivo` es lo que permite a la UI decidir QUÉ
+    // ofrecerle al usuario en vez de enumerarle las dos posibilidades.
+    public motivo?: string
   ) {
     super(message);
     this.name = "ApiError";
@@ -33,14 +39,16 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     let detail: unknown = res.statusText;
+    let motivo: string | undefined;
     try {
       const body = await res.json();
       detail = body.detail ?? detail;
+      if (typeof body.motivo === "string") motivo = body.motivo;
     } catch {
       // respuesta sin JSON (ej. 500 sin body) - se usa statusText
     }
     const mensaje = typeof detail === "string" ? detail : res.statusText;
-    throw new ApiError(res.status, mensaje, detail);
+    throw new ApiError(res.status, mensaje, detail, motivo);
   }
   // 204 / respuestas vacías
   const text = await res.text();
@@ -73,6 +81,10 @@ export type User = {
 
 export type UserCreateInput = Omit<User, "id">;
 
+// Edición parcial del perfil (PATCH): solo viajan los campos que el
+// usuario cambió - el backend no pisa lo que no se envía.
+export type UserUpdateInput = Partial<Omit<User, "id">>;
+
 // Alta conectando Garmin (sustituye al formulario manual de perfil -
 // petición explícita del usuario). `overrides` solo debe incluir los
 // campos que el 422 previo (GarminConnectIncompleteOut) listó como
@@ -96,6 +108,35 @@ export type FeelfitConnectInput = {
 
 export type FeelfitConnectResult = {
   mediciones_importadas: number;
+};
+
+// Estado de las integraciones externas, para la página de Perfil. Lo
+// da el backend (`GET /users/{id}/connections`) en vez de deducirlo de
+// "¿hay datos?": la ausencia de datos no distingue entre no conectado,
+// token caducado y scheduler que aún no ha corrido.
+export type ConexionGarmin = {
+  conectado: boolean;
+  email: string | null;
+  historial_desde: string | null;
+  dias_de_historial: number | null;
+};
+
+export type ConexionFeelfit = {
+  conectado: boolean;
+  conectado_desde: string | null;
+  mediciones_importadas: number;
+};
+
+export type Conexiones = {
+  garmin: ConexionGarmin;
+  feelfit: ConexionFeelfit;
+};
+
+// Resultado del "sincronizar ahora" de Garmin: un solo día, no el
+// backfill completo (ver `services.garmin_manual_sync_service`).
+export type GarminManualSync = {
+  fecha: string;
+  puntos_intradia_nuevos: number;
 };
 
 export type BodyMeasurement = {
@@ -368,6 +409,11 @@ export const api = {
   createUser: (data: UserCreateInput) =>
     request<User>("/users", { method: "POST", body: JSON.stringify(data) }),
   getUser: (id: number) => request<User>(`/users/${id}`),
+  updateUser: (id: number, data: UserUpdateInput) =>
+    request<User>(`/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  getConnections: (userId: number) => request<Conexiones>(`/users/${userId}/connections`),
+  syncGarminNow: (userId: number) =>
+    request<GarminManualSync>(`/users/${userId}/garmin/sync`, { method: "POST" }),
   connectGarmin: (data: GarminConnectInput) =>
     request<User>("/users/garmin-connect", { method: "POST", body: JSON.stringify(data) }),
   connectFeelfit: (userId: number, data: FeelfitConnectInput) =>

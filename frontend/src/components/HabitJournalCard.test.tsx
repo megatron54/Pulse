@@ -58,8 +58,11 @@ describe("HabitJournalCard", () => {
     await user.selectOptions(select, "alcohol");
 
     await waitFor(() =>
-      expect(screen.getByText(/todavía no hay suficientes datos/i)).toBeInTheDocument()
+      expect(screen.getByText(/todavía no hay días suficientes/i)).toBeInTheDocument()
     );
+    // Dice cuántos faltan, con el plural resuelto, y no inventa ningún
+    // porcentaje.
+    expect(screen.getByText(/2 días con y 1 día sin/)).toBeInTheDocument();
     expect(screen.queryByText(/%/)).not.toBeInTheDocument();
   });
 
@@ -78,7 +81,13 @@ describe("HabitJournalCard", () => {
     const user = userEvent.setup();
     await user.selectOptions(select, "alcohol");
 
-    await waitFor(() => expect(screen.getByText(/67%/)).toBeInTheDocument());
-    expect(screen.getByText(/17%/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("67 %")).toBeInTheDocument());
+    expect(screen.getByText("17 %")).toBeInTheDocument();
+    // La conclusión se escribe: antes eran dos porcentajes sueltos y la
+    // resta la hacía el usuario. Y "RED" era jerga interna.
+    expect(
+      screen.getByText(/amaneces con la recuperación baja 50 puntos más a menudo/i)
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/RED/)).not.toBeInTheDocument();
   });
 });

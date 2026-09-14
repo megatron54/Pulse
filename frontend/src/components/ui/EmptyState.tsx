@@ -1,21 +1,33 @@
 import type { LucideIcon } from "lucide-react";
 
 /**
- * Estado vacío estandarizado (auditoría UI/UX, hallazgo M2): antes,
- * cada tarjeta mostraba un `<p className="italic">` con texto
- * variable, y `GarminActivitiesCard` rompía el patrón con 3-4 líneas
- * en vez de las 1-2 del resto - ninguna usaba un icono, así que el
- * momento "todavía no hay datos" (la primera vez que un usuario nuevo
- * ve cada tarjeta) tenía la jerarquía visual más débil de toda la app.
- * Un icono `lucide-react` (coherente con el resto de iconografía SVG
- * ya establecida en `Nav.tsx`) da a ese momento algo de peso visual
- * sin necesitar una ilustración custom.
+ * Estado vacío (Design System v3, doctrina 7: "los estados vacíos
+ * hablan al usuario").
+ *
+ * v2 centraba un icono grande y un texto en cursiva - mucho peso visual
+ * para decir "no hay nada", y con el icono como ornamento. v3 lo deja
+ * alineado a la izquierda como un párrafo normal: un estado vacío es
+ * información, no un cartel.
+ *
+ * `icon` se mantiene opcional y solo por compatibilidad con las páginas
+ * aún no migradas a v3; los llamadores nuevos no deberían pasarlo.
+ * Cuando no quede ninguno, quitar el parámetro.
+ *
+ * `accion` permite decir QUÉ HACER y no solo qué falta, que era el otro
+ * fallo del patrón anterior.
  */
-export function EmptyState({ icon: Icon, message }: { icon: LucideIcon; message: string }) {
+export function EmptyState({
+  message,
+  accion,
+}: {
+  icon?: LucideIcon;
+  message: string;
+  accion?: React.ReactNode;
+}) {
   return (
-    <div className="flex flex-col items-center gap-2 py-3 text-center">
-      <Icon aria-hidden="true" size={28} className="text-text-secondary" />
-      <p className="text-sm text-text-secondary text-pretty">{message}</p>
+    <div className="flex flex-col items-start gap-3 py-1">
+      <p className="t-body text-pretty text-ink-2">{message}</p>
+      {accion}
     </div>
   );
 }

@@ -68,7 +68,7 @@ describe("ExercisePicker", () => {
     await user.selectOptions(screen.getByRole("combobox"), "Legs");
 
     await waitFor(() =>
-      expect(screen.getByText(/no se encontraron ejercicios/i)).toBeInTheDocument()
+      expect(screen.getByText(/no hay ejercicios en esta categoría/i)).toBeInTheDocument()
     );
   });
 

@@ -66,7 +66,33 @@ describe("BodyCompositionTile", () => {
     expect(screen.getByText(/músculo/i)).toBeInTheDocument();
     expect(screen.getByText(/hueso/i)).toBeInTheDocument();
     expect(screen.getByText(/agua/i)).toBeInTheDocument();
-    expect(screen.getByText(/bmi/i)).toBeInTheDocument();
+    // "IMC" en pantalla: "bmi" es el nombre de la columna.
+    expect(screen.getByText("IMC")).toBeInTheDocument();
+    expect(screen.queryByText(/bmi/i)).not.toBeInTheDocument();
+  });
+
+  it("fecha la medicion y elige la mas reciente aunque el historial llegue desordenado", async () => {
+    // `dedupeUltimaPorDia` no promete orden, asi que un `.at(-1)` sin
+    // ordenar podia mostrar la composicion de una pesada antigua.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date(2026, 8, 14));
+    vi.mocked(api.getBodyMeasurementHistory).mockResolvedValue([
+      { ...base, id: 2, fecha: "2026-07-01", bmi: 24.8 },
+      { ...base, id: 1, fecha: "2026-06-01", bmi: 22.2 },
+    ]);
+
+    render(<BodyCompositionTile userId={1} />);
+
+    await waitFor(() => expect(screen.getByText("24.8")).toBeInTheDocument());
+    expect(screen.getByText(/última medida: 1 jul/i)).toBeInTheDocument();
+    expect(screen.queryByText("22.2")).not.toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  it("pide un año de historial: la ultima pesada puede ser de hace meses", async () => {
+    vi.mocked(api.getBodyMeasurementHistory).mockResolvedValue([]);
+    render(<BodyCompositionTile userId={1} />);
+    await waitFor(() => expect(api.getBodyMeasurementHistory).toHaveBeenCalledWith(1, 365));
   });
 
   it("muestra el % de grasa como rango cuando min y max difieren (metodo navy manual)", async () => {
@@ -76,7 +102,14 @@ describe("BodyCompositionTile", () => {
 
     render(<BodyCompositionTile userId={1} />);
 
-    await waitFor(() => expect(screen.getByText(/15\.0-19\.0%/)).toBeInTheDocument());
+    // El "%" va en su propio <span> (unidad atenuada), asi que se
+    // compara el texto completo del parrafo. Guion largo, no "-": es un
+    // rango, no una resta.
+    await waitFor(() =>
+      expect(
+        screen.getByText((_, el) => el?.textContent === "15.0–19.0%" && el.tagName === "P")
+      ).toBeInTheDocument()
+    );
   });
 
   it("muestra un error si la peticion falla", async () => {

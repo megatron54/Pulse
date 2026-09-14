@@ -7,11 +7,48 @@ mono-usuario - no hay compromiso de compatibilidad de API entre versiones).
 ## [Unreleased]
 
 ### Añadido
-- Formulario propio para conectar la báscula Feelfit desde la página
-  Cuerpo (`FeelfitConnectForm`), sin pasar por Samsung Health/Apple
-  Health/Fitbit/Health Connect/Google Fit - el backend ya hablaba
-  directo con la API en la nube de Feelfit pero no existía forma de
-  usarlo desde el frontend.
+- **Design System v3** (`01-arquitectura/05-design-system-v3.md`): doctrina
+  numerada y citada por número desde el código, que deroga a v2
+  (`04-design-system-v2.md`, conservado como histórico). El usuario real
+  rechazó v2 en los mismos términos que v1 ("hay aún mucho estilo con
+  neón tipo AI slop", "lo mismo con los emoticonos", "hay muchas
+  palabras que se cortan, no es un diseño de alto nivel") y pidió
+  rehacer el frontend entero, "no solo el estilo y colores, TODO". Las
+  reglas: el color es información y nunca adorno; un solo nivel de
+  elevación, filetes de 1px y cero tarjetas anidadas; los datos
+  tabulares van en una tabla; nada se corta ni se parte; toda gráfica
+  lleva eje y unidad; "unknown is not zero"; los estados vacíos dicen
+  qué HACER; español y fechas humanas.
+- Tokens de rol (`--canvas --surface --line --line-strong --ink --ink-2
+  --ink-3 --action --action-ink` + `--pos --warn --neg --data`) y escala
+  tipográfica con nombre (`.t-page-title .t-hero .t-section .t-metric
+  .t-body .t-secondary .t-micro .tabular`), en lugar de colores y
+  tamaños elegidos caso por caso en cada componente.
+- Primitivos v3 en `components/ui/`: `Card`/`CardTitle`,
+  `StatTile`/`MetricGrid`, `DataList`/`DataRow`, `Table`/`Td`/`TdNum`,
+  `TrendChart`, `SegmentedControl`, `Disclosure`, `FormField`,
+  `CredentialsForm`, `EmptyState`, `Button`.
+- Página **Perfil** (`/perfil`), que faltaba: datos propios (altura,
+  sexo, fase de peso) editables vía `PATCH /users/{id}`, tema
+  claro/oscuro/automático persistido en `localStorage`, y el estado
+  real de las conexiones a Garmin y Feelfit (conectada o no, desde
+  cuándo, cuántos días/mediciones ha traído) con su formulario de alta.
+  Las credenciales de báscula y reloj dejan de vivir sueltas en las
+  páginas de datos.
+- `GET /users/{id}/connections`: estado de las integraciones de un
+  usuario para la página Perfil. Nunca devuelve `token_store_dir` ni
+  ninguna contraseña (hay test que lo fija).
+- `PATCH /users/{id}` para editar el perfil propio, con `extra: forbid`
+  y validación por campo.
+- `lib/fechas.ts`: fechas escritas como las diría una persona
+  (`fechaRelativa` → "Hoy" / "Ayer" / "12 sep") en vez de ISO en
+  pantalla.
+- Formulario propio para conectar la báscula Feelfit, sin pasar por
+  Samsung Health/Apple Health/Fitbit/Health Connect/Google Fit - el
+  backend ya hablaba directo con la API en la nube de Feelfit pero no
+  existía forma de usarlo desde el frontend. (Nació en la página Cuerpo
+  como `FeelfitConnectForm`; v3 lo movió a Perfil › Conexiones, donde
+  vive junto al de Garmin sobre el mismo `CredentialsForm`.)
 - Detección de reconexión de una cuenta de Garmin ya vinculada (por
   `garmin_email`, no secreto) en `POST /users/garmin-connect`: perder el
   `pulse_user_id` de localStorage (nuevo navegador, caché borrada) ya no
@@ -40,8 +77,10 @@ mono-usuario - no hay compromiso de compatibilidad de API entre versiones).
 - Ingesta de pasos diarios de Garmin (`GarminDailyMetrics.pasos`), visibles
   en el hero de "Hoy" junto a VFC/Body Battery/sueño/estrés.
 - Ejes, unidad y leyenda visibles en las gráficas de páginas de detalle
-  (Cuerpo, Entrenamiento/Recuperación/Análisis) - el `AreaTrendChart`
-  minimalista sin ejes se mantiene solo en el mini-trend de "Hoy".
+  (Cuerpo, Entrenamiento/Recuperación/Análisis). En v3 esto pasó a ser
+  la norma sin excepciones: la variante minimalista sin ejes que se
+  mantenía en el mini-trend de "Hoy" es justamente la que el usuario
+  señaló como ilegible, y ya no existe.
 - Página "Entrenamiento" fusiona Recuperación y Análisis en pestañas,
   eliminando tarjetas duplicadas entre las tres rutas antiguas.
 - `BodyGoalInsightCard` en "Cuerpo": compara la tendencia real de peso
@@ -86,6 +125,53 @@ mono-usuario - no hay compromiso de compatibilidad de API entre versiones).
   - nueva barrera de forma los rechaza.
 
 ### Corregido
+- La gráfica de tendencia rellenaba el área bajo la curva con un
+  degradado, y mentía dos veces: el relleno se lee como "cantidad desde
+  cero" cuando ningún eje parte de cero (el del peso empieza en 75 kg),
+  y con la línea partida por los huecos de datos cada tramo cerraba el
+  relleno con un tajo vertical hasta la base - la captura de la
+  auditoría mostraba tres losas grises con paredes rectas donde solo
+  hay tres rachas de pesadas. Ahora es una línea sin relleno, y el
+  componente se llama `TrendChart` y no `AreaTrendChart`.
+- Cabeceras de tabla pegadas entre sí: los `th` no tenían gotera
+  (`pr-4`) mientras las celdas sí, así que a 390px "DURACIÓN DISTANCIA
+  FC MEDIA" se leía como una sola palabra. Las cifras además se alinean
+  ahora con la PRIMERA línea de la celda de texto, no centradas entre
+  sus dos líneas.
+- Tabla de sesiones a 390px: cinco columnas no caben de ninguna manera
+  (al nombre le quedaban 40px y "Natación en piscina" salía en tres
+  líneas). La fecha pasa a ir bajo el nombre de la sesión - no es una
+  línea partida, es otro dato - y "FC media" pasa a "Pulso", una
+  cabecera de una palabra y del mismo vocabulario que el resto de la
+  app.
+- Franja muerta de 36px entre el título y la tabla en la pestaña
+  "Todas" de sesiones, que se leía como un elemento que no había
+  cargado: el hueco lo pone la narrativa del coach cuando existe, no el
+  contenedor.
+- Calendario de recuperación del mes: la altura de las barras crecía
+  con lo bueno que fuera el día (óptima 16px, baja 1px), así que los
+  días de recuperación baja - justo lo que hay que ver - eran rayas de
+  un píxel indistinguibles del marcador de "sin datos". Ahora la altura
+  crece con la gravedad, ninguna baja de 6px, y los días sin dato se
+  marcan con un filete discontinuo que no compite en forma con una
+  barra. Las muestras de la leyenda coinciden con las marcas de la
+  rejilla.
+- Desplegables del plan semanal: "Intervalos de resistencia" quedaba
+  cortado por la flecha del `<select>` a 390px, y los siete días
+  quedaban desalineados en escalera porque el borde de cada desplegable
+  caía donde acabase su etiqueta.
+- El `detail` de los 502 de `/exercises` era `str(exc)`, y la auditoría
+  lo encontró escrito tal cual en la pantalla de Entrenamiento: "Fallo
+  de conexión con wger: [Errno 111] Connection refused". Nombraba una
+  dependencia interna que el usuario no conoce (y pidió no ver) y añadía
+  un errno de sistema. Ahora el usuario lee un mensaje escrito para una
+  persona y el texto real va al log del servidor. Mismo arreglo en el
+  404 de `POST /users/{id}/feelfit-connect`, que mostraba "No existe
+  UserProfile con id=5".
+- Tope de `days` en `GET .../body-measurements/history` subido de 730
+  días a 10 años: con 2 años el frontend recibía 65 de las 275 pesadas
+  importadas de la báscula y no podía pedir el resto, en contra de la
+  petición explícita del usuario de ver el histórico completo.
 - Rate-limiting al conectar Garmin: el backfill de 90 días (~900 llamadas)
   corría de forma síncrona dentro de la petición HTTP de alta y podía
   dejarla colgada varios minutos. Ahora la petición devuelve el usuario en
@@ -97,6 +183,38 @@ mono-usuario - no hay compromiso de compatibilidad de API entre versiones).
   en una sesión anterior. Añadida la migración que faltaba.
 
 ### Cambiado
+- Frontend rehecho sobre el Design System v3: fuera los degradados, los
+  brillos, los bordes de color y los iconos decorativos que el usuario
+  identificó como "AI slop". Ningún emoji en la interfaz.
+- La pantalla "Hoy" responde a una sola pregunta ("cómo estoy hoy y qué
+  hago hoy") y pierde dos bloques que el usuario señaló como inútiles
+  ahí:
+  - la tendencia de readiness, que eran 30 círculos de color sin eje,
+    sin fechas y sin cifras, con el significado accesible solo al pasar
+    el cursor (inexistente en móvil) y con `flex-wrap` partiendo la
+    línea temporal. Una tendencia de 30 días no es "hoy": pasa a
+    Entrenamiento › Recuperación, rehecha con eje y cifras.
+  - el objetivo nutricional, cuyo único contenido en esa página era un
+    botón "Calcular macros de hoy" - una tarjeta que no informaba de
+    nada y exigía pulsar para calcular algo que el motor resuelve solo.
+    El objetivo vive en Nutrición, ya calculado.
+- "Coach" sale del nav principal y entra "Perfil": gastaba un quinto de
+  la navegación para decir "todavía no está construido" (y su estado
+  vacío exponía jerga interna del proyecto), mientras que su valor real
+  ya se entrega como narrativa en contexto dentro de las páginas.
+  Navegación final: Hoy, Cuerpo, Entrenamiento, Nutrición, Perfil.
+- Etiqueta corta propia para cada destino del nav en móvil: a 390px
+  cinco destinos dejan ~78px y "Entrenamiento" no cabe. Se acorta a
+  "Entreno" en vez de truncar con elipsis.
+- Credenciales de Garmin y Feelfit movidas a Perfil; las páginas de
+  datos ya no piden contraseñas.
+- `01-arquitectura/04-design-system-v2.md` marcado como **derogado**, con
+  el motivo documentado, en lugar de borrado - para no volver a acumular
+  capas de rediseño incrementales sin dirección única.
+- Los 502 del catálogo de ejercicios se capturan por tipo
+  (`WgerAuthError`/`WgerRequestError`) y no con un `except Exception`:
+  un fallo inesperado del proxy sale como 500 y se ve, en vez de
+  disfrazarse de "wger está caído".
 - Navegación reducida de 7 a 5 secciones de primer nivel: Hoy, Cuerpo,
   Entrenamiento, Nutrición, Coach - Cuerpo pasa a segundo lugar.
 

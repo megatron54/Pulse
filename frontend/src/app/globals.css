@@ -1,98 +1,168 @@
 @import "tailwindcss";
 
 /*
- * Design System v2 de Pulse - ÚNICA fuente de verdad:
- * 01-arquitectura/04-design-system-v2.md (no seguir ninguna decisión
- * de diseño anterior, incluidos los comentarios que puedan quedar en
- * componentes todavía no migrados).
+ * Design System v3 de Pulse - ÚNICA fuente de verdad:
+ * 01-arquitectura/05-design-system-v3.md
  *
- * Tema Apple-clean: claro/oscuro reales según `prefers-color-scheme`
- * del sistema (a diferencia de las iteraciones anteriores, que eran
- * dark-only forzado). Fuente de sistema, superficies con un solo nivel
- * de separación, color usado con moderación para comunicar estado.
+ * Ese documento deroga v2/v2.1 por completo (auditoría real con
+ * capturas: color decorativo en todo, tarjeta dentro de tarjeta, texto
+ * cortado, ceros inventados). Los dos principios que gobiernan estos
+ * tokens:
+ *
+ *  1. El color es información, nunca decoración. La interfaz es ~95%
+ *     neutra; los semánticos solo aparecen donde codifican un estado.
+ *     Por eso la acción primaria es neutra de alto contraste
+ *     (--action), no un azul saturado.
+ *  2. Un solo nivel de elevación. En claro los contenedores llevan
+ *     línea, no sombra; la sombra se reserva para lo que de verdad
+ *     flota (nav flotante, overlays).
  */
 :root {
-  --background: #f2f2f7;
-  --foreground: #1c1c1e;
+  --canvas: #f6f6f5;
   --surface: #ffffff;
-  --surface-border: rgba(60, 60, 67, 0.12);
-  --surface-muted: #e5e5ea;
-  --text-secondary: rgba(60, 60, 67, 0.6);
+  --line: #e4e4e2;
+  --line-strong: #d2d2cf;
+  --ink: #18181a;
+  --ink-2: #62626a;
+  --ink-3: #97979e;
+  --action: #18181a;
+  --action-ink: #ffffff;
 
-  --color-recovery-high: #248a3d;
-  --color-recovery-medium: #a05a00;
-  --color-recovery-low: #d70015;
-  --color-accent: #007aff;
-  --color-sleep: #5856d6;
+  /* Semánticos deliberadamente desaturados: los de v2 (#30d158,
+     #ff453a) son los que leían como "neón". */
+  --pos: #1a7f43;
+  --warn: #96650a;
+  --neg: #ab2b23;
+  --data: #3f4a73;
 
   --font-system:
     -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", system-ui,
     Roboto, Helvetica, Arial, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #121214;
-    --foreground: #f2f2f7;
-    --surface: #1c1c1e;
-    --surface-border: rgba(255, 255, 255, 0.14);
-    --surface-muted: #2c2c2e;
-    --text-secondary: rgba(235, 235, 245, 0.6);
+/* Tema resuelto por `data-theme` en <html>, no por `prefers-color-scheme`
+   directamente: el usuario elige claro/oscuro/sistema en Perfil y el
+   script inline de `layout.tsx` resuelve "sistema" antes del primer
+   paint (sin destello). Así "sistema" sigue funcionando, pero deja de
+   ser la única opción posible. */
+:root[data-theme="dark"] {
+  --canvas: #0c0c0d;
+  --surface: #17171a;
+  --line: #27272b;
+  --line-strong: #35353b;
+  --ink: #f4f4f5;
+  --ink-2: #a0a0a8;
+  --ink-3: #6e6e76;
+  --action: #f4f4f5;
+  --action-ink: #18181a;
 
-    --color-recovery-high: #30d158;
-    --color-recovery-medium: #ffd60a;
-    --color-recovery-low: #ff453a;
-    --color-accent: #0a84ff;
-    --color-sleep: #5e5ce6;
-  }
+  --pos: #54b97a;
+  --warn: #cfa14e;
+  --neg: #d9807a;
+  --data: #8e97bd;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-canvas: var(--canvas);
   --color-surface: var(--surface);
-  --color-surface-border: var(--surface-border);
-  --color-surface-muted: var(--surface-muted);
-  --color-text-secondary: var(--text-secondary);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-action: var(--action);
+  --color-action-ink: var(--action-ink);
 
-  --color-recovery-high: var(--color-recovery-high);
-  --color-recovery-medium: var(--color-recovery-medium);
-  --color-recovery-low: var(--color-recovery-low);
-  --color-accent: var(--color-accent);
-  --color-sleep: var(--color-sleep);
+  --color-pos: var(--pos);
+  --color-warn: var(--warn);
+  --color-neg: var(--neg);
+  --color-data: var(--data);
 
   --font-sans: var(--font-system);
   --font-mono: var(--font-geist-mono);
 }
 
+/* Aquí vivía el bloque de alias de compatibilidad con los nombres de
+ * token de v2 (`--color-surface-muted`, `--color-recovery-low`,
+ * `--color-accent`...) y la utilidad `.scroll-rail` del rail horizontal
+ * de v2.1. Ambos eran andamios explícitamente temporales de la
+ * migración por páginas: se han borrado al migrar el último componente
+ * que los usaba (`GarminConnectForm`). Si algo volviera a referenciar
+ * uno de esos nombres, Tailwind ya no generará la clase - es
+ * deliberado: los nombres válidos son los de v3
+ * (01-arquitectura/05-design-system-v3.md). */
+
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--canvas);
+  color: var(--ink);
   font-family: var(--font-system);
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Contenedor de contenido fluido (Design System v2, principio 3): sin
- * `max-w-6xl mx-auto` que deja el contenido como una isla centrada -
- * ancho fluido con un máximo generoso, para que la jerarquía visual
- * decida cómo se reparte el espacio, no un contenedor arbitrario. */
+/* ---------------------------------------------------------------------
+ * Escala tipográfica única (v3). Como clases y no como utilidades de
+ * Tailwind sueltas para que el tamaño, la línea, el peso y el tracking
+ * viajen SIEMPRE juntos - la deriva tipográfica de v2 venía de componer
+ * `text-xl font-semibold tracking-tight` a mano en cada componente.
+ *
+ * Toda cifra lleva `tabular-nums`: sin ello, los números de una columna
+ * bailan al animarse o al cambiar de valor.
+ * ------------------------------------------------------------------ */
+.t-page-title {
+  font-size: 1.75rem;
+  line-height: 2.125rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.t-hero {
+  font-size: 2.75rem;
+  line-height: 3rem;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.t-section {
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.t-metric {
+  font-size: 1.375rem;
+  line-height: 1.75rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.t-body {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.t-secondary {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+}
+.t-micro {
+  font-size: 0.6875rem;
+  line-height: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Contenedor de contenido: ancho máximo contenido de verdad. El
+ * `max-w-[90rem]` de v2 dejaba filas de 900px con el contenido pegado a
+ * los dos extremos y un vacío enorme en medio (hallazgo de la auditoría
+ * en la tabla de actividades a 1280px). */
 .content-container {
   width: 100%;
-  max-width: 90rem;
+  max-width: 68rem;
   margin-inline: auto;
-  padding-inline: clamp(1rem, 3vw, 2.5rem);
-}
-
-/* Rail horizontal sin scrollbar visible (Design System v2.1): usado
- * por el rail de StatTile de "Hoy"/"Recuperación" - el scroll sigue
- * siendo funcional (rueda del ratón/gesto táctil), solo se oculta la
- * barra nativa para que no compita visualmente con el contenido. */
-.scroll-rail {
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.scroll-rail::-webkit-scrollbar {
-  display: none;
+  padding-inline: clamp(1rem, 3vw, 2rem);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -104,11 +174,9 @@ body {
   }
 }
 
-/* Épica 8 del plan de desarrollo (04-plan-desarrollo-siguiente-fase.md):
- * informe exportable del resumen periódico - "exportar a PDF" vía el
- * diálogo de impresión nativo del navegador ("Guardar como PDF"), sin
- * añadir una dependencia nueva de generación de PDF. Solo el elemento
- * marcado con [data-print-target] queda visible al imprimir. */
+/* Épica 8 del plan de desarrollo: informe exportable del resumen
+ * periódico vía el diálogo de impresión nativo ("Guardar como PDF"),
+ * sin dependencia nueva de generación de PDF. */
 @media print {
   body * {
     visibility: hidden;

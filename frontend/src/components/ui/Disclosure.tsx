@@ -4,10 +4,13 @@ import { useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 
 /**
- * Sección plegable simple (v2.1): usada para agrupar campos
- * secundarios que no hacen falta a la primera (ej. cuello/cintura/
- * cadera del método Navy en `BodyMeasurementForm`, opcionales ahora que
- * la báscula Feelfit cubre el caso automático de composición corporal).
+ * Sección plegable: agrupa campos secundarios que no hacen falta a la
+ * primera (ej. cuello/cintura/cadera del método Navy en
+ * `BodyMeasurementForm`, opcionales ahora que la báscula cubre el caso
+ * automático de composición corporal).
+ *
+ * v3: tokens de rol y área táctil de 44px (WCAG 2.5.5), que con
+ * `text-sm` a secas no se alcanzaba.
  */
 export function Disclosure({
   summary,
@@ -21,12 +24,12 @@ export function Disclosure({
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className="border-t border-surface-border pt-3">
+    <div className="border-t border-line pt-1">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex w-full items-center justify-between text-sm font-medium text-text-secondary hover:text-foreground"
+        className="t-body flex min-h-11 w-full items-center justify-between gap-4 font-medium text-ink-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
       >
         {summary}
         <ChevronDown

@@ -1,12 +1,15 @@
 "use client";
 
 /**
- * Fila de chips de filtro independientes (a diferencia de
- * `SegmentedControl`, que es un único control agrupado): pensado para
- * listas de opciones que pueden crecer y hacer wrap (categorías de
- * deporte, métricas intradía) - mismo patrón visual ya usado de forma
- * ad-hoc en `SesionesEntrenamiento`/`IntradayMetricCard`, ahora
- * compartido.
+ * Fila de filtros que puede crecer y hacer wrap (deportes, métricas
+ * intradía). Se diferencia de `SegmentedControl` en eso: aquel es un
+ * único control agrupado de 2-4 opciones fijas que nunca salta de línea.
+ *
+ * Design System v3: el chip activo se distingue por contraste
+ * (`bg-action`, el neutro de alto contraste) y no por un azul de acento
+ * sobre gris; los inactivos son texto con línea de 1px en vez de
+ * pastillas rellenas de gris. Altura mínima de 36px para que sigan
+ * siendo cómodos de pulsar sin convertirse en botones enormes.
  */
 export function ChipFilter<T extends string>({
   options,
@@ -30,10 +33,10 @@ export function ChipFilter<T extends string>({
             role="tab"
             aria-selected={activa}
             onClick={() => onChange(option.value)}
-            className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
+            className={`t-body min-h-9 whitespace-nowrap rounded-md border px-3.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-canvas ${
               activa
-                ? "bg-accent text-white"
-                : "bg-surface-muted text-text-secondary hover:text-foreground"
+                ? "border-action bg-action font-medium text-action-ink"
+                : "border-line bg-surface text-ink-2 hover:text-ink"
             }`}
           >
             {option.label}

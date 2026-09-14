@@ -1,30 +1,107 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { HeartPulse } from "lucide-react";
 import { api, ApiError, type GarminHealthDay } from "@/lib/api";
-import { AreaTrendChart } from "./ui/AreaTrendChart";
+import { fechaRelativa, plural } from "@/lib/fechas";
+import { TrendChart } from "./ui/TrendChart";
 import { SegmentedControl } from "./ui/SegmentedControl";
-import { Card, CardTitle } from "./ui/Card";
+import { Card } from "./ui/Card";
 import { EmptyState } from "./ui/EmptyState";
 import { ErrorState } from "./ui/ErrorState";
 import { LoadingState } from "./ui/LoadingState";
-import { PALETA } from "@/lib/theme";
 
 const RANGOS = [
-  { dias: 7, label: "7d" },
-  { dias: 30, label: "30d" },
-  { dias: 90, label: "90d" },
+  { dias: 7, label: "7 días" },
+  { dias: 30, label: "30 días" },
+  { dias: 90, label: "90 días" },
 ] as const;
 
-/** Épica E del plan de expansión (02-roadmap/03-vision-produccion.md):
- * histórico interactivo completo de recovery de Garmin. Selector de
- * rango (7/30/90 días, la opción más barata y de mayor valor del plan
- * - un zoom por arrastre queda diferido a v2) + una gráfica por
- * métrica, mostrada SOLO si esa métrica tiene al menos un dato real en
- * la ventana ("unknown is not zero": nunca se dibuja una gráfica vacía
- * o inventada para una métrica sin datos, ej. VO2max en un dispositivo
- * que no lo calcula todavía - ver garmin_sync/client.py::_extraer_vo2max). */
+type Campo = keyof Pick<
+  GarminHealthDay,
+  "hrv_value" | "body_battery_am" | "sleep_score" | "stress_avg" | "resting_hr" | "vo2max"
+>;
+
+/** Cada métrica con su nombre en español, su unidad y una frase que dice
+ *  qué es. v2 titulaba "VFC (HRV)", "Sueño (score)", "VO2max" sin
+ *  explicar ninguna: son las siglas del proveedor, no información. */
+const METRICAS: readonly {
+  campo: Campo;
+  titulo: string;
+  unidad: string;
+  decimales: number;
+  explicacion: string;
+  /** Límites físicos de la métrica, cuando los tiene: el eje de la
+   *  gráfica no debe rotular un Body Battery de -8 ni de 102. */
+  rango?: readonly [number, number];
+}[] = [
+  {
+    campo: "hrv_value",
+    titulo: "Variabilidad cardíaca",
+    unidad: " ms",
+    decimales: 0,
+    explicacion: "Cuánto varía el tiempo entre latidos por la noche. Es la señal principal de recuperación: cuando baja varios días seguidos, el cuerpo está acumulando fatiga.",
+  },
+  {
+    campo: "body_battery_am",
+    titulo: "Body Battery al despertar",
+    unidad: "",
+    decimales: 0,
+    explicacion: "La estimación de energía disponible de Garmin al levantarte, de 0 a 100.",
+    rango: [0, 100],
+  },
+  {
+    campo: "sleep_score",
+    titulo: "Calidad del sueño",
+    unidad: "",
+    decimales: 0,
+    explicacion: "Puntuación de Garmin de 0 a 100 combinando duración, fases y descanso.",
+    rango: [0, 100],
+  },
+  {
+    campo: "stress_avg",
+    titulo: "Estrés medio del día",
+    unidad: "",
+    decimales: 0,
+    explicacion: "Media diaria de 0 a 100 estimada a partir del pulso y su variabilidad.",
+    rango: [0, 100],
+  },
+  {
+    campo: "resting_hr",
+    titulo: "Pulso en reposo",
+    unidad: " ppm",
+    decimales: 0,
+    explicacion: "Subidas sostenidas suelen acompañar a fatiga, falta de sueño o una infección.",
+  },
+  {
+    campo: "vo2max",
+    titulo: "VO₂ máx",
+    unidad: " ml/kg/min",
+    decimales: 1,
+    explicacion: "Estimación de tu capacidad aeróbica. Se mueve despacio: cambios de semanas, no de días.",
+  },
+];
+
+/**
+ * Entrenamiento › Recuperación: histórico completo de recovery de Garmin
+ * (Design System v3).
+ *
+ * Cambios respecto a v2, por hallazgos de la auditoría:
+ *
+ *  - **Un solo color de datos.** Cada gráfica llevaba el suyo (verde
+ *    neón, azul, violeta, rojo), lo que sugería una semántica que no
+ *    existe: el color no significaba nada porque las seis series son
+ *    igual de neutras. Sigue en `TrendChart`.
+ *  - **Nombres y explicaciones en español.** "VFC (HRV)" y "VO2max" no
+ *    dicen al usuario qué está mirando ni si subir es bueno.
+ *  - **Sin tarjeta por métrica**: una sola tarjeta con secciones
+ *    separadas por una línea de 1px (doctrina 2).
+ *  - **Rango en palabras** ("30 días") en vez de "30d", que en el
+ *    control segmentado se leía como una abreviatura técnica.
+ *
+ * Se mantiene intacta la regla de "lo desconocido no es cero": una
+ * métrica sin ningún dato en la ventana (ej. VO₂ máx en un reloj que no
+ * lo calcula) no se dibuja en absoluto, nunca a cero.
+ */
 export function GarminHealthHistoryCard({ userId }: { userId: number }) {
   const [dias, setDias] = useState<(typeof RANGOS)[number]["dias"]>(90);
   const [historial, setHistorial] = useState<GarminHealthDay[] | null>(null);
@@ -42,7 +119,9 @@ export function GarminHealthHistoryCard({ userId }: { userId: number }) {
       })
       .catch((err) => {
         if (cancelado) return;
-        setError(err instanceof ApiError ? err.message : "No se pudo cargar el historial de recovery.");
+        setError(
+          err instanceof ApiError ? err.message : "No se pudo cargar el historial de recovery."
+        );
       });
     return () => {
       cancelado = true;
@@ -50,23 +129,25 @@ export function GarminHealthHistoryCard({ userId }: { userId: number }) {
   }, [userId, dias, intentos]);
 
   // El backend devuelve más reciente primero (un punto por día, ya
-  // deduplicado) - las gráficas de tendencia esperan orden ascendente
-  // (pasado -> presente), de ahí el reverse.
+  // deduplicado) y las gráficas esperan orden ascendente.
   const cronologico = historial ? [...historial].reverse() : [];
 
-  return (
-    <Card>
-      <div className="flex items-center justify-between mb-4">
-        <CardTitle>Salud y recovery</CardTitle>
-        <SegmentedControl
-          options={RANGOS.map((rango) => ({ value: String(rango.dias), label: rango.label }))}
-          value={String(dias)}
-          onChange={(v) => setDias(Number(v) as (typeof RANGOS)[number]["dias"])}
-          ariaLabel="Rango temporal"
-        />
-      </div>
+  const encabezado = (
+    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+      <h2 className="t-section text-ink">Histórico de recuperación</h2>
+      <SegmentedControl
+        options={RANGOS.map((rango) => ({ value: String(rango.dias), label: rango.label }))}
+        value={String(dias)}
+        onChange={(v) => setDias(Number(v) as (typeof RANGOS)[number]["dias"])}
+        ariaLabel="Rango temporal"
+      />
+    </div>
+  );
 
-      {error && (
+  if (error) {
+    return (
+      <Card>
+        <div className="mb-4">{encabezado}</div>
         <ErrorState
           message={error}
           onRetry={() => {
@@ -74,73 +155,64 @@ export function GarminHealthHistoryCard({ userId }: { userId: number }) {
             setIntentos((n) => n + 1);
           }}
         />
-      )}
-      {!error && historial === null && <LoadingState lines={4} />}
-      {!error && historial !== null && historial.length === 0 && (
-        <EmptyState icon={HeartPulse} message="Todavía no hay datos de recovery sincronizados." />
-      )}
-      {!error && historial && historial.length > 0 && (
-        <div className="flex flex-col gap-5">
-          <MetricaSeccion
-            titulo="VFC (HRV)"
-            unidad=" ms"
-            color={PALETA.recoveryHigh}
-            datos={cronologico}
-            campo="hrv_value"
-          />
-          <MetricaSeccion
-            titulo="Body Battery"
-            unidad=""
-            color={PALETA.accent}
-            datos={cronologico}
-            campo="body_battery_am"
-          />
-          <MetricaSeccion
-            titulo="Sueño (score)"
-            unidad=""
-            color={PALETA.sleep}
-            datos={cronologico}
-            campo="sleep_score"
-          />
-          <FasesSuenoSeccion datos={cronologico} />
-          <MetricaSeccion
-            titulo="Estrés medio"
-            unidad=""
-            color={PALETA.recoveryLow}
-            datos={cronologico}
-            campo="stress_avg"
-          />
-          <MetricaSeccion
-            titulo="Pulso en reposo"
-            unidad=" ppm"
-            color={PALETA.accent}
-            datos={cronologico}
-            campo="resting_hr"
-          />
-          <MetricaSeccion
-            titulo="VO2max"
-            unidad=""
-            color={PALETA.accent}
-            datos={cronologico}
-            campo="vo2max"
-          />
-        </div>
-      )}
+      </Card>
+    );
+  }
+
+  if (historial === null) {
+    return (
+      <Card>
+        <div className="mb-4">{encabezado}</div>
+        <LoadingState lines={4} />
+      </Card>
+    );
+  }
+
+  if (historial.length === 0) {
+    return (
+      <Card>
+        <div className="mb-4">{encabezado}</div>
+        <EmptyState message="Garmin no ha sincronizado ningún día en esta ventana. Comprueba la conexión en Perfil › Conexiones o prueba con un rango más amplio." />
+      </Card>
+    );
+  }
+
+  return (
+    <Card plano>
+      <div className="p-5">
+        {encabezado}
+        {/* "90 días con datos en los últimos 90" era un trabalenguas.
+            Solo se menciona la ventana cuando falta algún día en ella,
+            que es cuando el número informa de algo. */}
+        <p className="t-secondary mt-2 text-ink-3">
+          {historial.length === dias
+            ? `${plural(dias, "día", "días")}, todos con datos.`
+            : `${plural(historial.length, "día con datos", "días con datos")} de los últimos ${dias}.`}
+        </p>
+      </div>
+      {METRICAS.map((metrica) => (
+        <MetricaSeccion key={metrica.campo} {...metrica} datos={cronologico} />
+      ))}
+      <FasesSuenoSeccion datos={cronologico} />
     </Card>
   );
 }
 
+/** Fases de sueño de la última noche con datos. Una barra apilada y no
+ *  una tendencia porque lo que importa es la PROPORCIÓN entre fases de
+ *  una noche concreta.
+ *
+ *  v3: los cuatro colores independientes (índigo, violeta, lila, gris)
+ *  se sustituyen por una escala del mismo color de datos. Las fases son
+ *  una sola magnitud dividida en partes, y una escala lo dice; cuatro
+ *  colores distintos sugieren cuatro cosas sin relación. */
 const FASES_SUENO = [
-  { campo: "deep_sleep_seg", label: "Profundo", color: "#4338ca" },
-  { campo: "rem_sleep_seg", label: "REM", color: "#7c3aed" },
-  { campo: "light_sleep_seg", label: "Ligero", color: "#a5b4fc" },
-  { campo: "awake_sleep_seg", label: "Despierto", color: "#e5e7eb" },
+  { campo: "deep_sleep_seg", label: "Profundo", opacidad: 1 },
+  { campo: "rem_sleep_seg", label: "REM", opacidad: 0.7 },
+  { campo: "light_sleep_seg", label: "Ligero", opacidad: 0.42 },
+  { campo: "awake_sleep_seg", label: "Despierto", opacidad: 0.18 },
 ] as const;
 
-// Épica B del plan de desarrollo (02-roadmap/04-plan-desarrollo-siguiente-fase.md):
-// desglose de fases de sueño de la última noche con datos - una barra
-// apilada en vez de una gráfica de tendencia porque lo que importa aquí
-// es la PROPORCIÓN entre fases de una noche, no su evolución diaria.
 function FasesSuenoSeccion({ datos }: { datos: GarminHealthDay[] }) {
   const ultimoConFases = [...datos].reverse().find((d) => d.deep_sleep_seg != null);
   if (!ultimoConFases) return null;
@@ -150,57 +222,77 @@ function FasesSuenoSeccion({ datos }: { datos: GarminHealthDay[] }) {
   if (total === 0) return null;
 
   return (
-    <div>
-      <div className="flex items-baseline justify-between mb-1">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
-          Fases de sueño ({ultimoConFases.fecha})
-        </h3>
-        <span className="text-sm font-bold text-foreground">{Math.round(total / 60)} min</span>
+    <section className="border-t border-line px-5 py-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+        <h3 className="t-section text-ink">Fases de sueño</h3>
+        <span className="t-body tabular text-ink">{horasYMinutos(total)}</span>
       </div>
-      <div className="flex h-3 w-full overflow-hidden rounded-full">
+      <p className="t-secondary mt-1 text-ink-3">
+        Noche de {fechaRelativa(ultimoConFases.fecha).toLowerCase()}.
+      </p>
+      <div className="mt-3 flex h-2 w-full overflow-hidden rounded-full bg-canvas">
         {FASES_SUENO.map((fase, i) => {
           const valor = segundos[i];
           if (valor === 0) return null;
           return (
             <div
               key={fase.campo}
-              style={{ width: `${(valor / total) * 100}%`, backgroundColor: fase.color }}
-              title={`${fase.label}: ${Math.round(valor / 60)} min`}
+              style={{
+                width: `${(valor / total) * 100}%`,
+                backgroundColor: "var(--data)",
+                opacity: fase.opacidad,
+              }}
             />
           );
         })}
       </div>
-      <div className="mt-2 flex flex-wrap gap-3">
+      {/* Leyenda con la cifra escrita: la barra sola obligaba a pasar el
+          cursor por encima (`title`), imposible en móvil. */}
+      <dl className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] gap-x-6 gap-y-2">
         {FASES_SUENO.map((fase, i) => {
           const valor = segundos[i];
           if (valor === 0) return null;
           return (
-            <span key={fase.campo} className="flex items-center gap-1 text-xs text-text-secondary">
-              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: fase.color }} />
-              {fase.label} · {Math.round(valor / 60)} min
-            </span>
+            <div key={fase.campo} className="flex items-baseline gap-2">
+              <span
+                aria-hidden="true"
+                className="size-2 shrink-0 translate-y-[-1px] rounded-full"
+                style={{ backgroundColor: "var(--data)", opacity: fase.opacidad }}
+              />
+              <dt className="t-secondary text-ink-2">{fase.label}</dt>
+              <dd className="t-secondary tabular ml-auto text-ink">{horasYMinutos(valor)}</dd>
+            </div>
           );
         })}
-      </div>
-    </div>
+      </dl>
+    </section>
   );
+}
+
+function horasYMinutos(segundos: number): string {
+  const minutos = Math.round(segundos / 60);
+  if (minutos < 60) return `${minutos} min`;
+  const horas = Math.floor(minutos / 60);
+  const resto = minutos % 60;
+  return resto === 0 ? `${horas} h` : `${horas} h ${resto} min`;
 }
 
 function MetricaSeccion({
   titulo,
   unidad,
-  color,
+  decimales,
+  explicacion,
   datos,
   campo,
+  rango,
 }: {
   titulo: string;
   unidad: string;
-  color: string;
+  decimales: number;
+  explicacion: string;
   datos: GarminHealthDay[];
-  campo: keyof Pick<
-    GarminHealthDay,
-    "hrv_value" | "body_battery_am" | "sleep_score" | "stress_avg" | "resting_hr" | "vo2max"
-  >;
+  campo: Campo;
+  rango?: readonly [number, number];
 }) {
   const puntos = datos
     // `!= null` (laxo) en vez de `!== null`: defensa en profundidad si
@@ -211,31 +303,38 @@ function MetricaSeccion({
     .filter((d) => d[campo] != null)
     .map((d) => ({ fecha: d.fecha, valor: d[campo] as number }));
 
-  // "unknown is not zero": si NINGÚN día de la ventana tiene este
-  // campo (ej. VO2max en un dispositivo que no lo calcula todavía),
-  // no se muestra la sección en absoluto - mostrar una gráfica vacía
-  // aparentaría un dato ausente como "cero", que es falso.
+  // "Lo desconocido no es cero": si NINGÚN día de la ventana tiene este
+  // campo, la sección no existe.
   if (puntos.length === 0) return null;
 
-  const ultimo = puntos[puntos.length - 1].valor;
+  const ultimo = puntos[puntos.length - 1];
 
   return (
-    <div>
-      <div className="flex items-baseline justify-between mb-1">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-text-secondary">{titulo}</h3>
-        <span className="text-sm font-bold text-foreground">
-          {ultimo}
+    <section className="border-t border-line px-5 py-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+        <h3 className="t-section text-ink">{titulo}</h3>
+        <span className="t-body tabular text-ink">
+          {ultimo.valor.toFixed(decimales)}
           {unidad}
+          <span className="t-secondary text-ink-3"> · {fechaRelativa(ultimo.fecha).toLowerCase()}</span>
         </span>
       </div>
-      <AreaTrendChart
-        data={puntos}
-        color={color}
-        unidad={unidad}
-        alto={110}
-        decimales={0}
-        mostrarEjes
-      />
-    </div>
+      <p className="t-secondary mt-1 max-w-prose text-pretty text-ink-3">{explicacion}</p>
+      {/* Con menos de dos días no hay tendencia: la cifra de arriba ya
+          lo dice todo y una gráfica de un punto era otro hallazgo de la
+          auditoría. */}
+      {puntos.length >= 2 && (
+        <div className="mt-3">
+          <TrendChart
+            data={puntos}
+            unidad={unidad}
+            decimales={decimales}
+            rango={rango}
+            etiqueta={titulo}
+            alto={150}
+          />
+        </div>
+      )}
+    </section>
   );
 }

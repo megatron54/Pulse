@@ -34,11 +34,11 @@ describe("RecoveryStatusCard", () => {
     expect(api.getGarminHealthHistory).toHaveBeenCalledWith(1, 7);
   });
 
-  it("muestra 'Aun sin datos de hoy' (nunca un cero inventado) si el scheduler no ha sincronizado todavia", async () => {
+  it("dice que aun no hay datos (nunca un cero inventado) si el scheduler no ha sincronizado todavia", async () => {
     vi.mocked(api.getReadinessHistory).mockResolvedValue([]);
     vi.mocked(api.getGarminHealthHistory).mockResolvedValue([]);
     render(<RecoveryStatusCard userId={1} />);
-    await waitFor(() => expect(screen.getByText(/aún sin datos de hoy/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/sin datos de hoy todavía/i)).toBeInTheDocument());
   });
 
   it("muestra el semaforo de zona cuando ya hay un readiness calculado hoy", async () => {
@@ -47,7 +47,72 @@ describe("RecoveryStatusCard", () => {
     ]);
     vi.mocked(api.getGarminHealthHistory).mockResolvedValue([]);
     render(<RecoveryStatusCard userId={1} />);
-    await waitFor(() => expect(screen.getByText(/recovery alta/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/recuperación óptima/i)).toBeInTheDocument());
+  });
+
+  it("si Garmin ya sincronizó hoy pero falta el cálculo, no dice que no haya datos de hoy", async () => {
+    // La tarjeta se contradecía: "Sin datos de hoy todavía" encima de
+    // "Últimos datos sincronizados: hoy", con las cifras de hoy debajo.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date(2026, 8, 14));
+    vi.mocked(api.getReadinessHistory).mockResolvedValue([]);
+    vi.mocked(api.getGarminHealthHistory).mockResolvedValue([
+      {
+        fecha: "2026-09-14",
+        hrv_value: null,
+        hrv_status: null,
+        body_battery_am: 2,
+        training_readiness: null,
+        sleep_score: null,
+        stress_avg: 29,
+        resting_hr: 54,
+        vo2max: null,
+        pasos: 183,
+        deep_sleep_seg: null,
+        light_sleep_seg: null,
+        rem_sleep_seg: null,
+        awake_sleep_seg: null,
+      },
+    ]);
+
+    render(<RecoveryStatusCard userId={1} />);
+
+    await waitFor(() =>
+      expect(screen.getByText("Recuperación sin calcular")).toBeInTheDocument()
+    );
+    expect(screen.queryByText(/sin datos de hoy todavía/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/necesita además el sueño y la variabilidad cardíaca/i)).toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  it("si el último día sincronizado NO es hoy, sí dice que faltan los datos de hoy", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date(2026, 8, 14));
+    vi.mocked(api.getReadinessHistory).mockResolvedValue([]);
+    vi.mocked(api.getGarminHealthHistory).mockResolvedValue([
+      {
+        fecha: "2026-09-11",
+        hrv_value: 49,
+        hrv_status: null,
+        body_battery_am: null,
+        training_readiness: null,
+        sleep_score: null,
+        stress_avg: null,
+        resting_hr: null,
+        vo2max: null,
+        pasos: null,
+        deep_sleep_seg: null,
+        light_sleep_seg: null,
+        rem_sleep_seg: null,
+        awake_sleep_seg: null,
+      },
+    ]);
+
+    render(<RecoveryStatusCard userId={1} />);
+
+    await waitFor(() => expect(screen.getByText(/sin datos de hoy todavía/i)).toBeInTheDocument());
+    expect(screen.getByText(/últimos datos sincronizados: 11 sep/i)).toBeInTheDocument();
+    vi.useRealTimers();
   });
 
   it("muestra un error si la peticion falla", async () => {
@@ -58,7 +123,9 @@ describe("RecoveryStatusCard", () => {
   });
 
   it("muestra el valor de hoy de cada metrica con datos, y omite las que no tienen ninguno", async () => {
-    vi.mocked(api.getReadinessHistory).mockResolvedValue([]);
+    vi.mocked(api.getReadinessHistory).mockResolvedValue([
+      { id: 1, fecha: "2026-08-10", resultado: "green", hrv_delta_pct: 2, training_readiness: "high", acwr: 1 },
+    ]);
     vi.mocked(api.getGarminHealthHistory).mockResolvedValue([
       {
         fecha: "2026-08-10",
@@ -91,8 +158,40 @@ describe("RecoveryStatusCard", () => {
     vi.mocked(api.getReadinessHistory).mockResolvedValue([]);
     vi.mocked(api.getGarminHealthHistory).mockResolvedValue([]);
     render(<RecoveryStatusCard userId={1} />);
-    await waitFor(() => expect(screen.getByText(/aún sin datos de hoy/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/sin datos de hoy todavía/i)).toBeInTheDocument());
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
+  });
+  it("elige el dia MAS RECIENTE aunque el endpoint devuelva orden descendente", async () => {
+    // Regresion del bug real que encontro la auditoria:
+    // GET /garmin/health-history devuelve "mas reciente primero", pero
+    // la tarjeta leia `historial.at(-1)` - el dia mas ANTIGUO de la
+    // ventana - y mostraba datos de hace una semana como los de hoy.
+    const dia = (fecha: string, hrv: number) => ({
+      fecha,
+      hrv_value: hrv,
+      hrv_status: "NONE",
+      body_battery_am: null,
+      training_readiness: null,
+      sleep_score: null,
+      stress_avg: null,
+      resting_hr: null,
+      vo2max: null,
+      pasos: null,
+      deep_sleep_seg: null,
+      light_sleep_seg: null,
+      rem_sleep_seg: null,
+      awake_sleep_seg: null,
+    });
+    vi.mocked(api.getReadinessHistory).mockResolvedValue([]);
+    vi.mocked(api.getGarminHealthHistory).mockResolvedValue([
+      dia("2026-08-10", 49),
+      dia("2026-08-04", 65),
+    ]);
+
+    render(<RecoveryStatusCard userId={1} />);
+
+    await waitFor(() => expect(screen.getByText("49")).toBeInTheDocument());
+    expect(screen.queryByText("65")).not.toBeInTheDocument();
   });
 });

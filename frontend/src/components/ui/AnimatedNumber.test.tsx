@@ -13,6 +13,17 @@ describe("AnimatedNumber", () => {
     expect(screen.getByText("1.5")).toBeInTheDocument();
   });
 
+  it("agrupa los miles de las cifras largas", async () => {
+    // Hallazgo de la auditoría v3: los pasos salían como "13893".
+    // Se compara sobre `textContent` y no con `getByText` porque el
+    // normalizador de testing-library convierte el espacio fino
+    // (U+202F) en un espacio normal, que es justo lo que hay que
+    // distinguir aquí: un espacio normal partiría la cifra en dos
+    // líneas.
+    const { container } = render(<AnimatedNumber value={13893} />);
+    await waitFor(() => expect(container.textContent).toBe("13 893"));
+  });
+
   it("anima hacia el nuevo valor cuando la prop cambia", async () => {
     const { rerender } = render(<AnimatedNumber value={100} />);
     expect(screen.getByText("100")).toBeInTheDocument();

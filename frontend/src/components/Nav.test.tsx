@@ -7,10 +7,10 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("Nav", () => {
-  it("renderiza un enlace a cada una de las 5 secciones (Recuperación/Análisis fusionadas en Entrenamiento)", () => {
+  it("renderiza un enlace a cada una de las 5 secciones (Coach fuera, Perfil dentro)", () => {
     render(<Nav />);
     const sidebar = screen.getByRole("navigation", { name: "Navegación principal" });
-    for (const nombre of ["Hoy", "Cuerpo", "Entrenamiento", "Nutrición", "Coach"]) {
+    for (const nombre of ["Hoy", "Cuerpo", "Entrenamiento", "Nutrición", "Perfil"]) {
       expect(within(sidebar).getByText(nombre)).toBeInTheDocument();
     }
   });
@@ -40,7 +40,16 @@ describe("Nav", () => {
   it("la barra de pestañas móvil también marca la ruta activa", () => {
     render(<Nav />);
     const barraMovil = screen.getByRole("navigation", { name: "Navegación principal (móvil)" });
-    const enlaceActivo = within(barraMovil).getByRole("link", { name: /entrenamiento/i });
+    // "Entreno", no "Entrenamiento": a 390px la etiqueta larga no cabe
+    // en un quinto de pantalla, y truncar está prohibido. El nombre
+    // accesible es el texto visible (WCAG 2.5.3, "Label in Name"), así
+    // que aquí se consulta por la etiqueta corta a propósito.
+    const enlaceActivo = within(barraMovil).getByRole("link", { name: /entreno/i });
     expect(enlaceActivo).toHaveAttribute("aria-current", "page");
+  });
+
+  it("Coach ya no ocupa un sitio en la navegación principal", () => {
+    render(<Nav />);
+    expect(screen.queryByRole("link", { name: /coach/i })).not.toBeInTheDocument();
   });
 });

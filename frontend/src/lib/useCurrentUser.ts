@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type User, type UserCreateInput } from "./api";
 
-const STORAGE_KEY = "pulse_user_id";
+/** Exportada porque Perfil > Sesión también la borra al cerrar sesión:
+ *  una sola definición de dónde vive la sesión local. */
+export const CLAVE_USUARIO = "pulse_user_id";
+const STORAGE_KEY = CLAVE_USUARIO;
 
 /**
  * Mono-usuario v1 (ver docs/02-roadmap/02-plan-autonomo.md, Fase D):

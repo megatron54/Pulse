@@ -80,6 +80,27 @@ class TestFeelfitConnect:
 
         assert resp.status_code == 404
 
+    def test_el_detalle_del_404_no_nombra_tablas_internas(self, client, monkeypatch):
+        # El mensaje de dominio es "No existe UserProfile con id=5" y el
+        # frontend muestra el `detail` tal cual: nombraba una tabla que
+        # el usuario no conoce. El texto real va al log del servidor.
+        test_client, _ = client
+
+        def _lanza_not_found(*a, **k):
+            raise EntityNotFoundError("No existe UserProfile con id=99999")
+
+        monkeypatch.setattr(feelfit_router, "connect_feelfit_account", _lanza_not_found)
+
+        resp = test_client.post(
+            "/users/99999/feelfit-connect",
+            json={"email": "a@b.com", "password": "secreto"},
+        )
+
+        assert resp.status_code == 404
+        detalle = resp.json()["detail"]
+        assert "userprofile" not in detalle.lower()
+        assert "99999" not in detalle
+
     def test_credenciales_invalidas_devuelve_401(self, client, monkeypatch):
         test_client, _ = client
         user_id = _crear_usuario(test_client)

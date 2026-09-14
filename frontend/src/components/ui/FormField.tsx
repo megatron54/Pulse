@@ -23,13 +23,13 @@ export function FormField({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={htmlFor} className="text-sm font-medium text-text-secondary">
+      <label htmlFor={htmlFor} className="t-secondary font-medium text-ink-2">
         {label}
       </label>
       {children}
-      {hint && !error && <p className="text-xs text-text-secondary">{hint}</p>}
+      {hint && !error && <p className="t-secondary text-ink-3">{hint}</p>}
       {error && (
-        <p role="alert" className="text-xs text-recovery-low">
+        <p role="alert" className="t-secondary text-neg">
           {error}
         </p>
       )}
@@ -37,5 +37,8 @@ export function FormField({
   );
 }
 
+// El foco se marca con `ring-ink` (el propio color del texto), no con un
+// azul de acento: Design System v3, doctrina 1 - el color comunica
+// información, y "dónde estoy escribiendo" no es una categoría de dato.
 export const fieldInputClass =
-  "w-full rounded-lg border border-surface-border bg-surface-muted px-3 py-2.5 text-sm text-foreground placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-accent";
+  "t-body w-full rounded-md border border-line bg-canvas px-3 py-2.5 text-ink placeholder:text-ink-3 focus:outline-none focus:ring-2 focus:ring-ink";

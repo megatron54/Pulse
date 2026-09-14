@@ -2,30 +2,30 @@
 
 import { useUser } from "@/lib/UserContext";
 import { DailySessionCard } from "@/components/DailySessionCard";
-import { NutritionTargetCard } from "@/components/NutritionTargetCard";
-import { ReadinessTrendCard } from "@/components/ReadinessTrendCard";
 import { RecoveryStatusCard } from "@/components/RecoveryStatusCard";
 import { FadeIn } from "@/components/ui/FadeIn";
 import { PageHeader } from "@/components/ui/PageHeader";
 
 /**
- * Página "Hoy" - reconstrucción v2 (01-arquitectura/04-design-system-v2.md,
- * Fase 2). Jerarquía de 3 niveles explícita, en vez del grid "bento" de
- * cajas del mismo tamaño de la iteración anterior:
+ * Página "Hoy" (Design System v3). Responsabilidad única, del cuadro de
+ * arquitectura de información: **cómo estoy hoy y qué hago hoy. Nada
+ * más.**
  *
- * Nivel 1 (hero): estado de recovery de HOY, 100% automático de
- * Garmin - `RecoveryStatusCard` sustituye por completo al check-in
- * manual (`ReadinessCheckinForm`, ELIMINADO) y a los anillos
- * (`RecoveryRing`, ELIMINADO).
- * Nivel 2 (soporte): sesión de entrenamiento recomendada/realizada hoy,
- * junto a los macros objetivo de hoy (lado a lado en desktop, estilo
- * Garmin Connect/MyFitnessPal - antes vivían en páginas separadas sin
- * ninguna vista conjunta del día).
- * Nivel 3 (glanceable): mini-tendencia de recovery de 7 días.
+ * Se han quitado dos bloques, los dos por petición explícita del
+ * usuario respaldada por la auditoría:
  *
- * Sin scroll forzado en desktop para el contenido de nivel 1-2 (cabe
- * en una pantalla de portátil estándar); nivel 3 puede quedar bajo el
- * pliegue sin que eso sea un problema (es contenido secundario).
+ *  - **`ReadinessTrendCard`** ("Tendencia de readiness, 30 días"): eran
+ *    30 círculos de color sin eje, sin fechas y sin cifras, con
+ *    `flex-wrap` (el día 27 caía debajo del día 1, rompiendo la lectura
+ *    de línea temporal) y con el significado accesible solo por `title`
+ *    al pasar el cursor, inexistente en móvil. Una tendencia de 30 días
+ *    no es "hoy": su sitio es Entrenamiento › Recuperación, rehecha con
+ *    eje y cifras.
+ *  - **`NutritionTargetCard`**: en esta página era una tarjeta cuyo
+ *    único contenido era un botón "Calcular macros de hoy". Una tarjeta
+ *    que no informa de nada y exige pulsar para calcular algo que el
+ *    motor puede resolver solo. Su sitio es Nutrición, donde el
+ *    objetivo se muestra ya calculado.
  */
 export default function HoyPage() {
   const user = useUser();
@@ -33,20 +33,12 @@ export default function HoyPage() {
   return (
     <main className="content-container py-6 md:py-8">
       <PageHeader title="Hoy" subtitle={`Hola, ${user.nombre}.`} />
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-5">
         <FadeIn delay={0}>
           <RecoveryStatusCard userId={user.id} />
         </FadeIn>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
-          <FadeIn delay={0.05}>
-            <DailySessionCard userId={user.id} />
-          </FadeIn>
-          <FadeIn delay={0.08}>
-            <NutritionTargetCard userId={user.id} />
-          </FadeIn>
-        </div>
-        <FadeIn delay={0.1}>
-          <ReadinessTrendCard userId={user.id} refreshKey={0} />
+        <FadeIn delay={0.05}>
+          <DailySessionCard userId={user.id} />
         </FadeIn>
       </div>
     </main>

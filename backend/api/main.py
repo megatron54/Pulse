@@ -28,7 +28,7 @@ from api.routers import (
     users,
 )
 from garmin_sync.mapper import InsufficientDataError
-from services.errors import EntityNotFoundError
+from services.errors import EntityNotFoundError, SessionNotDecidableError
 
 logger = logging.getLogger("pulse.api")
 
@@ -60,6 +60,18 @@ async def entity_not_found_handler(request: Request, exc: EntityNotFoundError) -
     de la excepción, así que EntityNotFoundError (subclase de ValueError)
     usa este 404 en vez del 400 genérico de abajo."""
     return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(SessionNotDecidableError)
+async def session_not_decidable_handler(
+    request: Request, exc: SessionNotDecidableError
+) -> JSONResponse:
+    """Sigue siendo un 400 (precondición del usuario no cumplida), pero
+    añade `motivo`, un código estable con el que la interfaz puede
+    decir exactamente qué falta y cómo resolverlo. Sin él, la página
+    "Hoy" solo podía mostrar "falta el recovery de hoy O el plan
+    semanal", que no le sirve a nadie para actuar."""
+    return JSONResponse(status_code=400, content={"detail": str(exc), "motivo": exc.motivo})
 
 
 @app.exception_handler(ValueError)

@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { animate } from "motion";
 import { useReducedMotion } from "motion/react";
 import { motionTokens } from "@/lib/motion-tokens";
+import { formatNumero } from "@/lib/numeros";
 
 /**
  * Contador animado (auditoría UI/UX, hallazgo M1): antes, los números
@@ -37,7 +38,7 @@ export function AnimatedNumber({
     if (!nodo) return;
 
     if (prefiereMenosMovimiento) {
-      nodo.textContent = value.toFixed(decimals);
+      nodo.textContent = formatNumero(value, decimals);
       valorAnterior.current = value;
       return;
     }
@@ -46,7 +47,7 @@ export function AnimatedNumber({
       duration: motionTokens.duration.slow,
       ease: motionTokens.easing.smooth,
       onUpdate: (v) => {
-        if (nodo) nodo.textContent = v.toFixed(decimals);
+        if (nodo) nodo.textContent = formatNumero(v, decimals);
       },
     });
     valorAnterior.current = value;
@@ -55,7 +56,7 @@ export function AnimatedNumber({
 
   return (
     <span ref={ref} className={`tabular-nums ${className}`}>
-      {value.toFixed(decimals)}
+      {formatNumero(value, decimals)}
     </span>
   );
 }

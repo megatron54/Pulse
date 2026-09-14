@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { api, ApiError, type GarminConnectInput, type User } from "@/lib/api";
 import { Button } from "./ui/Button";
-import { Card, CardTitle } from "./ui/Card";
+import { Card } from "./ui/Card";
 import { FormField, fieldInputClass } from "./ui/FormField";
 
 const ETIQUETA_CAMPO: Record<string, string> = {
@@ -33,6 +33,17 @@ const ETIQUETA_CAMPO: Record<string, string> = {
  * La contraseña vive solo en el estado de este componente durante la
  * sesión de conexión - nunca se persiste en localStorage ni se envía a
  * ningún sitio salvo esta petición HTTPS al propio backend.
+ *
+ * v3 (01-arquitectura/05-design-system-v3.md): es la PRIMERA pantalla
+ * de la app, y venía con tres defectos de la auditoría. El texto de la
+ * promesa de privacidad estaba pegado al título con un `-mt-2` a mano
+ * en vez de la escala tipográfica, los errores se pintaban con el
+ * token de "recuperación baja" (un color de dato usado como color de
+ * interfaz, doctrina 1), y los inputs no declaraban `autoComplete`,
+ * así que el gestor de contraseñas del navegador no ofrecía rellenar
+ * la cuenta de Garmin. Además, el paso de "falta un dato" no decía
+ * cuál era el primer paso ni que la conexión seguía en marcha: ahora
+ * se numeran los dos pasos.
  */
 export function GarminConnectForm({
   onConnected,
@@ -98,16 +109,26 @@ export function GarminConnectForm({
     await conectar(overrides);
   }
 
+  const mensajeError = error && (
+    <p role="alert" className="t-body text-pretty text-neg">
+      {error}
+    </p>
+  );
+
   if (camposFaltantes) {
+    const faltaUno = camposFaltantes.length === 1;
     return (
       <div className="mx-auto w-full max-w-sm">
         <Card>
-          <CardTitle>Falta un dato</CardTitle>
-          <p className="-mt-2 mb-4 text-sm text-text-secondary">
-            Garmin no nos dio {camposFaltantes.length === 1 ? "este dato" : "estos datos"} - solo te
-            pedimos lo que falta.
+          <p className="t-micro text-ink-3">Paso 2 de 2</p>
+          <h2 className="t-section mt-1 text-ink">
+            {faltaUno ? "Falta un dato" : "Faltan unos datos"}
+          </h2>
+          <p className="t-secondary mt-1 text-pretty text-ink-2">
+            Hemos entrado en tu cuenta de Garmin, pero tu perfil de ahí no incluye{" "}
+            {faltaUno ? "este dato" : "estos datos"}. Solo te pedimos lo que falta.
           </p>
-          <form onSubmit={handleSubmitCompletar} className="flex flex-col gap-4">
+          <form onSubmit={handleSubmitCompletar} className="mt-5 flex flex-col gap-4">
             {camposFaltantes.map((campo) => (
               <FormField key={campo} label={ETIQUETA_CAMPO[campo] ?? campo} htmlFor={campo}>
                 {campo === "sexo" ? (
@@ -118,7 +139,7 @@ export function GarminConnectForm({
                     onChange={(e) => setOverrides((o) => ({ ...o, [campo]: e.target.value }))}
                   >
                     <option value="" disabled>
-                      Elige...
+                      Elige una opción…
                     </option>
                     <option value="M">Masculino</option>
                     <option value="F">Femenino</option>
@@ -126,7 +147,14 @@ export function GarminConnectForm({
                 ) : (
                   <input
                     id={campo}
-                    type={campo === "fecha_nacimiento" ? "date" : campo === "altura_cm" ? "number" : "text"}
+                    type={
+                      campo === "fecha_nacimiento"
+                        ? "date"
+                        : campo === "altura_cm"
+                          ? "number"
+                          : "text"
+                    }
+                    inputMode={campo === "altura_cm" ? "numeric" : undefined}
                     className={fieldInputClass}
                     value={overrides[campo] ?? ""}
                     onChange={(e) => setOverrides((o) => ({ ...o, [campo]: e.target.value }))}
@@ -135,13 +163,9 @@ export function GarminConnectForm({
                 )}
               </FormField>
             ))}
-            {error && (
-              <p role="alert" className="text-sm text-recovery-low">
-                {error}
-              </p>
-            )}
+            {mensajeError}
             <Button type="submit" disabled={submitting} className="w-full">
-              {submitting ? "Completando..." : "Completar"}
+              {submitting ? "Completando…" : "Completar"}
             </Button>
           </form>
         </Card>
@@ -152,16 +176,17 @@ export function GarminConnectForm({
   return (
     <div className="mx-auto w-full max-w-sm">
       <Card>
-        <CardTitle>Conecta tu cuenta de Garmin</CardTitle>
-        <p className="-mt-2 mb-4 text-sm text-text-secondary">
-          Tu email y contraseña van directos a tu propio servidor de Pulse por HTTPS - nunca se
-          guardan, solo se usan para iniciar sesión en Garmin Connect esta vez.
+        <p className="t-micro text-ink-3">Paso 1 de 2</p>
+        <h2 className="t-section mt-1 text-ink">Conecta tu cuenta de Garmin</h2>
+        <p className="t-secondary mt-1 text-pretty text-ink-2">
+          Pulse saca de ahí tu perfil y tu historial: no hay que rellenar nada a mano.
         </p>
-        <form onSubmit={handleSubmitInicial} className="flex flex-col gap-4">
+        <form onSubmit={handleSubmitInicial} className="mt-5 flex flex-col gap-4">
           <FormField label="Email" htmlFor="garmin-email">
             <input
               id="garmin-email"
               type="email"
+              autoComplete="username"
               className={fieldInputClass}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -172,21 +197,25 @@ export function GarminConnectForm({
             <input
               id="garmin-password"
               type="password"
+              autoComplete="current-password"
               className={fieldInputClass}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
             />
           </FormField>
-          {error && (
-            <p role="alert" className="text-sm text-recovery-low">
-              {error}
-            </p>
-          )}
+          {mensajeError}
           <Button type="submit" disabled={submitting} className="w-full">
-            {submitting ? "Conectando..." : "Conectar"}
+            {submitting ? "Conectando…" : "Conectar"}
           </Button>
         </form>
+        {/* La promesa de privacidad va al final y en pequeño: es
+            importante, pero leerla no es el primer paso. */}
+        <p className="t-secondary mt-4 text-pretty text-ink-3">
+          Tu email y tu contraseña viajan por HTTPS a tu propio servidor de Pulse y se usan solo
+          para iniciar sesión en Garmin Connect esta vez. La contraseña no se guarda en ningún
+          sitio.
+        </p>
       </Card>
     </div>
   );

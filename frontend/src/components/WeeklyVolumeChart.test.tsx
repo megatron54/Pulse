@@ -45,17 +45,38 @@ describe("WeeklyVolumeChart", () => {
       { semana_inicio: "2026-08-03", distancia_total_m: 8000, duracion_total_seg: 3000, num_sesiones: 2 },
     ]);
     render(<WeeklyVolumeChart userId={1} categoria="running" metrica="distancia" />);
-    await waitFor(() => expect(screen.getByText(/volumen semanal/i)).toBeInTheDocument());
-    expect(screen.getByText(/8.0 km/i)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Volumen por semana")).toBeInTheDocument());
+    // La última semana se escribe, no solo se dibuja: una curva sin
+    // ninguna cifra obliga a pasar el cursor por encima (doctrina 5).
+    // Se mira la cabecera y no la pantalla entera: "8.0 km" es también
+    // una marca legítima del eje Y, así que buscarlo en todo el DOM
+    // encontraba dos y el test fallaba de forma intermitente (recharts
+    // solo dibuja las marcas cuando llega a medir el contenedor).
+    const cabecera = screen.getByText("Volumen por semana").parentElement!;
+    expect(cabecera.textContent).toContain("Última semana: 8.0 km");
   });
 
   it("muestra la tendencia de duracion total por semana (gimnasio)", async () => {
     vi.mocked(api.getGarminWeeklyVolume).mockResolvedValue([
+      { semana_inicio: "2026-07-27", distancia_total_m: null, duracion_total_seg: 1800, num_sesiones: 1 },
       { semana_inicio: "2026-08-03", distancia_total_m: null, duracion_total_seg: 3600, num_sesiones: 2 },
     ]);
     render(<WeeklyVolumeChart userId={1} categoria="gimnasio" metrica="duracion" />);
-    await waitFor(() => expect(screen.getByText(/volumen semanal/i)).toBeInTheDocument());
-    expect(screen.getByText(/60 min/i)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Volumen por semana")).toBeInTheDocument());
+    expect(screen.getByText(/1 h/)).toBeInTheDocument();
+  });
+
+  it("no dibuja una tendencia con una sola semana de dato", async () => {
+    // Un punto no es una tendencia: el área con dos vértices inventaba
+    // una pendiente inexistente (hallazgo de la auditoría v3).
+    vi.mocked(api.getGarminWeeklyVolume).mockResolvedValue([
+      { semana_inicio: "2026-08-03", distancia_total_m: null, duracion_total_seg: 3600, num_sesiones: 2 },
+    ]);
+    const { container } = render(
+      <WeeklyVolumeChart userId={1} categoria="gimnasio" metrica="duracion" />
+    );
+    await waitFor(() => expect(api.getGarminWeeklyVolume).toHaveBeenCalled());
+    expect(container.textContent).toBe("");
   });
 
   it("no muestra ningun error visible si la peticion falla (bloque no critico)", async () => {

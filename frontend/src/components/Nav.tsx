@@ -3,27 +3,34 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Dumbbell, MessageCircle, Ruler, Sun, Utensils } from "lucide-react";
+import { Dumbbell, Ruler, Sun, User, Utensils } from "lucide-react";
 
 /**
- * Navegación principal (reconstrucción v2 -
- * 01-arquitectura/04-design-system-v2.md): 5 secciones con jerarquía
- * de producto real. Petición explícita del usuario: "Cuerpo" en
- * segundo lugar (justo después de "Hoy"), y Recuperación+Análisis
- * fusionadas dentro de Entrenamiento (pestañas, ver
- * src/app/entrenamiento/page.tsx) en vez de vivir como páginas propias
- * con contenido duplicado/disperso.
+ * Navegación principal (Design System v3 -
+ * 01-arquitectura/05-design-system-v3.md, "Arquitectura de información").
  *
- * Responsive verificado por redimensionado real (Design System v2,
- * principio 5): sidebar fluida en desktop, tab bar fija abajo en
- * móvil - ambos casos sin anchos fijos que corten contenido.
+ * Dos decisiones de la auditoría:
+ *
+ *  - **`Coach` sale del nav principal y entra `Perfil`.** Coach ocupaba
+ *    un quinto de la navegación para mostrar "Todavía no está
+ *    construido" (y su estado vacío exponía jerga interna del
+ *    proyecto). Su valor real ya se entrega hoy como narrativa en
+ *    contexto dentro de las páginas. Perfil, que faltaba por completo,
+ *    ocupa su sitio: apariencia (tema), conexiones y datos propios.
+ *  - **Etiqueta corta propia en móvil.** A 390px cinco destinos dejan
+ *    ~78px cada uno, y "Entrenamiento" no cabe: era una de las causas
+ *    del texto cortado que encontró la auditoría. En vez de truncar con
+ *    elipsis (prohibido por la doctrina 4) se usa una etiqueta corta
+ *    pensada para ese ancho.
+ *
+ * El estado activo no usa color de acento: es contraste (doctrina 1).
  */
 const SECCIONES = [
-  { href: "/", label: "Hoy", Icono: Sun },
-  { href: "/cuerpo", label: "Cuerpo", Icono: Ruler },
-  { href: "/entrenamiento", label: "Entrenamiento", Icono: Dumbbell },
-  { href: "/nutricion", label: "Nutrición", Icono: Utensils },
-  { href: "/coach", label: "Coach", Icono: MessageCircle },
+  { href: "/", label: "Hoy", labelCorto: "Hoy", Icono: Sun },
+  { href: "/cuerpo", label: "Cuerpo", labelCorto: "Cuerpo", Icono: Ruler },
+  { href: "/entrenamiento", label: "Entrenamiento", labelCorto: "Entreno", Icono: Dumbbell },
+  { href: "/nutricion", label: "Nutrición", labelCorto: "Nutrición", Icono: Utensils },
+  { href: "/perfil", label: "Perfil", labelCorto: "Perfil", Icono: User },
 ] as const;
 
 function esRutaActiva(pathname: string, href: string): boolean {
@@ -32,21 +39,21 @@ function esRutaActiva(pathname: string, href: string): boolean {
 }
 
 const focusRing =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset";
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-inset";
 
 export function Nav() {
   const pathname = usePathname();
 
   return (
     <>
-      {/* Sidebar de escritorio */}
+      {/* Barra lateral de escritorio */}
       <nav
         aria-label="Navegación principal"
-        className="hidden md:flex md:w-60 md:shrink-0 md:flex-col md:gap-1 md:border-r md:border-surface-border md:bg-surface md:p-4"
+        className="hidden md:flex md:w-56 md:shrink-0 md:flex-col md:gap-0.5 md:border-r md:border-line md:p-3"
       >
-        <div className="mb-8 flex items-center gap-2.5 px-2">
-          <Image src="/icon-192.png" alt="" width={28} height={28} className="rounded-lg" priority />
-          <span className="text-xl font-semibold tracking-tight text-foreground">Pulse</span>
+        <div className="mb-7 flex items-center gap-2.5 px-2 pt-2">
+          <Image src="/icon-192.png" alt="" width={24} height={24} className="rounded-md" priority />
+          <span className="t-section text-ink">Pulse</span>
         </div>
         {SECCIONES.map(({ href, label, Icono }) => {
           const activa = esRutaActiva(pathname, href);
@@ -55,39 +62,45 @@ export function Nav() {
               key={href}
               href={href}
               aria-current={activa ? "page" : undefined}
-              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors active:scale-[0.98] ${focusRing} ${
+              className={`flex items-center gap-2.5 rounded-md px-2 py-2 t-body transition-colors ${focusRing} ${
                 activa
-                  ? "bg-accent/10 text-accent"
-                  : "text-text-secondary hover:text-foreground hover:bg-surface-muted"
+                  ? "bg-surface font-medium text-ink"
+                  : "text-ink-2 hover:bg-surface hover:text-ink"
               }`}
             >
-              <Icono aria-hidden="true" size={18} />
+              <Icono aria-hidden="true" size={16} />
               {label}
             </Link>
           );
         })}
       </nav>
 
-      {/* Barra de pestañas de móvil: 7 secciones caben sin scroll
-          horizontal (a diferencia de las 9 anteriores), flex-1 a
-          partes iguales. */}
+      {/* Barra inferior de móvil: anclada y con etiquetas, no la
+          "pastilla" flotante con el icono activo en un círculo negro.
+          Esa pastilla es un patrón de galería de inspiración: flotaba
+          sobre el contenido y lo dejaba cortado por debajo, y al ser
+          solo iconos obligaba a adivinar cada destino. Una tab bar
+          anclada y etiquetada es lo que usan las apps de referencia
+          (Salud de Apple, Strava) por buenas razones. */}
       <nav
         aria-label="Navegación principal (móvil)"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-10 flex border-t border-surface-border bg-surface pb-[env(safe-area-inset-bottom)]"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-10 flex border-t border-line bg-surface pb-[env(safe-area-inset-bottom)]"
       >
-        {SECCIONES.map(({ href, label, Icono }) => {
+        {SECCIONES.map(({ href, labelCorto, Icono }) => {
           const activa = esRutaActiva(pathname, href);
           return (
             <Link
               key={href}
               href={href}
               aria-current={activa ? "page" : undefined}
-              className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium leading-tight transition-transform active:scale-95 ${focusRing} ${
-                activa ? "text-accent" : "text-text-secondary"
+              className={`flex flex-1 flex-col items-center gap-1 py-2.5 transition-colors ${focusRing} ${
+                activa ? "text-ink" : "text-ink-3"
               }`}
             >
-              <Icono aria-hidden="true" size={20} />
-              <span className="truncate max-w-full px-0.5">{label}</span>
+              <Icono aria-hidden="true" size={19} strokeWidth={activa ? 2.25 : 1.75} />
+              <span className={`text-[0.6875rem] leading-none ${activa ? "font-medium" : ""}`}>
+                {labelCorto}
+              </span>
             </Link>
           );
         })}

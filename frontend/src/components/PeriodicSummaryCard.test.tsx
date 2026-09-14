@@ -46,8 +46,11 @@ describe("PeriodicSummaryCard", () => {
 
     render(<PeriodicSummaryCard userId={1} />);
 
-    await waitFor(() => expect(screen.getByText("3")).toBeInTheDocument());
-    expect(screen.getByText(/5 días con check-in/i)).toBeInTheDocument();
+    // La distribución se lee escrita, con el plural resuelto, y no como
+    // tres enteros gigantes de colores alrededor de un donut.
+    await waitFor(() => expect(screen.getByText("3 días")).toBeInTheDocument());
+    expect(screen.getAllByText("1 día")).toHaveLength(2);
+    expect(screen.getByText("Recuperación óptima")).toBeInTheDocument();
   });
 
   it("no muestra el delta de peso cuando no hay suficientes mediciones", async () => {
@@ -55,7 +58,7 @@ describe("PeriodicSummaryCard", () => {
     render(<PeriodicSummaryCard userId={1} />);
 
     await waitFor(() =>
-      expect(screen.getByText(/sin suficientes mediciones de peso/i)).toBeInTheDocument()
+      expect(screen.getByText(/hacen falta dos pesadas en la semana/i)).toBeInTheDocument()
     );
   });
 
@@ -68,7 +71,7 @@ describe("PeriodicSummaryCard", () => {
     });
 
     render(<PeriodicSummaryCard userId={1} />);
-    await waitFor(() => expect(screen.getByText(/-0.8 kg/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/−?-?0\.8 kg/)).toBeInTheDocument());
   });
 
   it("muestra un error si la petición falla", async () => {
@@ -98,7 +101,7 @@ describe("PeriodicSummaryCard", () => {
     const print = vi.spyOn(window, "print").mockImplementation(() => {});
 
     render(<PeriodicSummaryCard userId={1} />);
-    const boton = await screen.findByRole("button", { name: /descargar pdf/i });
+    const boton = await screen.findByRole("button", { name: /guardar en pdf/i });
     boton.click();
 
     expect(print).toHaveBeenCalledTimes(1);
@@ -109,6 +112,6 @@ describe("PeriodicSummaryCard", () => {
     vi.mocked(api.getPeriodicSummary).mockRejectedValue(new ApiError(404, "no existe"));
     render(<PeriodicSummaryCard userId={1} />);
     await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
-    expect(screen.queryByRole("button", { name: /descargar pdf/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /guardar en pdf/i })).not.toBeInTheDocument();
   });
 });

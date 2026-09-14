@@ -24,7 +24,7 @@ describe("GarminHealthHistoryCard", () => {
     render(<GarminHealthHistoryCard userId={1} />);
 
     await waitFor(() =>
-      expect(screen.getByText(/todavía no hay datos de recovery sincronizados/i)).toBeInTheDocument()
+      expect(screen.getByText(/garmin no ha sincronizado ningún día en esta ventana/i)).toBeInTheDocument()
     );
   });
 
@@ -58,12 +58,15 @@ describe("GarminHealthHistoryCard", () => {
 
     render(<GarminHealthHistoryCard userId={1} />);
 
-    await waitFor(() => expect(screen.getByText(/vfc/i)).toBeInTheDocument());
-    expect(screen.getByText(/body battery/i)).toBeInTheDocument();
-    expect(screen.getByText(/sueño/i)).toBeInTheDocument();
-    expect(screen.queryByText(/estrés/i)).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Variabilidad cardíaca")).toBeInTheDocument());
+    expect(screen.getByText("Body Battery al despertar")).toBeInTheDocument();
+    expect(screen.getByText("Calidad del sueño")).toBeInTheDocument();
+    // Las siglas del proveedor no llegan a la interfaz: ni "VFC (HRV)"
+    // ni "VO2max" dicen al usuario qué está mirando.
+    expect(screen.queryByText(/hrv/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/estrés medio/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/pulso en reposo/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/vo2/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/VO₂/)).not.toBeInTheDocument();
   });
 
   it("el selector de rango vuelve a pedir el historial con los días correctos", async () => {
@@ -89,7 +92,7 @@ describe("GarminHealthHistoryCard", () => {
     render(<GarminHealthHistoryCard userId={1} />);
     await waitFor(() => expect(api.getGarminHealthHistory).toHaveBeenCalledWith(1, 90));
 
-    const boton30d = screen.getByRole("tab", { name: "30d" });
+    const boton30d = screen.getByRole("tab", { name: "30 días" });
     boton30d.click();
 
     await waitFor(() => expect(api.getGarminHealthHistory).toHaveBeenCalledWith(1, 30));
@@ -100,10 +103,10 @@ describe("GarminHealthHistoryCard", () => {
     render(<GarminHealthHistoryCard userId={1} />);
 
     await waitFor(() =>
-      expect(screen.getByRole("tab", { name: "90d" })).toHaveAttribute("aria-selected", "true")
+      expect(screen.getByRole("tab", { name: "90 días" })).toHaveAttribute("aria-selected", "true")
     );
-    expect(screen.getByRole("tab", { name: "7d" })).toHaveAttribute("aria-selected", "false");
-    expect(screen.getByRole("tab", { name: "30d" })).toHaveAttribute("aria-selected", "false");
+    expect(screen.getByRole("tab", { name: "7 días" })).toHaveAttribute("aria-selected", "false");
+    expect(screen.getByRole("tab", { name: "30 días" })).toHaveAttribute("aria-selected", "false");
   });
 
   it("muestra el valor MÁS RECIENTE de cada métrica, no el más antiguo (el backend devuelve desc)", async () => {
@@ -149,9 +152,13 @@ describe("GarminHealthHistoryCard", () => {
 
     render(<GarminHealthHistoryCard userId={1} />);
 
-    await waitFor(() => expect(screen.getByText(/vfc/i)).toBeInTheDocument());
-    expect(screen.getByText("60 ms")).toBeInTheDocument();
-    expect(screen.queryByText("40 ms")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Variabilidad cardíaca")).toBeInTheDocument());
+    // Se mira la CABECERA de la seccion y no toda la pantalla: desde
+    // que el eje Y rotula marcas redondas propias, "40 ms" puede
+    // aparecer legitimamente como marca del eje.
+    const cabecera = screen.getByText("Variabilidad cardíaca").parentElement!;
+    expect(cabecera.textContent).toContain("60 ms");
+    expect(cabecera.textContent).not.toContain("40 ms");
   });
 
   it("grafica un valor legítimo de 0 - no lo trata como ausente", async () => {
@@ -232,7 +239,7 @@ describe("GarminHealthHistoryCard", () => {
 
     render(<GarminHealthHistoryCard userId={1} />);
 
-    await waitFor(() => expect(screen.getByText(/sueño \(score\)/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Calidad del sueño")).toBeInTheDocument());
     expect(screen.queryByText(/fases de sueño/i)).not.toBeInTheDocument();
   });
 });

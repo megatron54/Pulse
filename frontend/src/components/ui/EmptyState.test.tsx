@@ -1,17 +1,22 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { Ghost } from "lucide-react";
 import { EmptyState } from "./EmptyState";
 
 describe("EmptyState", () => {
-  it("muestra el mensaje y el icono decorativo", () => {
-    render(<EmptyState icon={Ghost} message="Todavía no hay datos." />);
+  it("muestra el mensaje", () => {
+    render(<EmptyState message="Todavía no hay datos." />);
     expect(screen.getByText("Todavía no hay datos.")).toBeInTheDocument();
   });
 
-  it("el icono no interfiere con lectores de pantalla", () => {
-    const { container } = render(<EmptyState icon={Ghost} message="Vacío" />);
-    const icono = container.querySelector("svg");
-    expect(icono).toHaveAttribute("aria-hidden", "true");
+  it("no pinta ningún icono: en v3 un estado vacío es información, no un cartel", () => {
+    const { container } = render(<EmptyState message="Vacío" />);
+    expect(container.querySelector("svg")).toBeNull();
+  });
+
+  it("puede ofrecer la acción que resuelve el vacío", () => {
+    render(
+      <EmptyState message="Sin mediciones." accion={<button>Añadir medición</button>} />
+    );
+    expect(screen.getByRole("button", { name: "Añadir medición" })).toBeInTheDocument();
   });
 });
