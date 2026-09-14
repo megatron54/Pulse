@@ -14,6 +14,12 @@
 
 > App personal (móvil + escritorio) que actúa como entrenador y nutricionista, integrando datos reales de Garmin, báscula Feelfit, wger (ejercicios) y objetivos múltiples (fuerza, hipertrofia, running, artes marciales, composición corporal, cortes de peso).
 
+<p align="center">
+  <img src="docs/assets/capturas/hoy.png" alt="Página Hoy: veredicto de recuperación en verde con la explicación señal por señal, y las seis métricas del reloj (sueño, body battery, VFC, estrés, pulso en reposo, pasos)" width="850" />
+</p>
+
+Cada cifra del reloj se puede pulsar y lleva a su propio detalle (tendencia de 7/30/90 días con eje y unidad, y el histórico noche a noche o día a día); el veredicto de recuperación explica de qué señales sale, no solo el color.
+
 ## Descargar
 
 La build de escritorio (Windows) se publica en [**GitHub Releases**](https://github.com/megatron54/Pulse/releases) — ver [`CHANGELOG.md`](CHANGELOG.md) para el detalle de cada versión. Es una app nativa (Tauri) que empaqueta el backend como sidecar + SQLite local, pensada para un único usuario en su propia máquina (no un producto multiusuario).
@@ -39,7 +45,30 @@ Detalle completo en [`01-arquitectura/`](01-arquitectura/).
 - **wger**: catálogo de ejercicios (el diario de comidas ya no usa wger, ver más abajo).
 - **Motor de reglas**: nutrición (TDEE + macros por fase), planes de fase de peso con duración determinada (déficit/mantenimiento/recomposición/superávit — el sistema recomienda, el usuario confirma), progresión (1RM, doble progresión, autorregulación RIR/APRE), periodización (readiness diario, ACWR real), guardrails (deload forzado, pausa de déficit por mala recuperación sostenida).
 - **Diario de hábitos** correlacionado con recovery (estilo WHOOP Journal), resumen periódico de tendencias.
-- **Frontend**: navegación de 5 secciones (Hoy/Cuerpo/Entrenamiento/Nutrición/Perfil — Entrenamiento fusiona Recuperación y Análisis en pestañas; Perfil gestiona datos propios, tema claro/oscuro y las conexiones a Garmin y Feelfit), con cada página respondiendo a una sola pregunta ("Hoy" = cómo estoy y qué hago hoy, nada más). Gráficas con eje, unidad y leyenda; datos tabulares en tablas de verdad; nada de texto truncado; ausencia de dato mostrada como ausencia y nunca como cero. Construido sobre un design system propio y documentado — ver [`frontend/README.md`](frontend/README.md) y [`01-arquitectura/05-design-system-v3.md`](01-arquitectura/05-design-system-v3.md).
+- **Frontend**: navegación de 5 secciones (Hoy/Cuerpo/Entrenamiento/Nutrición/Perfil — Entrenamiento fusiona Sesiones, Plan, Recuperación y Análisis en pestañas; Perfil gestiona datos propios, tema claro/oscuro y las conexiones a Garmin y Feelfit), con cada página respondiendo a una sola pregunta ("Hoy" = cómo estoy y qué hago hoy, nada más). Gráficas con eje, unidad y leyenda; datos tabulares en tablas de verdad; nada de texto truncado; ausencia de dato mostrada como ausencia y nunca como cero. Construido sobre un design system propio y documentado — ver [`frontend/README.md`](frontend/README.md) y [`01-arquitectura/05-design-system-v3.md`](01-arquitectura/05-design-system-v3.md).
+
+<table>
+<tr>
+<td width="50%">
+<img src="docs/assets/capturas/cuerpo.png" alt="Página Cuerpo: gráfica de peso con todo el historial, objetivo de la fase activa y composición corporal (grasa, músculo, hueso, agua)" />
+<br /><sub>Peso, objetivo de fase y composición corporal, todo frente a tu histórico real.</sub>
+</td>
+<td width="50%">
+<img src="docs/assets/capturas/sesiones.png" alt="Pestaña Sesiones de Entrenamiento: volumen semanal con eje en horas y tabla de sesiones con icono de deporte, duración, distancia y pulso" />
+<br /><sub>Volumen semanal y cada sesión, con icono de deporte y sin nada truncado.</sub>
+</td>
+</tr>
+<tr>
+<td width="50%">
+<img src="docs/assets/capturas/plan.png" alt="Pestaña Plan de Entrenamiento: carga de entrenamiento de los últimos 7/28 días y plan semanal editable por objetivo de bloque" />
+<br /><sub>Carga de entrenamiento real frente a tu media, y el plan semanal que decide qué toca hoy.</sub>
+</td>
+<td width="50%">
+<img src="docs/assets/capturas/nav.png" alt="Navegación lateral: Hoy, Cuerpo, Entrenamiento, Nutrición, Perfil" />
+<br /><sub>Cinco secciones, cada una respondiendo a una sola pregunta.</sub>
+</td>
+</tr>
+</table>
 
 ## Quickstart
 
