@@ -17,4 +17,18 @@ describe("StatTile", () => {
     const { container } = render(<StatTile label="Sueño" value={83} />);
     expect(container.querySelector("svg")).toBeNull();
   });
+
+  it("con `href` toda la casilla es el enlace a su detalle, cifra incluida", () => {
+    // La etiqueta mide 11px: si el enlace fuera solo el texto, en móvil
+    // sería un blanco imposible de acertar (doctrina 4).
+    render(<StatTile label="Sueño" value={83} href="/salud/sueno" />);
+    const enlace = screen.getByRole("link", { name: /sueño/i });
+    expect(enlace).toHaveAttribute("href", "/salud/sueno");
+    expect(enlace).toHaveTextContent("83");
+  });
+
+  it("sin `href` no finge ser pulsable", () => {
+    render(<StatTile label="Sueño" value={83} />);
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
 });

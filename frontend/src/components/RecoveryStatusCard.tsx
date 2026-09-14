@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, type GarminHealthDay, type ReadinessResult } from "@/lib/api";
 import { diasDesdeHoy, fechaRelativa, masRecientePorFecha } from "@/lib/fechas";
+import { metricaPorCampo, type CampoMetrica } from "@/lib/metricasSalud";
 import { SIGNIFICADO_VEREDICTO } from "@/lib/senalesRecuperacion";
 import { CoachNarrativeBlock } from "./CoachNarrativeBlock";
 import { DesgloseSenales } from "./DesgloseSenales";
@@ -11,6 +12,18 @@ import { LoadingState } from "./ui/LoadingState";
 import { MetricGrid, StatTile } from "./ui/StatTile";
 
 const DIAS_VENTANA = 7;
+
+/** Las seis del vistazo diario, en orden de lectura. VO₂ máx no está a
+ *  propósito: se mueve en semanas, así que no responde "cómo estoy hoy"
+ *  (vive en su página y en el histórico de Entrenamiento). */
+const METRICAS_EN_HERO: readonly CampoMetrica[] = [
+  "sleep_score",
+  "body_battery_am",
+  "hrv_value",
+  "stress_avg",
+  "resting_hr",
+  "pasos",
+];
 
 const ZONA = {
   green: { label: "Recuperación óptima", color: "text-pos", punto: "bg-pos" },
@@ -134,18 +147,30 @@ export function RecoveryStatusCard({ userId }: { userId: number }) {
           </p>
         </div>
 
+        {/* Cada cifra lleva a su propio detalle (`/salud/<slug>`): la
+            tendencia de la ventana, y qué guardó el reloj cada noche o
+            cada día. Petición literal del usuario, que veía el 72 de
+            sueño sin poder preguntarle nada. El nombre, la unidad y los
+            decimales salen de `METRICAS_SALUD`, los mismos que usa el
+            detalle, para que la métrica no se llame de dos formas
+            según desde dónde se mire. */}
         {dia && (
           <MetricGrid>
-            {dia.sleep_score != null && <StatTile label="Sueño" value={dia.sleep_score} />}
-            {dia.body_battery_am != null && (
-              <StatTile label="Body Battery" value={dia.body_battery_am} />
-            )}
-            {dia.hrv_value != null && <StatTile label="VFC" value={dia.hrv_value} unit=" ms" />}
-            {dia.stress_avg != null && <StatTile label="Estrés" value={dia.stress_avg} />}
-            {dia.resting_hr != null && (
-              <StatTile label="Pulso reposo" value={dia.resting_hr} unit=" ppm" />
-            )}
-            {dia.pasos != null && <StatTile label="Pasos" value={dia.pasos} />}
+            {METRICAS_EN_HERO.map((campo) => {
+              const metrica = metricaPorCampo(campo);
+              const valor = dia[campo];
+              if (valor == null) return null;
+              return (
+                <StatTile
+                  key={campo}
+                  label={metrica.tituloCorto}
+                  value={valor}
+                  unit={metrica.unidad}
+                  decimals={metrica.decimales}
+                  href={`/salud/${metrica.slug}`}
+                />
+              );
+            })}
           </MetricGrid>
         )}
       </div>
@@ -159,7 +184,11 @@ export function RecoveryStatusCard({ userId }: { userId: number }) {
           calculado, igual que la narrativa de abajo. */}
       {veredicto && (
         <div className="border-t border-line px-5 py-4 empty:hidden">
-          <DesgloseSenales senales={veredicto.senales} fecha={veredicto.fecha} />
+          <DesgloseSenales
+            senales={veredicto.senales}
+            fecha={veredicto.fecha}
+            resultado={veredicto.resultado}
+          />
         </div>
       )}
 

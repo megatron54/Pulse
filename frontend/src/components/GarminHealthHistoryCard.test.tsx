@@ -155,8 +155,11 @@ describe("GarminHealthHistoryCard", () => {
     await waitFor(() => expect(screen.getByText("Variabilidad cardíaca")).toBeInTheDocument());
     // Se mira la CABECERA de la seccion y no toda la pantalla: desde
     // que el eje Y rotula marcas redondas propias, "40 ms" puede
-    // aparecer legitimamente como marca del eje.
-    const cabecera = screen.getByText("Variabilidad cardíaca").parentElement!;
+    // aparecer legitimamente como marca del eje. Se sube al `<h3>` con
+    // `closest` y no con `parentElement`: el titulo es ahora un enlace
+    // a su pagina de detalle, asi que su padre directo es el propio
+    // enlace y no la fila que contiene la cifra.
+    const cabecera = screen.getByText("Variabilidad cardíaca").closest("h3")!.parentElement!;
     expect(cabecera.textContent).toContain("60 ms");
     expect(cabecera.textContent).not.toContain("40 ms");
   });

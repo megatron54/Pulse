@@ -5,7 +5,7 @@ import { unasSenales } from "@/test/readiness";
 
 describe("DesgloseSenales", () => {
   it("pone las siete señales en una tabla de verdad, con su valor y su referencia", () => {
-    render(<DesgloseSenales senales={unasSenales()} fecha="2026-09-14" />);
+    render(<DesgloseSenales senales={unasSenales()} fecha="2026-09-14" resultado="green" />);
 
     expect(screen.getByRole("table")).toBeInTheDocument();
     // 7 señales + la fila de cabeceras.
@@ -23,7 +23,7 @@ describe("DesgloseSenales", () => {
     // la VFC de la noche), escribir "Hoy" sería mentir sobre de cuándo
     // son las cifras de la columna.
     const ayer = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
-    render(<DesgloseSenales senales={unasSenales()} fecha={ayer} />);
+    render(<DesgloseSenales senales={unasSenales()} fecha={ayer} resultado="green" />);
 
     expect(screen.getByRole("columnheader", { name: "Ayer" })).toBeInTheDocument();
   });
@@ -36,6 +36,7 @@ describe("DesgloseSenales", () => {
       <DesgloseSenales
         senales={unasSenales({ acwr: { estado: "red", valor: 1.72 } })}
         fecha="2026-09-14"
+        resultado="red"
       />
     );
 
@@ -49,6 +50,7 @@ describe("DesgloseSenales", () => {
       <DesgloseSenales
         senales={unasSenales({ training_readiness: { estado: "unknown" } })}
         fecha="2026-09-14"
+        resultado="green"
       />
     );
 
@@ -69,6 +71,7 @@ describe("DesgloseSenales", () => {
           sleep: { estado: "yellow", valor: 41 },
         })}
         fecha="2026-09-14"
+        resultado="red"
       />
     );
 
@@ -98,6 +101,7 @@ describe("DesgloseSenales", () => {
           training_readiness: { estado: "yellow" },
         })}
         fecha="2026-09-14"
+        resultado="red"
       />
     );
 
@@ -112,11 +116,30 @@ describe("DesgloseSenales", () => {
   });
 
   it("cuando todo está bien lo dice, y no deja la explicación en blanco", () => {
-    render(<DesgloseSenales senales={unasSenales()} fecha="2026-09-14" />);
+    render(<DesgloseSenales senales={unasSenales()} fecha="2026-09-14" resultado="green" />);
 
     expect(screen.getByText(/ninguna de tus señales está por debajo de su referencia/i))
       .toBeInTheDocument();
     expect(screen.queryByRole("listitem")).not.toBeInTheDocument();
+  });
+
+  it("con el semáforo en rojo y ninguna señal cruzada, no afirma que el veredicto sea verde", () => {
+    // El caso real de una captura de verificación: "Recuperación baja"
+    // en rojo y, justo debajo, "por eso el veredicto es verde". El
+    // cálculo había decidido con la tendencia de VFC, que la fila
+    // guardada no conservaba (llegaba a `null` y se dibuja como "sin
+    // medir"). La pantalla no puede deducir el color del veredicto de
+    // una cuenta a la que le falta la señal que lo decidió.
+    render(
+      <DesgloseSenales
+        senales={unasSenales({ hrv_trend: { estado: "unknown" } })}
+        fecha="2026-09-14"
+        resultado="red"
+      />
+    );
+
+    expect(screen.queryByText(/el veredicto es verde/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/lo decidió una que no se guardó con el cálculo/i)).toBeInTheDocument();
   });
 
   it("el dolor articular se lee como sí/no, no como una cifra", () => {
@@ -124,6 +147,7 @@ describe("DesgloseSenales", () => {
       <DesgloseSenales
         senales={unasSenales({ joint_pain: { estado: "red" } })}
         fecha="2026-09-14"
+        resultado="red"
       />
     );
 

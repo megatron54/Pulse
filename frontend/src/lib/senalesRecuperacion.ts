@@ -245,13 +245,28 @@ function enumerar(partes: readonly string[]): string {
  * y el Body Battery al despertar"*.
  *
  * Va antes de la tabla porque es la respuesta directa a "¿por qué está
- * en rojo?", y una tabla de siete filas obliga a buscarla. Devuelve
- * `null` cuando no hay ninguna señal en rojo ni en ámbar: ahí el
- * veredicto ya se explica solo y una frase de más solo añadiría ruido.
+ * en rojo?", y una tabla de siete filas obliga a buscarla.
+ *
+ * Necesita el veredicto y no solo las señales: sin ninguna señal en rojo
+ * ni en ámbar la frase daba por hecho que el veredicto era verde, y en
+ * una captura de verificación salió "Recuperación baja" en rojo encima
+ * de *"por eso el veredicto es verde"*. Pasa cuando el cálculo decidió
+ * con una señal que la fila guardada no conserva (era el caso: la
+ * tendencia de VFC quedó a `null` en el histórico). La pantalla no puede
+ * afirmar el color del veredicto a partir de una cuenta que no lo
+ * incluye; con desacuerdo, lo que se dice es que falta el dato, no que
+ * todo está bien.
  */
-export function resumenDeSenales(senales: readonly Signal[]): string | null {
+export function resumenDeSenales(
+  senales: readonly Signal[],
+  resultado: ReadinessResult["resultado"],
+): string {
   const pesan = senalesQuePesan(senales);
-  if (pesan.length === 0) return null;
+  if (pesan.length === 0) {
+    return resultado === "green"
+      ? "Ninguna de tus señales está por debajo de su referencia: por eso el veredicto es verde."
+      : "Ninguna de las señales de aquí abajo está por debajo de su referencia, así que este veredicto lo decidió una que no se guardó con el cálculo. Volverá a aparecer en la próxima sincronización.";
+  }
   const nombres = pesan.map((s) => NOMBRE_EN_FRASE[s.senal]);
   return pesan.length === 1
     ? `Lo que baja el veredicto hoy es una sola señal: ${nombres[0]}.`

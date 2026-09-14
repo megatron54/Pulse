@@ -1,4 +1,4 @@
-import type { Signal } from "@/lib/api";
+import type { ReadinessResult, Signal } from "@/lib/api";
 import { fechaRelativa, plural } from "@/lib/fechas";
 import {
   CLASE_POR_ESTADO,
@@ -43,8 +43,13 @@ const CABECERAS_BASE = [
 export function DesgloseSenales({
   senales,
   fecha,
+  resultado,
 }: {
   senales: readonly Signal[];
+  /** El veredicto del día. Lo necesita la frase de "Por qué": sin
+   *  ninguna señal en rojo, lo que se puede decir depende de si el
+   *  semáforo está verde o no (ver `resumenDeSenales`). */
+  resultado: ReadinessResult["resultado"];
   /** Fecha del cálculo, que titula la columna del valor. No se escribe
    *  "Hoy" a pelo: si el último veredicto es de ayer (el cálculo
    *  necesita el sueño y la VFC de la noche), la columna lo dice. */
@@ -57,7 +62,7 @@ export function DesgloseSenales({
 
   const consejos = senalesAAconsejar(filas);
   const sinMedir = filas.filter((s) => s.estado === "unknown");
-  const resumen = resumenDeSenales(filas);
+  const resumen = resumenDeSenales(filas, resultado);
   const cabeceras = [
     CABECERAS_BASE[0],
     { clave: "valor", label: fechaRelativa(fecha), numerica: true },
@@ -73,10 +78,7 @@ export function DesgloseSenales({
     <div className="flex max-w-[42rem] flex-col gap-4">
       <div>
         <h3 className="t-micro text-ink-3">Por qué</h3>
-        <p className="t-secondary mt-2 text-pretty text-ink-2">
-          {resumen ??
-            "Ninguna de tus señales está por debajo de su referencia: por eso el veredicto es verde."}
-        </p>
+        <p className="t-secondary mt-2 text-pretty text-ink-2">{resumen}</p>
       </div>
 
       <Table cabeceras={cabeceras} etiqueta="Señales que deciden tu recuperación">

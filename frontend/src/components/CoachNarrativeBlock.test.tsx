@@ -30,13 +30,28 @@ describe("CoachNarrativeBlock", () => {
 
   it("muestra el texto del coach cuando existe", async () => {
     vi.mocked(api.getGarminHealthNarrative).mockResolvedValue({
-      text: "Tu HRV de hoy (60 ms) está por encima de tu baseline.",
-      source: "template",
+      text: "Dormiste una hora menos que tu media y se nota en la variabilidad.",
+      source: "llm",
     });
     render(<CoachNarrativeBlock userId={1} />);
     await waitFor(() =>
-      expect(screen.getByText(/está por encima de tu baseline/i)).toBeInTheDocument()
+      expect(screen.getByText(/se nota en la variabilidad/i)).toBeInTheDocument()
     );
+  });
+
+  it("no repite los datos de la pantalla: la narrativa de respaldo no se dibuja", async () => {
+    // El texto real de una captura de verificación, debajo de esas
+    // mismas seis cifras: paréntesis a la vista, jerga y una unidad que
+    // no es la del resto de la app ("lpm" contra "ppm").
+    vi.mocked(api.getGarminHealthNarrative).mockResolvedValue({
+      text:
+        "Tu estado de salud hoy: recuperación baja (rojo). (VFC hoy (ms): 69.0, " +
+        "VFC media de 28 días (ms): 59.6, pulso en reposo (lpm): 52)",
+      source: "template",
+    });
+    const { container } = render(<CoachNarrativeBlock userId={1} />);
+    await waitFor(() => expect(api.getGarminHealthNarrative).toHaveBeenCalled());
+    expect(container.textContent).toBe("");
   });
 
   it("no muestra ningún error visible si la petición falla (bloque no crítico)", async () => {
@@ -49,7 +64,7 @@ describe("CoachNarrativeBlock", () => {
   it("con categoria consulta la narrativa de deporte en vez de la de salud", async () => {
     vi.mocked(api.getGarminSportNarrative).mockResolvedValue({
       text: "Esta semana llevas más sesiones de running que las 4 anteriores.",
-      source: "template",
+      source: "llm",
     });
     render(<CoachNarrativeBlock userId={1} categoria="running" />);
     await waitFor(() =>

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RecoveryStatusCard } from "./RecoveryStatusCard";
 import { api, ApiError } from "@/lib/api";
 import { unDiaDeReadiness, unasSenales } from "@/test/readiness";
+import { unDiaDeSalud } from "@/test/salud";
 
 vi.mock("@/lib/api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
@@ -190,6 +191,26 @@ describe("RecoveryStatusCard", () => {
     expect(screen.getByText("Sueño")).toBeInTheDocument();
     expect(screen.getByText("Pasos")).toBeInTheDocument();
     expect(screen.queryByText("Estrés")).not.toBeInTheDocument();
+  });
+
+  it("cada cifra lleva a su propio detalle: la métrica del día ya no es un callejón sin salida", async () => {
+    vi.mocked(api.getReadinessHistory).mockResolvedValue([]);
+    vi.mocked(api.getGarminHealthHistory).mockResolvedValue([
+      unDiaDeSalud({ fecha: "2026-09-14", sleep_score: 72, hrv_value: 58, pasos: 8432 }),
+    ]);
+
+    render(<RecoveryStatusCard userId={1} />);
+
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: /sueño/i })).toHaveAttribute(
+        "href",
+        "/salud/sueno"
+      )
+    );
+    expect(screen.getByRole("link", { name: /vfc/i })).toHaveAttribute("href", "/salud/vfc");
+    expect(screen.getByRole("link", { name: /pasos/i })).toHaveAttribute("href", "/salud/pasos");
+    // Y las que no tienen dato no dejan un enlace a una página vacía.
+    expect(screen.queryByRole("link", { name: /estrés/i })).not.toBeInTheDocument();
   });
 
   it("no renderiza ningun formulario manual (check-in eliminado del todo)", async () => {

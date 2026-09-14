@@ -50,6 +50,18 @@ export function CoachNarrativeBlock({
 
   if (!narrativa || !narrativa.text) return null;
 
+  // Solo la narrativa escrita por el coach (`llm`). La de respaldo
+  // (`template`) es un listado mecánico de los mismos datos que la
+  // pantalla ya dibuja arriba, y en una captura de verificación salía
+  // así, literal: "Tu estado de salud hoy: recuperación baja (rojo).
+  // (VFC hoy (ms): 69.0, VFC media de 28 días (ms): 59.6, Body Battery:
+  // 80, ...)" - debajo de esas mismas seis cifras, con los paréntesis a
+  // la vista y una unidad que no es la del resto de la app ("lpm" contra
+  // "ppm"). Repetir un dato con peores palabras no es contenido
+  // (doctrina 8); cuando no hay coach configurado, este bloque no
+  // aparece y la tarjeta se lee igual de bien.
+  if (narrativa.source === "template") return null;
+
   // v3: párrafo, no una tarjeta teñida con un icono de chispas dentro
   // de otra tarjeta. La caja `bg-accent/5` + `Sparkles` era justo el
   // patrón "generado por IA" que se rechaza, y además anidaba un

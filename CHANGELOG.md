@@ -7,6 +7,35 @@ mono-usuario - no hay compromiso de compatibilidad de API entre versiones).
 ## [Unreleased]
 
 ### Añadido
+- **Cada cifra del reloj se puede pulsar y tiene su propia página.** El
+  usuario lo pidió así: *"me gustaría poder pulsar la puntuación de
+  sueño y ver el detalle de mi noche, o de otras noches grabadas en el
+  reloj. Lo mismo con body battery, VFC, estrés, pulso en reposo,
+  pasos"*. Antes cada métrica era un callejón sin salida: una cifra sin
+  fecha, sin unidad comparable y sin ningún sitio al que ir. Ahora las
+  seis de "Hoy" y las siete de Entrenamiento › Recuperación enlazan a
+  `/salud/<métrica>`, y esa página responde tres preguntas: **cuánto
+  es** (el último valor con su fecha real y a qué distancia está de tu
+  propia media, teñido según hacia dónde es mejor que se mueva en esa
+  métrica), **cómo va** (la tendencia de 7, 30 o 90 días dibujada con
+  eje, unidad y rango, más media/mínimo/máximo de la ventana) y **qué
+  guardó el reloj cada día** (tabla noche a noche o día a día, y cada
+  fila se despliega en su sitio).
+- El detalle de una fila enseña lo que el reloj registró de verdad ese
+  día, no la misma cifra otra vez: las fases de la noche en el sueño, y
+  la serie minuto a minuto con eje de horas en Body Battery, estrés y
+  pulso. Cuando el reloj no guardó ni fases ni serie, se dice con esas
+  palabras en vez de dejar un hueco mudo (doctrina 6 y 7).
+- `lib/metricasSalud.ts`: el nombre, la unidad, los decimales, el rango
+  y la explicación de cada métrica viven en un único sitio, y los usan
+  las cuatro pantallas que las dibujan. Con la lista duplicada, la
+  misma métrica acabaría llamándose de dos formas según desde dónde se
+  mirara. De ahí salen también dos cosas que no son cosméticas: que el
+  sueño se cuente por **noches** y no por días (la tabla dice "Noche" y
+  el resumen "30 noches"), y que la gráfica del día diga qué dibuja -
+  en "Pulso en reposo" la cifra es 52 ppm y la línea sube a 180, porque
+  el reloj guarda el pulso de todo el día y el reposo es solo su tramo
+  más bajo.
 - **El semáforo de recuperación explica su veredicto.** "Recuperación
   baja" en rojo grande era todo lo que la aplicación contaba: seis
   cifras debajo sin ninguna relación visible con el rojo, y ni una
@@ -175,6 +204,25 @@ mono-usuario - no hay compromiso de compatibilidad de API entre versiones).
   - nueva barrera de forma los rechaza.
 
 ### Corregido
+- **"Recuperación baja" en rojo encima de "por eso el veredicto es
+  verde".** Salió en una captura de verificación, literal. La frase de
+  "Por qué" deducía el color del veredicto de su propia cuenta de
+  señales cruzadas, así que con ninguna cruzada daba por hecho que el
+  semáforo estaba verde - y en esas filas la señal que había decidido
+  (la tendencia de VFC) llegaba a `null` y se dibujaba como "sin
+  medir". Ahora la frase recibe el veredicto y, cuando no lo puede
+  explicar con lo que tiene, lo dice: el dato que falta, no que todo
+  esté bien. La causa de fondo era un contenedor del scheduler
+  ejecutando una imagen anterior a la migración de
+  `readiness_log.hrv_trend_7d`, que escribía filas sin la señal
+  decisoria.
+- La narrativa de respaldo del coach ya no se dibuja. Sin un modelo
+  configurado, el texto era un listado mecánico de las mismas seis
+  cifras que la tarjeta ya enseña justo encima, con los paréntesis a la
+  vista y una unidad que no es la del resto de la aplicación ("lpm"
+  contra "ppm"). Repetir un dato con peores palabras no es contenido
+  (doctrina 8); el bloque solo aparece cuando hay un texto escrito por
+  el coach.
 - **"Recuperación baja" en rojo con todas las cifras buenas.** El
   semáforo de "Hoy" contradecía a las métricas que él mismo mostraba
   debajo: VFC un 16 % POR ENCIMA de la baseline de 28 días, Body Battery

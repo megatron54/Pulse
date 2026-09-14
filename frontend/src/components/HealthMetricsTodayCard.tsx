@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, type GarminHealthDay } from "@/lib/api";
 import { fechaRelativa, masRecientePorFecha } from "@/lib/fechas";
+import { METRICAS_SALUD } from "@/lib/metricasSalud";
 import { Card } from "./ui/Card";
 import { ErrorState } from "./ui/ErrorState";
 import { LoadingState } from "./ui/LoadingState";
@@ -10,10 +11,10 @@ import { MetricGrid, StatTile } from "./ui/StatTile";
 
 /**
  * Últimas medidas de Garmin de cada métrica de recuperación, en
- * Entrenamiento › Recuperación: las 6 completas que sí caben en una
- * página de detalle (VFC, Body Battery, sueño, estrés, pulso en reposo
- * y VO₂ máx), frente a las 4 del hero de "Hoy". El detalle intradía
- * vive debajo en `IntradayMetricCard` y el histórico completo en
+ * Entrenamiento › Recuperación: las siete de `METRICAS_SALUD`, VO₂ máx
+ * incluido, frente a las seis del hero de "Hoy" (que deja fuera la que
+ * se mueve en semanas y no en días). El detalle intradía vive debajo en
+ * `IntradayMetricCard` y el histórico completo en
  * `GarminHealthHistoryCard`: esto es el "de un vistazo" que los
  * precede.
  *
@@ -95,17 +96,25 @@ export function HealthMetricsTodayCard({ userId }: { userId: number }) {
           Última medida: {fechaRelativa(diaHoy.fecha).toLowerCase()}.
         </p>
       </div>
+      {/* Las mismas métricas, los mismos nombres y las mismas unidades
+          que en "Hoy" y que en cada página de detalle, porque salen de
+          la misma lista; y cada una enlaza a la suya, para que la cifra
+          no sea otra vez un callejón sin salida. */}
       <MetricGrid>
-        {diaHoy.hrv_value != null && <StatTile label="VFC" value={diaHoy.hrv_value} unit=" ms" />}
-        {diaHoy.body_battery_am != null && (
-          <StatTile label="Body Battery" value={diaHoy.body_battery_am} />
-        )}
-        {diaHoy.sleep_score != null && <StatTile label="Sueño" value={diaHoy.sleep_score} />}
-        {diaHoy.stress_avg != null && <StatTile label="Estrés" value={diaHoy.stress_avg} />}
-        {diaHoy.resting_hr != null && (
-          <StatTile label="Pulso reposo" value={diaHoy.resting_hr} unit=" ppm" />
-        )}
-        {diaHoy.vo2max != null && <StatTile label="VO₂ máx" value={diaHoy.vo2max} decimals={1} />}
+        {METRICAS_SALUD.map((metrica) => {
+          const valor = diaHoy[metrica.campo];
+          if (valor == null) return null;
+          return (
+            <StatTile
+              key={metrica.campo}
+              label={metrica.tituloCorto}
+              value={valor}
+              unit={metrica.unidad}
+              decimals={metrica.decimales}
+              href={`/salud/${metrica.slug}`}
+            />
+          );
+        })}
       </MetricGrid>
     </Card>
   );

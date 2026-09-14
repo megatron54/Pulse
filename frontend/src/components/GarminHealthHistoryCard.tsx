@@ -1,85 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { api, ApiError, type GarminHealthDay } from "@/lib/api";
 import { fechaRelativa, plural } from "@/lib/fechas";
+import { METRICAS_SALUD, type MetricaSalud } from "@/lib/metricasSalud";
 import { TrendChart } from "./ui/TrendChart";
 import { SegmentedControl } from "./ui/SegmentedControl";
 import { Card } from "./ui/Card";
 import { EmptyState } from "./ui/EmptyState";
 import { ErrorState } from "./ui/ErrorState";
 import { LoadingState } from "./ui/LoadingState";
+import { FasesSueno, horasYMinutos, segundosDormidos } from "./ui/FasesSueno";
 
 const RANGOS = [
   { dias: 7, label: "7 días" },
   { dias: 30, label: "30 días" },
   { dias: 90, label: "90 días" },
 ] as const;
-
-type Campo = keyof Pick<
-  GarminHealthDay,
-  "hrv_value" | "body_battery_am" | "sleep_score" | "stress_avg" | "resting_hr" | "vo2max"
->;
-
-/** Cada métrica con su nombre en español, su unidad y una frase que dice
- *  qué es. v2 titulaba "VFC (HRV)", "Sueño (score)", "VO2max" sin
- *  explicar ninguna: son las siglas del proveedor, no información. */
-const METRICAS: readonly {
-  campo: Campo;
-  titulo: string;
-  unidad: string;
-  decimales: number;
-  explicacion: string;
-  /** Límites físicos de la métrica, cuando los tiene: el eje de la
-   *  gráfica no debe rotular un Body Battery de -8 ni de 102. */
-  rango?: readonly [number, number];
-}[] = [
-  {
-    campo: "hrv_value",
-    titulo: "Variabilidad cardíaca",
-    unidad: " ms",
-    decimales: 0,
-    explicacion: "Cuánto varía el tiempo entre latidos por la noche. Es la señal principal de recuperación: cuando baja varios días seguidos, el cuerpo está acumulando fatiga.",
-  },
-  {
-    campo: "body_battery_am",
-    titulo: "Body Battery al despertar",
-    unidad: "",
-    decimales: 0,
-    explicacion: "La estimación de energía disponible de Garmin al levantarte, de 0 a 100.",
-    rango: [0, 100],
-  },
-  {
-    campo: "sleep_score",
-    titulo: "Calidad del sueño",
-    unidad: "",
-    decimales: 0,
-    explicacion: "Puntuación de Garmin de 0 a 100 combinando duración, fases y descanso.",
-    rango: [0, 100],
-  },
-  {
-    campo: "stress_avg",
-    titulo: "Estrés medio del día",
-    unidad: "",
-    decimales: 0,
-    explicacion: "Media diaria de 0 a 100 estimada a partir del pulso y su variabilidad.",
-    rango: [0, 100],
-  },
-  {
-    campo: "resting_hr",
-    titulo: "Pulso en reposo",
-    unidad: " ppm",
-    decimales: 0,
-    explicacion: "Subidas sostenidas suelen acompañar a fatiga, falta de sueño o una infección.",
-  },
-  {
-    campo: "vo2max",
-    titulo: "VO₂ máx",
-    unidad: " ml/kg/min",
-    decimales: 1,
-    explicacion: "Estimación de tu capacidad aeróbica. Se mueve despacio: cambios de semanas, no de días.",
-  },
-];
 
 /**
  * Entrenamiento › Recuperación: histórico completo de recovery de Garmin
@@ -89,7 +27,7 @@ const METRICAS: readonly {
  *
  *  - **Un solo color de datos.** Cada gráfica llevaba el suyo (verde
  *    neón, azul, violeta, rojo), lo que sugería una semántica que no
- *    existe: el color no significaba nada porque las seis series son
+ *    existe: el color no significaba nada porque todas las series son
  *    igual de neutras. Sigue en `TrendChart`.
  *  - **Nombres y explicaciones en español.** "VFC (HRV)" y "VO2max" no
  *    dicen al usuario qué está mirando ni si subir es bueno.
@@ -101,6 +39,10 @@ const METRICAS: readonly {
  * Se mantiene intacta la regla de "lo desconocido no es cero": una
  * métrica sin ningún dato en la ventana (ej. VO₂ máx en un reloj que no
  * lo calcula) no se dibuja en absoluto, nunca a cero.
+ *
+ * Los nombres, unidades y explicaciones ya no viven aquí: están en
+ * `@/lib/metricasSalud`, compartidos con la página de detalle de cada
+ * métrica, a la que llevan los títulos de sección.
  */
 export function GarminHealthHistoryCard({ userId }: { userId: number }) {
   const [dias, setDias] = useState<(typeof RANGOS)[number]["dias"]>(90);
@@ -190,35 +132,23 @@ export function GarminHealthHistoryCard({ userId }: { userId: number }) {
             : `${plural(historial.length, "día con datos", "días con datos")} de los últimos ${dias}.`}
         </p>
       </div>
-      {METRICAS.map((metrica) => (
-        <MetricaSeccion key={metrica.campo} {...metrica} datos={cronologico} />
+      {METRICAS_SALUD.map((metrica) => (
+        <MetricaSeccion key={metrica.campo} metrica={metrica} datos={cronologico} />
       ))}
       <FasesSuenoSeccion datos={cronologico} />
     </Card>
   );
 }
 
-/** Fases de sueño de la última noche con datos. Una barra apilada y no
- *  una tendencia porque lo que importa es la PROPORCIÓN entre fases de
- *  una noche concreta.
- *
- *  v3: los cuatro colores independientes (índigo, violeta, lila, gris)
- *  se sustituyen por una escala del mismo color de datos. Las fases son
- *  una sola magnitud dividida en partes, y una escala lo dice; cuatro
- *  colores distintos sugieren cuatro cosas sin relación. */
-const FASES_SUENO = [
-  { campo: "deep_sleep_seg", label: "Profundo", opacidad: 1 },
-  { campo: "rem_sleep_seg", label: "REM", opacidad: 0.7 },
-  { campo: "light_sleep_seg", label: "Ligero", opacidad: 0.42 },
-  { campo: "awake_sleep_seg", label: "Despierto", opacidad: 0.18 },
-] as const;
-
+/** Fases de la última noche con datos. El detalle noche a noche (y el
+ *  poder elegir cuál mirar) vive en `/salud/sueno`, a un enlace de
+ *  aquí: esta tarjeta responde "cómo voy", no "qué pasó el martes". */
 function FasesSuenoSeccion({ datos }: { datos: GarminHealthDay[] }) {
   const ultimoConFases = [...datos].reverse().find((d) => d.deep_sleep_seg != null);
   if (!ultimoConFases) return null;
 
-  const segundos = FASES_SUENO.map((fase) => ultimoConFases[fase.campo] ?? 0);
-  const total = segundos.reduce((a, b) => a + b, 0);
+  const total =
+    segundosDormidos(ultimoConFases) + (ultimoConFases.awake_sleep_seg ?? 0);
   if (total === 0) return null;
 
   return (
@@ -228,72 +158,31 @@ function FasesSuenoSeccion({ datos }: { datos: GarminHealthDay[] }) {
         <span className="t-body tabular text-ink">{horasYMinutos(total)}</span>
       </div>
       <p className="t-secondary mt-1 text-ink-3">
-        Noche de {fechaRelativa(ultimoConFases.fecha).toLowerCase()}.
+        Noche de {fechaRelativa(ultimoConFases.fecha).toLowerCase()}. Las demás noches, en{" "}
+        <Link href="/salud/sueno" className="text-ink-2 underline underline-offset-4">
+          el detalle del sueño
+        </Link>
+        .
       </p>
-      <div className="mt-3 flex h-2 w-full overflow-hidden rounded-full bg-canvas">
-        {FASES_SUENO.map((fase, i) => {
-          const valor = segundos[i];
-          if (valor === 0) return null;
-          return (
-            <div
-              key={fase.campo}
-              style={{
-                width: `${(valor / total) * 100}%`,
-                backgroundColor: "var(--data)",
-                opacity: fase.opacidad,
-              }}
-            />
-          );
-        })}
+      <div className="mt-3">
+        <FasesSueno dia={ultimoConFases} />
       </div>
-      {/* Leyenda con la cifra escrita: la barra sola obligaba a pasar el
-          cursor por encima (`title`), imposible en móvil. */}
-      <dl className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] gap-x-6 gap-y-2">
-        {FASES_SUENO.map((fase, i) => {
-          const valor = segundos[i];
-          if (valor === 0) return null;
-          return (
-            <div key={fase.campo} className="flex items-baseline gap-2">
-              <span
-                aria-hidden="true"
-                className="size-2 shrink-0 translate-y-[-1px] rounded-full"
-                style={{ backgroundColor: "var(--data)", opacity: fase.opacidad }}
-              />
-              <dt className="t-secondary text-ink-2">{fase.label}</dt>
-              <dd className="t-secondary tabular ml-auto text-ink">{horasYMinutos(valor)}</dd>
-            </div>
-          );
-        })}
-      </dl>
     </section>
   );
 }
 
-function horasYMinutos(segundos: number): string {
-  const minutos = Math.round(segundos / 60);
-  if (minutos < 60) return `${minutos} min`;
-  const horas = Math.floor(minutos / 60);
-  const resto = minutos % 60;
-  return resto === 0 ? `${horas} h` : `${horas} h ${resto} min`;
-}
-
+/** Una métrica de la ventana: última cifra, qué es, y su tendencia.
+ *  El título es un enlace a `/salud/<slug>`, donde está el día a día en
+ *  una tabla y se puede elegir la ventana: aquí la gráfica responde "por
+ *  dónde voy", no "cuánto dormí el martes". */
 function MetricaSeccion({
-  titulo,
-  unidad,
-  decimales,
-  explicacion,
+  metrica,
   datos,
-  campo,
-  rango,
 }: {
-  titulo: string;
-  unidad: string;
-  decimales: number;
-  explicacion: string;
+  metrica: MetricaSalud;
   datos: GarminHealthDay[];
-  campo: Campo;
-  rango?: readonly [number, number];
 }) {
+  const { slug, campo, titulo, unidad, decimales, explicacion, rango } = metrica;
   const puntos = datos
     // `!= null` (laxo) en vez de `!== null`: defensa en profundidad si
     // el backend alguna vez omitiera la clave del todo (undefined) en
@@ -312,7 +201,11 @@ function MetricaSeccion({
   return (
     <section className="border-t border-line px-5 py-4">
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-        <h3 className="t-section text-ink">{titulo}</h3>
+        <h3 className="t-section text-ink">
+          <Link href={`/salud/${slug}`} className="underline-offset-4 hover:underline">
+            {titulo}
+          </Link>
+        </h3>
         <span className="t-body tabular text-ink">
           {ultimo.valor.toFixed(decimales)}
           {unidad}
