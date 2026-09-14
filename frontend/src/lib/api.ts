@@ -212,13 +212,47 @@ export type ManualReadinessInput = {
   joint_pain_flag: boolean;
 };
 
+/** Códigos estables del backend (`engine.periodization.SignalAssessment`).
+ *  El texto que lee la persona lo escribe el frontend
+ *  (`lib/senalesRecuperacion.ts`), no el backend. */
+export type SignalCode =
+  | "hrv_delta"
+  | "hrv_trend"
+  | "training_readiness"
+  | "body_battery"
+  | "acwr"
+  | "sleep"
+  | "joint_pain";
+
+/** `unknown` no es "normal": es que esa señal no se midió. Se mantiene
+ *  separado de `ok` para poder dibujar la ausencia como ausencia. */
+export type SignalState = "red" | "yellow" | "ok" | "unknown";
+
+export type Signal = {
+  senal: SignalCode;
+  estado: SignalState;
+  valor: number | null;
+  umbral_rojo: number | null;
+  umbral_amarillo: number | null;
+  peor_hacia: "arriba" | "abajo";
+};
+
 export type ReadinessResult = {
   id: number;
   fecha: string;
   resultado: "red" | "yellow" | "green";
   hrv_delta_pct: number | null;
+  hrv_trend_7d: number | null;
   training_readiness: string | null;
+  body_battery_am: number | null;
+  sleep_score: number | null;
   acwr: number | null;
+  joint_pain_flag: boolean;
+  /** Por qué el semáforo dio ese veredicto: una entrada por señal, con
+   *  su estado y los umbrales del motor. Lo calcula el backend a partir
+   *  de las mismas reglas que deciden, para que la explicación no pueda
+   *  contradecir al veredicto. */
+  senales: Signal[];
 };
 
 export const SESSION_TYPES = [

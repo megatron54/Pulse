@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, type GarminHealthDay, type ReadinessResult } from "@/lib/api";
 import { diasDesdeHoy, fechaRelativa, masRecientePorFecha } from "@/lib/fechas";
+import { SIGNIFICADO_VEREDICTO } from "@/lib/senalesRecuperacion";
 import { CoachNarrativeBlock } from "./CoachNarrativeBlock";
+import { DesgloseSenales } from "./DesgloseSenales";
 import { ErrorState } from "./ui/ErrorState";
 import { LoadingState } from "./ui/LoadingState";
 import { MetricGrid, StatTile } from "./ui/StatTile";
@@ -65,7 +67,8 @@ export function RecoveryStatusCard({ userId }: { userId: number }) {
     };
   }, [userId, intentos]);
 
-  const zona = masRecientePorFecha(readiness ?? [])?.resultado ?? null;
+  const veredicto = masRecientePorFecha(readiness ?? []);
+  const zona = veredicto?.resultado ?? null;
   const dia = masRecientePorFecha(historial ?? []);
   /** Si el día más reciente con datos es hoy mismo. Distingue "Garmin no
    *  ha sincronizado" de "ha sincronizado, pero la recuperación aún no
@@ -115,7 +118,14 @@ export function RecoveryStatusCard({ userId }: { userId: number }) {
               {datosDeHoy ? "Recuperación sin calcular" : "Sin datos de hoy todavía"}
             </h2>
           )}
-          <p className="t-secondary mt-1 text-pretty text-ink-3">
+          {/* Qué significa el veredicto, en una frase, pegado al
+              titular: "Recuperación baja" describe una medida, no una
+              decisión, y la pregunta del usuario era literalmente si eso
+              quería decir que estaba descansado o no. */}
+          {zona && (
+            <p className="t-body mt-2 text-pretty text-ink-2">{SIGNIFICADO_VEREDICTO[zona]}</p>
+          )}
+          <p className="t-secondary mt-2 text-pretty text-ink-3">
             {!dia
               ? "Garmin aún no ha sincronizado ningún día."
               : zona || !datosDeHoy
@@ -139,6 +149,19 @@ export function RecoveryStatusCard({ userId }: { userId: number }) {
           </MetricGrid>
         )}
       </div>
+
+      {/* El desglose del veredicto va DENTRO de la misma tarjeta,
+          separado por un filete: es la explicación del titular que está
+          tres líneas arriba, y meterlo en una tarjeta aparte lo habría
+          convertido en otro bloque suelto que nadie relaciona con el
+          rojo de arriba (que es exactamente el problema que venimos a
+          arreglar). `empty:hidden` para los días sin veredicto
+          calculado, igual que la narrativa de abajo. */}
+      {veredicto && (
+        <div className="border-t border-line px-5 py-4 empty:hidden">
+          <DesgloseSenales senales={veredicto.senales} fecha={veredicto.fecha} />
+        </div>
+      )}
 
       {/* Divisor de 1px en vez de meter la narrativa en otra tarjeta
           dentro de esta (doctrina 2: prohibida la tarjeta anidada).

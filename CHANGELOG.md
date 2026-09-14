@@ -7,6 +7,38 @@ mono-usuario - no hay compromiso de compatibilidad de API entre versiones).
 ## [Unreleased]
 
 ### Añadido
+- **El semáforo de recuperación explica su veredicto.** "Recuperación
+  baja" en rojo grande era todo lo que la aplicación contaba: seis
+  cifras debajo sin ninguna relación visible con el rojo, y ni una
+  palabra sobre cuál de ellas lo había decidido ni sobre qué hacer. El
+  usuario preguntó literalmente *"¿qué significa? ¿estoy correctamente
+  descansado o no? ¿por qué está en rojo, por qué está baja, cómo puedo
+  ayudarlo?"*. Ahora la tarjeta de "Hoy" dice qué significa el veredicto
+  en una frase (en qué estado está el cuerpo y qué hacer hoy con el
+  entrenamiento), nombra las señales que lo están bajando, y las pone
+  las siete en una tabla con su valor y la referencia a partir de la
+  cual dejan de pesar ("Body Battery al despertar · 24 · ≥ 50"). Debajo,
+  la palanca real de cada señal que hoy pesa - como mucho tres, porque
+  una lista de seis acciones no se lee.
+- `engine.periodization.assess_signals`: el motor devuelve cada señal
+  por separado con su estado y sus umbrales, y `compute_readiness` ahora
+  **cuenta sus flags sobre ese resultado** en vez de repetir las
+  comparaciones. Así el veredicto y la explicación que se muestra salen
+  del mismo cálculo y no pueden contradecirse, y los umbrales viajan con
+  la señal hasta la interfaz: un `30` escrito a mano en un componente de
+  React se queda atrás en el primer ajuste del motor.
+- La VFC se desglosa en dos señales, "frente a tu media" y "tendencia de
+  7 días", aunque el motor las siga contando como un único flag. Eran
+  dos preguntas distintas colapsadas en una, y la que decidía era
+  justamente la que no se dibujaba en ninguna pantalla: el día que
+  provocó todo esto, la tarjeta mostraba una VFC un 16 % **por encima**
+  de la media junto a un veredicto rojo.
+- `readiness_log.hrv_trend_7d` (migración aditiva en
+  `scripts/ensure_schema.py`): era la única entrada de
+  `compute_readiness` que no se guardaba, o sea la única capaz de poner
+  un día en rojo sin dejar rastro consultable. Las filas anteriores
+  quedan a `NULL` y la interfaz las dibuja como "sin medir" - con una
+  línea que aclara que un guion ni suma ni resta al veredicto.
 - `GET` y `DELETE /users/{id}/training-blocks`: el mensaje de planes
   solapados le pedía al usuario "deja solo uno activo", algo que la
   aplicación no le dejaba hacer - ni listar sus planes ni borrar uno. El

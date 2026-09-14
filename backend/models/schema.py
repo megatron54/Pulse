@@ -466,6 +466,13 @@ class ReadinessLog(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("user_profile.id"), index=True)
     fecha: Mapped[date] = mapped_column(Date, index=True)
     hrv_delta_pct: Mapped[float | None] = mapped_column(default=None)
+    # La única entrada de `compute_readiness` que no se guardaba, y la
+    # que más falta hacía: era la que ponía el día en ROJO sin aparecer
+    # en ninguna pantalla, así que el veredicto no se podía explicar ni
+    # a posteriori (solo quedaba rastro en `AuditLog.inputs_json`, que
+    # no es un dato de producto). Migración aditiva, ver
+    # scripts/ensure_schema.py.
+    hrv_trend_7d: Mapped[float | None] = mapped_column(default=None)
     training_readiness: Mapped[str | None] = mapped_column(String(20), default=None)
     body_battery_am: Mapped[int | None] = mapped_column(default=None)
     acwr: Mapped[float | None] = mapped_column(default=None)

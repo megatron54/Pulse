@@ -178,3 +178,49 @@ def test_migra_columnas_de_bioimpedancia_en_una_body_measurements_ya_migrada(mon
 
     # Segunda ejecución: ya migrada, no debe fallar reintentando el ALTER.
     ensure_schema_main()
+
+
+def test_migra_hrv_trend_7d_en_un_readiness_log_ya_existente(monkeypatch):
+    # Mismo caso que fuente_externa_id, sobre la tabla del semáforo: un
+    # volumen de Postgres real ya tiene readiness_log sin esta columna,
+    # y create_all nunca la añadiría. Sin ella, el primer INSERT del
+    # cálculo de readiness fallaría con UndefinedColumn.
+    engine = create_engine("sqlite:///:memory:")
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "CREATE TABLE body_measurements ("
+                "id INTEGER PRIMARY KEY, user_id INTEGER, fecha DATE, peso_kg FLOAT, "
+                "metodo VARCHAR(30) DEFAULT 'manual')"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE TABLE readiness_log ("
+                "id INTEGER PRIMARY KEY, user_id INTEGER, fecha DATE, "
+                "hrv_delta_pct FLOAT, joint_pain_flag BOOLEAN, resultado VARCHAR(10))"
+            )
+        )
+        conn.execute(
+            text(
+                "INSERT INTO readiness_log (id, user_id, fecha, hrv_delta_pct, "
+                "joint_pain_flag, resultado) VALUES (1, 1, '2026-08-01', 0.05, 0, 'green')"
+            )
+        )
+
+    monkeypatch.setattr("scripts.ensure_schema.create_pulse_engine", lambda: engine)
+
+    ensure_schema_main()
+
+    assert "hrv_trend_7d" in {c["name"] for c in inspect(engine).get_columns("readiness_log")}
+    with engine.connect() as conn:
+        fila = conn.execute(
+            text("SELECT resultado, hrv_trend_7d FROM readiness_log WHERE id=1")
+        ).one()
+        assert fila.resultado == "green"
+        # La tendencia de un día ya guardado no se puede reconstruir: se
+        # queda en NULL y la interfaz la dibuja como "sin dato", nunca
+        # como un 0 (que se leería como "tendencia plana").
+        assert fila.hrv_trend_7d is None
+
+    ensure_schema_main()  # idempotente

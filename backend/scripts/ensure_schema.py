@@ -145,6 +145,18 @@ def _migrar_columnas_aditivas(engine) -> None:
                 f"({sorted(faltantes_sueno)})."
             )
 
+    if "readiness_log" in inspector.get_table_names():
+        columnas_readiness = {c["name"] for c in inspector.get_columns("readiness_log")}
+        # La única entrada del semáforo que no se guardaba: sin ella, un
+        # día en rojo por la tendencia de VFC no se puede explicar ni a
+        # posteriori. Las filas ya existentes quedan a NULL, que es
+        # honesto - ese dato no se guardó y no se puede reconstruir
+        # (la interfaz lo dibuja como "sin dato", no como un 0).
+        if "hrv_trend_7d" not in columnas_readiness:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE readiness_log ADD COLUMN hrv_trend_7d FLOAT"))
+            print("OK: migración aditiva readiness_log.hrv_trend_7d aplicada.")
+
 
 def main() -> None:
     engine = create_pulse_engine()

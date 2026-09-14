@@ -168,6 +168,219 @@ class SessionRecommendation:
     intensity_rpe_cap: int | None = None
 
 
+class SignalState(str, Enum):
+    """En qué estado está UNA señal de recuperación, por separado del
+    veredicto global.
+
+    `UNKNOWN` no es "normal": es que esa señal no se midió (el reloj no
+    calcula Training Readiness, o es una fila de historial anterior a
+    que se guardara ese campo). Se mantiene distinguible de `OK` para
+    que la interfaz pueda dibujar la ausencia como ausencia en vez de
+    darla por buena ("unknown is not zero")."""
+
+    RED = "red"
+    YELLOW = "yellow"
+    OK = "ok"
+    UNKNOWN = "unknown"
+
+
+@dataclass(frozen=True)
+class SignalAssessment:
+    """Una señal, su valor, y el umbral que la habría puesto en rojo o
+    en ámbar.
+
+    Existe porque el semáforo era una caja negra: la pantalla decía
+    "Recuperación baja" y debajo enseñaba seis cifras, sin ninguna
+    relación visible entre las dos cosas. El usuario preguntó
+    literalmente "¿por qué está en rojo, por qué está baja, cómo puedo
+    ayudarlo?" y la aplicación no tenía la respuesta en ninguna parte.
+
+    Los umbrales viajan con la señal en vez de estar duplicados en el
+    frontend: si un umbral cambia aquí, el texto que lo explica cambia
+    con él. Un `30` escrito a mano en un componente de React se queda
+    atrás en el primer ajuste del motor.
+
+    `senal` es un código estable para el cliente (como `motivo` en
+    `services.errors`); el texto que lee la persona lo pone la interfaz,
+    no este módulo.
+    """
+
+    senal: str
+    estado: SignalState
+    valor: float | None
+    umbral_rojo: float | None = None
+    umbral_amarillo: float | None = None
+    # Si el rojo/ámbar se cruza por ARRIBA (ACWR: más carga es peor) o
+    # por ABAJO (Body Battery, sueño, VFC). Sin esto la interfaz no
+    # puede escribir "por encima de" / "por debajo de" sin volver a
+    # codificar la dirección de cada regla a mano.
+    peor_hacia: str = "abajo"
+
+
+def _estado_por_umbral_inferior(
+    valor: float, umbral_rojo: float | None, umbral_amarillo: float | None
+) -> SignalState:
+    if umbral_rojo is not None and valor < umbral_rojo:
+        return SignalState.RED
+    if umbral_amarillo is not None and valor < umbral_amarillo:
+        return SignalState.YELLOW
+    return SignalState.OK
+
+
+def assess_signals_from_values(
+    *,
+    hrv_delta_pct: float | None,
+    hrv_trend_7d: float | None,
+    training_readiness: str | None,
+    body_battery_am: int | None,
+    acwr: float | None,
+    sleep_score: int | None,
+    joint_pain_flag: bool,
+) -> tuple[SignalAssessment, ...]:
+    """Evalúa cada señal por separado, a partir de valores YA
+    normalizados (delta de VFC en fracción, no VFC de hoy + baseline).
+
+    Toma valores y no un `RecoveryContext` a propósito: la fila de
+    `ReadinessLog` guarda `hrv_delta_pct` ya calculado y no guarda
+    `hrv_today` ni la baseline, así que exigir un `RecoveryContext`
+    obligaría a inventarse dos números para poder explicar un día del
+    historial. Cualquier valor `None` (columna nullable, fila antigua,
+    señal que el dispositivo no mide) se evalúa como `UNKNOWN` en vez de
+    contar como buena.
+
+    La VFC se devuelve como DOS señales, no como una: el motor las trata
+    como un único flag (un OR), pero son dos preguntas distintas -
+    "¿cómo estás hoy respecto a tu media?" y "¿hacia dónde va la semana?"
+    - y colapsarlas escondía justo la que decidía. Caso real: la tarjeta
+    mostraba una VFC un 16 % POR ENCIMA de la baseline mientras el
+    veredicto era rojo, porque lo que había cruzado el umbral era la
+    tendencia de 7 días, que no aparecía en ninguna pantalla.
+    """
+    senales: list[SignalAssessment] = []
+
+    senales.append(
+        SignalAssessment(
+            senal="hrv_delta",
+            estado=(
+                SignalState.UNKNOWN
+                if hrv_delta_pct is None
+                else _estado_por_umbral_inferior(
+                    hrv_delta_pct, _HRV_DELTA_RED, _HRV_DELTA_YELLOW
+                )
+            ),
+            valor=hrv_delta_pct,
+            umbral_rojo=_HRV_DELTA_RED,
+            umbral_amarillo=_HRV_DELTA_YELLOW,
+        )
+    )
+    senales.append(
+        SignalAssessment(
+            senal="hrv_trend",
+            estado=(
+                SignalState.UNKNOWN
+                if hrv_trend_7d is None
+                else _estado_por_umbral_inferior(hrv_trend_7d, _HRV_TREND_RED, None)
+            ),
+            valor=hrv_trend_7d,
+            umbral_rojo=_HRV_TREND_RED,
+        )
+    )
+    # Categórica, sin umbral numérico: su `valor` es None y la interfaz
+    # la escribe a partir del propio `estado`.
+    senales.append(
+        SignalAssessment(
+            senal="training_readiness",
+            estado={
+                "very_low": SignalState.RED,
+                "low": SignalState.YELLOW,
+                "moderate": SignalState.OK,
+                "high": SignalState.OK,
+            }.get(training_readiness or "", SignalState.UNKNOWN),
+            valor=None,
+        )
+    )
+    senales.append(
+        SignalAssessment(
+            senal="body_battery",
+            estado=(
+                SignalState.UNKNOWN
+                if body_battery_am is None
+                else _estado_por_umbral_inferior(
+                    body_battery_am, _BODY_BATTERY_RED, _BODY_BATTERY_YELLOW
+                )
+            ),
+            valor=body_battery_am,
+            umbral_rojo=_BODY_BATTERY_RED,
+            umbral_amarillo=_BODY_BATTERY_YELLOW,
+        )
+    )
+    senales.append(
+        SignalAssessment(
+            senal="acwr",
+            estado=(
+                SignalState.UNKNOWN
+                if acwr is None
+                else SignalState.RED
+                if acwr > _ACWR_RED
+                else SignalState.YELLOW
+                if acwr > _ACWR_YELLOW
+                else SignalState.OK
+            ),
+            valor=acwr,
+            umbral_rojo=_ACWR_RED,
+            umbral_amarillo=_ACWR_YELLOW,
+            peor_hacia="arriba",
+        )
+    )
+    # El sueño no tiene umbral rojo en el motor: por sí solo nunca pone
+    # el día en rojo, solo aporta un flag ámbar.
+    senales.append(
+        SignalAssessment(
+            senal="sleep",
+            estado=(
+                SignalState.UNKNOWN
+                if sleep_score is None
+                else _estado_por_umbral_inferior(sleep_score, None, _SLEEP_SCORE_YELLOW)
+            ),
+            valor=sleep_score,
+            umbral_amarillo=_SLEEP_SCORE_YELLOW,
+        )
+    )
+    senales.append(
+        SignalAssessment(
+            senal="joint_pain",
+            estado=SignalState.RED if joint_pain_flag else SignalState.OK,
+            valor=None,
+        )
+    )
+    return tuple(senales)
+
+
+def assess_signals(ctx: RecoveryContext) -> tuple[SignalAssessment, ...]:
+    """`assess_signals_from_values` para un `RecoveryContext` completo."""
+    return assess_signals_from_values(
+        hrv_delta_pct=(ctx.hrv_today - ctx.hrv_baseline_28d) / ctx.hrv_baseline_28d,
+        hrv_trend_7d=ctx.hrv_trend_7d,
+        training_readiness=ctx.training_readiness,
+        body_battery_am=ctx.body_battery_am,
+        acwr=ctx.acwr,
+        sleep_score=ctx.sleep_score,
+        joint_pain_flag=ctx.joint_pain_flag,
+    )
+
+
+# Un flag por GRUPO de señales, no por señal: las dos señales de VFC
+# cuentan como un único flag (el motor las combinaba con un OR desde el
+# principio), así que una VFC baja hoy Y cayendo no vale por dos.
+_GRUPOS_DE_FLAG: tuple[tuple[str, ...], ...] = (
+    ("hrv_delta", "hrv_trend"),
+    ("training_readiness",),
+    ("body_battery",),
+    ("acwr",),
+    ("sleep",),
+)
+
+
 def compute_readiness(ctx: RecoveryContext) -> ReadinessLevel:
     """Semáforo de readiness diario (RED/YELLOW/GREEN).
 
@@ -178,39 +391,25 @@ def compute_readiness(ctx: RecoveryContext) -> ReadinessLevel:
     (patrón documentado en la literatura de autorregulación, ver
     Ibrahim/Beaumont/Strohacker 2024): 1+ red flag -> RED; 2+ yellow
     flags sin red flags -> YELLOW; en otro caso -> GREEN.
+
+    Cuenta sobre el resultado de `assess_signals` en vez de repetir las
+    comparaciones: el veredicto y la explicación que la interfaz muestra
+    salen así del MISMO cálculo y no pueden contradecirse. Antes eran
+    dos listas de umbrales, una aquí y otra implícita en la pantalla.
     """
     if ctx.joint_pain_flag:
         return ReadinessLevel.RED
 
-    red_flags = 0
-    yellow_flags = 0
-
-    hrv_delta_pct = (ctx.hrv_today - ctx.hrv_baseline_28d) / ctx.hrv_baseline_28d
-    if hrv_delta_pct < _HRV_DELTA_RED or ctx.hrv_trend_7d < _HRV_TREND_RED:
-        red_flags += 1
-    elif hrv_delta_pct < _HRV_DELTA_YELLOW:
-        yellow_flags += 1
-
-    if ctx.training_readiness == "very_low":
-        red_flags += 1
-    elif ctx.training_readiness == "low":
-        yellow_flags += 1
-    # ctx.training_readiness is None: el dispositivo no calcula esta
-    # métrica (ver docstring de RecoveryContext) - no aporta flags, ni
-    # rojo ni amarillo. El resto de señales deciden por sí solas.
-
-    if ctx.body_battery_am < _BODY_BATTERY_RED:
-        red_flags += 1
-    elif ctx.body_battery_am < _BODY_BATTERY_YELLOW:
-        yellow_flags += 1
-
-    if ctx.acwr > _ACWR_RED:
-        red_flags += 1
-    elif ctx.acwr > _ACWR_YELLOW:
-        yellow_flags += 1
-
-    if ctx.sleep_score < _SLEEP_SCORE_YELLOW:
-        yellow_flags += 1
+    por_senal = {s.senal: s.estado for s in assess_signals(ctx)}
+    estados_de_grupo = [
+        {por_senal[nombre] for nombre in grupo} for grupo in _GRUPOS_DE_FLAG
+    ]
+    red_flags = sum(1 for estados in estados_de_grupo if SignalState.RED in estados)
+    yellow_flags = sum(
+        1
+        for estados in estados_de_grupo
+        if SignalState.RED not in estados and SignalState.YELLOW in estados
+    )
 
     if red_flags >= 1:
         return ReadinessLevel.RED

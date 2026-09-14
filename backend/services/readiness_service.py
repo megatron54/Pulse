@@ -128,6 +128,7 @@ def _persist_readiness_result(
         user_id=user_id,
         fecha=target_date,
         hrv_delta_pct=hrv_delta_pct,
+        hrv_trend_7d=ctx.hrv_trend_7d,
         training_readiness=ctx.training_readiness,
         body_battery_am=ctx.body_battery_am,
         acwr=ctx.acwr,

@@ -221,13 +221,41 @@ class ManualReadinessRequest(BaseModel):
     joint_pain_flag: bool = False
 
 
+class SignalOut(BaseModel):
+    """Una señal de recuperación con su estado y el umbral que la habría
+    puesto en rojo o en ámbar.
+
+    Es lo que permite a la interfaz responder "¿por qué está en rojo?"
+    sin repetir los umbrales del motor por su cuenta. `senal` y `estado`
+    son códigos estables (como `motivo` en `services.errors`); el texto
+    que lee la persona lo escribe el cliente."""
+
+    senal: str
+    estado: str
+    valor: float | None
+    umbral_rojo: float | None
+    umbral_amarillo: float | None
+    peor_hacia: str
+
+    model_config = {"from_attributes": True}
+
+
 class ReadinessOut(BaseModel):
     id: int
     fecha: date
     resultado: str
     hrv_delta_pct: float | None
+    # Era la única entrada del semáforo que no salía por la API, y la
+    # que más veces decidía el veredicto: un día podía estar en rojo por
+    # la tendencia de 7 días mientras la pantalla mostraba una VFC de
+    # hoy excelente, sin nada que explicara la contradicción.
+    hrv_trend_7d: float | None
     training_readiness: str | None
+    body_battery_am: int | None
+    sleep_score: int | None
     acwr: float | None
+    joint_pain_flag: bool
+    senales: list[SignalOut]
 
     model_config = {"from_attributes": True}
 

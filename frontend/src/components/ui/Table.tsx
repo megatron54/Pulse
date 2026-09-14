@@ -98,7 +98,17 @@ export function Td({
  * sesión de fuerza, que hacía parecer que el usuario había recorrido
  * cero kilómetros cuando lo que ocurre es que la distancia no aplica.
  */
-export function TdNum({ children }: { children: ReactNode }) {
+export function TdNum({
+  children,
+  clase = "text-ink",
+}: {
+  children: ReactNode;
+  /** Tinta de la cifra cuando la cifra ES un estado: el desglose del
+   *  semáforo de recuperación colorea el valor de cada señal con su
+   *  estado (doctrina 1: ahí el color es el dato, no adorno). Por
+   *  defecto, tinta normal. */
+  clase?: string;
+}) {
   const vacia = children === null || children === undefined || children === "";
   return (
     // `align-top` para que la cifra quede a la altura de la PRIMERA
@@ -111,7 +121,7 @@ export function TdNum({ children }: { children: ReactNode }) {
           —
         </span>
       ) : (
-        <span className="t-body text-ink">{children}</span>
+        <span className={`t-body ${clase}`}>{children}</span>
       )}
     </td>
   );

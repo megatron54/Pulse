@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ReadinessTrendCard } from "./ReadinessTrendCard";
 import { api } from "@/lib/api";
+import { unDiaDeReadiness } from "@/test/readiness";
 
 vi.mock("@/lib/api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
@@ -33,9 +34,9 @@ describe("ReadinessTrendCard", () => {
     // arranca el lunes 27 de julio y acaba el domingo 9 de agosto,
     // o sea 14 casillas (2 semanas completas).
     vi.mocked(api.getReadinessHistory).mockResolvedValue([
-      { id: 1, fecha: "2026-08-01", resultado: "green", hrv_delta_pct: 2, training_readiness: "high", acwr: 1.0 },
-      { id: 2, fecha: "2026-08-02", resultado: "yellow", hrv_delta_pct: -5, training_readiness: "moderate", acwr: 1.1 },
-      { id: 3, fecha: "2026-08-03", resultado: "red", hrv_delta_pct: -15, training_readiness: "low", acwr: 1.6 },
+      unDiaDeReadiness({ id: 1, fecha: "2026-08-01", resultado: "green" }),
+      unDiaDeReadiness({ id: 2, fecha: "2026-08-02", resultado: "yellow" }),
+      unDiaDeReadiness({ id: 3, fecha: "2026-08-03", resultado: "red" }),
     ]);
 
     render(<ReadinessTrendCard userId={1} />);
@@ -51,7 +52,7 @@ describe("ReadinessTrendCard", () => {
 
   it("dice el nivel de cada día con palabras y fecha humana, no un color a secas", async () => {
     vi.mocked(api.getReadinessHistory).mockResolvedValue([
-      { id: 1, fecha: "2026-08-01", resultado: "red", hrv_delta_pct: -15, training_readiness: "low", acwr: 1.6 },
+      unDiaDeReadiness({ id: 1, fecha: "2026-08-01", resultado: "red" }),
     ]);
 
     render(<ReadinessTrendCard userId={1} />);
@@ -68,8 +69,8 @@ describe("ReadinessTrendCard", () => {
     // información ("ese día falta"), a diferencia de las casillas que
     // solo rellenan la semana.
     vi.mocked(api.getReadinessHistory).mockResolvedValue([
-      { id: 1, fecha: "2026-08-03", resultado: "green", hrv_delta_pct: 2, training_readiness: "high", acwr: 1.0 },
-      { id: 2, fecha: "2026-08-05", resultado: "green", hrv_delta_pct: 1, training_readiness: "high", acwr: 1.0 },
+      unDiaDeReadiness({ id: 1, fecha: "2026-08-03", resultado: "green" }),
+      unDiaDeReadiness({ id: 2, fecha: "2026-08-05", resultado: "green" }),
     ]);
 
     render(<ReadinessTrendCard userId={1} />);
@@ -84,9 +85,9 @@ describe("ReadinessTrendCard", () => {
 
   it("resume el mes en cifras escritas, con el plural resuelto", async () => {
     vi.mocked(api.getReadinessHistory).mockResolvedValue([
-      { id: 1, fecha: "2026-08-03", resultado: "green", hrv_delta_pct: 2, training_readiness: "high", acwr: 1.0 },
-      { id: 2, fecha: "2026-08-04", resultado: "green", hrv_delta_pct: 3, training_readiness: "high", acwr: 1.0 },
-      { id: 3, fecha: "2026-08-05", resultado: "red", hrv_delta_pct: -15, training_readiness: "low", acwr: 1.6 },
+      unDiaDeReadiness({ id: 1, fecha: "2026-08-03", resultado: "green" }),
+      unDiaDeReadiness({ id: 2, fecha: "2026-08-04", resultado: "green" }),
+      unDiaDeReadiness({ id: 3, fecha: "2026-08-05", resultado: "red" }),
     ]);
 
     render(<ReadinessTrendCard userId={1} />);
@@ -98,8 +99,8 @@ describe("ReadinessTrendCard", () => {
 
   it("agrupa múltiples filas del mismo día quedándose con la última", async () => {
     vi.mocked(api.getReadinessHistory).mockResolvedValue([
-      { id: 1, fecha: "2026-08-01", resultado: "red", hrv_delta_pct: -20, training_readiness: "low", acwr: 1.6 },
-      { id: 2, fecha: "2026-08-01", resultado: "green", hrv_delta_pct: 1, training_readiness: "high", acwr: 1.0 },
+      unDiaDeReadiness({ id: 1, fecha: "2026-08-01", resultado: "red" }),
+      unDiaDeReadiness({ id: 2, fecha: "2026-08-01", resultado: "green" }),
     ]);
 
     render(<ReadinessTrendCard userId={1} />);

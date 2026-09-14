@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RecoveryStatusCard } from "./RecoveryStatusCard";
 import { api, ApiError } from "@/lib/api";
+import { unDiaDeReadiness, unasSenales } from "@/test/readiness";
 
 vi.mock("@/lib/api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
@@ -42,12 +43,46 @@ describe("RecoveryStatusCard", () => {
   });
 
   it("muestra el semaforo de zona cuando ya hay un readiness calculado hoy", async () => {
-    vi.mocked(api.getReadinessHistory).mockResolvedValue([
-      { id: 1, fecha: "2026-08-10", resultado: "green", hrv_delta_pct: 2, training_readiness: "high", acwr: 1 },
-    ]);
+    vi.mocked(api.getReadinessHistory).mockResolvedValue([unDiaDeReadiness()]);
     vi.mocked(api.getGarminHealthHistory).mockResolvedValue([]);
     render(<RecoveryStatusCard userId={1} />);
     await waitFor(() => expect(screen.getByText(/recuperación óptima/i)).toBeInTheDocument());
+  });
+
+  it("dice qué significa el veredicto y cuál es la señal que lo está bajando", async () => {
+    // La pregunta literal del usuario: "¿qué significa? ¿estoy
+    // correctamente descansado o no? ¿por qué está en rojo?". Y el caso
+    // real que la provocó: VFC de hoy un 16 % POR ENCIMA de su media
+    // con veredicto rojo, porque la que cruzaba el umbral era la
+    // tendencia de 7 días - la única señal que no se dibujaba en
+    // ninguna pantalla.
+    vi.mocked(api.getReadinessHistory).mockResolvedValue([
+      unDiaDeReadiness({
+        resultado: "red",
+        hrv_delta_pct: 0.16,
+        hrv_trend_7d: -0.19,
+        senales: unasSenales({
+          hrv_delta: { estado: "ok", valor: 0.16 },
+          hrv_trend: { estado: "red", valor: -0.19 },
+        }),
+      }),
+    ]);
+    vi.mocked(api.getGarminHealthHistory).mockResolvedValue([]);
+
+    render(<RecoveryStatusCard userId={1} />);
+
+    await waitFor(() => expect(screen.getByText(/no estás recuperado/i)).toBeInTheDocument());
+    expect(
+      screen.getByText(/lo que baja el veredicto hoy es una sola señal: la tendencia de vfc/i)
+    ).toBeInTheDocument();
+    // La cifra culpable, al lado de la referencia que la delata.
+    expect(screen.getByText("−19 %")).toBeInTheDocument();
+    expect(screen.getByText("≥ −10 %")).toBeInTheDocument();
+    // Y la VFC de hoy sigue dibujándose como lo que es (buena), sin que
+    // eso contradiga al veredicto: son dos señales distintas.
+    expect(screen.getByText("+16 %")).toBeInTheDocument();
+    // Sin consejos sobre las señales que hoy están bien.
+    expect(screen.queryByText(/body battery al despertar depende/i)).not.toBeInTheDocument();
   });
 
   it("si Garmin ya sincronizó hoy pero falta el cálculo, no dice que no haya datos de hoy", async () => {
@@ -123,9 +158,7 @@ describe("RecoveryStatusCard", () => {
   });
 
   it("muestra el valor de hoy de cada metrica con datos, y omite las que no tienen ninguno", async () => {
-    vi.mocked(api.getReadinessHistory).mockResolvedValue([
-      { id: 1, fecha: "2026-08-10", resultado: "green", hrv_delta_pct: 2, training_readiness: "high", acwr: 1 },
-    ]);
+    vi.mocked(api.getReadinessHistory).mockResolvedValue([unDiaDeReadiness()]);
     vi.mocked(api.getGarminHealthHistory).mockResolvedValue([
       {
         fecha: "2026-08-10",
@@ -147,11 +180,16 @@ describe("RecoveryStatusCard", () => {
 
     render(<RecoveryStatusCard userId={1} />);
 
-    await waitFor(() => expect(screen.getByText(/vfc/i)).toBeInTheDocument());
-    expect(screen.getByText(/body battery/i)).toBeInTheDocument();
-    expect(screen.getByText(/sueño/i)).toBeInTheDocument();
-    expect(screen.getByText(/pasos/i)).toBeInTheDocument();
-    expect(screen.queryByText(/estrés/i)).not.toBeInTheDocument();
+    // Texto EXACTO y no `/vfc/i`: desde que la tarjeta explica el
+    // veredicto, la tabla de señales también habla de "VFC frente a tu
+    // media" y de "Body Battery al despertar", así que una expresión
+    // regular laxa encuentra tres coincidencias y falla sin que haya
+    // nada roto.
+    await waitFor(() => expect(screen.getByText("VFC")).toBeInTheDocument());
+    expect(screen.getByText("Body Battery")).toBeInTheDocument();
+    expect(screen.getByText("Sueño")).toBeInTheDocument();
+    expect(screen.getByText("Pasos")).toBeInTheDocument();
+    expect(screen.queryByText("Estrés")).not.toBeInTheDocument();
   });
 
   it("no renderiza ningun formulario manual (check-in eliminado del todo)", async () => {

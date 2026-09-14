@@ -14,6 +14,9 @@ from engine.periodization import (
     ReadinessLevel,
     RecoveryContext,
     SessionType,
+    SignalState,
+    assess_signals,
+    assess_signals_from_values,
     compute_readiness,
     decide_session,
 )
@@ -230,3 +233,130 @@ class TestDecideSession:
                     continue
                 resultado = decide_session(planned_session=planned, readiness=readiness)
                 assert 0 <= resultado.volume_pct <= 100
+
+
+def _estado(senales, nombre):
+    return next(s.estado for s in senales if s.senal == nombre)
+
+
+class TestAssessSignals:
+    """La explicación que ve el usuario y el veredicto del semáforo
+    salen del mismo cálculo: la pantalla decía "Recuperación baja" y
+    debajo enseñaba seis cifras buenas, sin nada que uniera las dos
+    cosas ("¿por qué está en rojo?" fue la pregunta literal)."""
+
+    def test_todo_perfecto_deja_todas_las_senales_en_ok(self):
+        estados = {s.senal: s.estado for s in assess_signals(_ctx())}
+        assert set(estados.values()) == {SignalState.OK}
+
+    def test_senala_la_tendencia_de_vfc_cuando_es_ella_la_que_cruza_el_umbral(self):
+        # El caso real: VFC de hoy POR ENCIMA de la baseline (+16%) y
+        # aun así rojo, porque la tendencia de 7 días estaba en -0,19.
+        # Colapsar las dos en una sola señal "VFC" escondía justo la que
+        # decidía, y era la única que no aparecía en ninguna pantalla.
+        ctx = _ctx(hrv_today=69.0, hrv_baseline_28d=59.3, hrv_trend_7d=-0.19)
+        senales = assess_signals(ctx)
+
+        assert _estado(senales, "hrv_delta") == SignalState.OK
+        assert _estado(senales, "hrv_trend") == SignalState.RED
+        assert compute_readiness(ctx) == ReadinessLevel.RED
+
+    def test_una_senal_no_medida_es_unknown_y_no_se_da_por_buena(self):
+        # Varios Garmin de gama media no calculan Training Readiness:
+        # eso no es "moderado", es que no hay dato (doctrina 6).
+        senales = assess_signals(_ctx(training_readiness=None))
+        assert _estado(senales, "training_readiness") == SignalState.UNKNOWN
+
+    def test_el_sueno_bajo_nunca_es_rojo_por_si_solo(self):
+        senales = assess_signals(_ctx(sleep_score=10))
+        assert _estado(senales, "sleep") == SignalState.YELLOW
+
+    def test_el_acwr_empeora_hacia_arriba_no_hacia_abajo(self):
+        # La interfaz necesita saber la dirección para escribir "por
+        # encima de 1,5" en vez de "por debajo de": un ACWR bajo no es
+        # un problema, uno alto sí.
+        senales = assess_signals(_ctx(acwr=1.6))
+        acwr = next(s for s in senales if s.senal == "acwr")
+        assert acwr.estado == SignalState.RED
+        assert acwr.peor_hacia == "arriba"
+
+    def test_los_umbrales_viajan_con_la_senal(self):
+        # Para que el frontend no tenga que repetir los números del
+        # motor: un 30 escrito a mano en React se queda atrás en el
+        # primer ajuste de umbral.
+        bb = next(s for s in assess_signals(_ctx()) if s.senal == "body_battery")
+        assert (bb.umbral_rojo, bb.umbral_amarillo) == (30, 50)
+
+    @pytest.mark.parametrize(
+        "overrides",
+        [
+            {},
+            {"joint_pain_flag": True},
+            {"acwr": 1.6},
+            {"acwr": 1.35, "sleep_score": 45},
+            {"hrv_today": 50.0, "hrv_baseline_28d": 65.0},
+            {"hrv_trend_7d": -0.2},
+            {"training_readiness": "very_low"},
+            {"training_readiness": None, "body_battery_am": 25},
+            {"body_battery_am": 45, "sleep_score": 45},
+            {"sleep_score": 45},
+        ],
+    )
+    def test_el_veredicto_nunca_contradice_a_las_senales(self, overrides):
+        """Invariante que justifica el refactor: si el semáforo dice
+        ROJO, alguna señal tiene que estar en rojo; si dice ÁMBAR, al
+        menos dos en ámbar y ninguna en rojo; si dice VERDE, ninguna
+        en rojo ni dos en ámbar. Antes los umbrales vivían dos veces
+        (aquí y, implícitos, en la pantalla) y podían divergir."""
+        ctx = _ctx(**overrides)
+        nivel = compute_readiness(ctx)
+        estados = [s.estado for s in assess_signals(ctx)]
+        rojas = estados.count(SignalState.RED)
+        ambares = estados.count(SignalState.YELLOW)
+
+        if nivel is ReadinessLevel.RED:
+            assert rojas >= 1
+        elif nivel is ReadinessLevel.YELLOW:
+            assert rojas == 0 and ambares >= 2
+        else:
+            assert rojas == 0 and ambares < 2
+
+
+class TestAssessSignalsFromValues:
+    """Entrada alternativa para explicar un día del HISTORIAL: la fila
+    de ReadinessLog guarda el delta de VFC ya calculado y no guarda la
+    VFC de hoy ni la baseline, así que pedir un RecoveryContext
+    obligaría a inventarse dos números."""
+
+    def test_valores_ausentes_son_unknown_no_ok(self):
+        senales = assess_signals_from_values(
+            hrv_delta_pct=None,
+            hrv_trend_7d=None,
+            training_readiness=None,
+            body_battery_am=None,
+            acwr=None,
+            sleep_score=None,
+            joint_pain_flag=False,
+        )
+        no_medidas = {s.senal for s in senales if s.estado is SignalState.UNKNOWN}
+        assert no_medidas == {
+            "hrv_delta",
+            "hrv_trend",
+            "training_readiness",
+            "body_battery",
+            "acwr",
+            "sleep",
+        }
+
+    def test_da_el_mismo_resultado_que_desde_un_contexto_completo(self):
+        ctx = _ctx(hrv_today=55.0, hrv_baseline_28d=65.0, body_battery_am=40)
+        desde_valores = assess_signals_from_values(
+            hrv_delta_pct=(55.0 - 65.0) / 65.0,
+            hrv_trend_7d=ctx.hrv_trend_7d,
+            training_readiness=ctx.training_readiness,
+            body_battery_am=ctx.body_battery_am,
+            acwr=ctx.acwr,
+            sleep_score=ctx.sleep_score,
+            joint_pain_flag=ctx.joint_pain_flag,
+        )
+        assert [s.estado for s in desde_valores] == [s.estado for s in assess_signals(ctx)]

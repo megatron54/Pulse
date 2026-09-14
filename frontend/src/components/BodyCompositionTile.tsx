@@ -167,7 +167,7 @@ export function BodyCompositionTile({
       </MetricGrid>
       <p className="t-secondary mt-4 text-ink-3">
         Las dos últimas cifras van en kilogramos sin rango de referencia: sin tu altura y
-        complexión, un umbral de "normal" en kg sería inventado.
+        complexión, un umbral de «normal» en kg sería inventado.
       </p>
     </Card>
   );

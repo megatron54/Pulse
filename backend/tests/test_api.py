@@ -633,6 +633,72 @@ class TestReadinessHistory:
         assert resp.status_code == 200
         assert resp.json() == []
 
+    def test_cada_dia_trae_el_desglose_por_senal_que_explica_su_veredicto(self, client):
+        """El caso real que el usuario no entendía: veredicto ROJO con la
+        VFC de hoy POR ENCIMA de su media. La señal que lo decidía era
+        la tendencia de 7 días, que no salía por la API y por tanto no
+        aparecía en ninguna pantalla."""
+        usuario = _crear_usuario(client)
+        client.post(
+            f"/users/{usuario['id']}/readiness/manual-checkin",
+            json={
+                "target_date": "2026-08-02",
+                "hrv_today": 69.0,
+                "hrv_baseline_28d": 59.3,  # VFC de hoy un 16% POR ENCIMA
+                "hrv_trend_7d": -0.19,  # ...pero la semana cayendo
+                "body_battery_am": 80,
+                "training_readiness": "high",
+                "sleep_score": 85,
+                "acwr": 1.0,
+                "joint_pain_flag": False,
+            },
+        )
+
+        dia = client.get(
+            f"/users/{usuario['id']}/readiness/history",
+            params={"as_of": "2026-08-02", "days": 1},
+        ).json()[0]
+
+        assert dia["resultado"] == "red"
+        assert dia["hrv_trend_7d"] == pytest.approx(-0.19)
+        por_senal = {s["senal"]: s for s in dia["senales"]}
+        # La que está mal, y la que está bien: sin las dos, la pantalla
+        # no puede decir cuál mirar.
+        assert por_senal["hrv_trend"]["estado"] == "red"
+        assert por_senal["hrv_delta"]["estado"] == "ok"
+        assert por_senal["body_battery"]["estado"] == "ok"
+        # Los umbrales viajan con la señal para que el cliente no los
+        # repita por su cuenta.
+        assert por_senal["body_battery"]["umbral_rojo"] == 30
+        assert por_senal["acwr"]["peor_hacia"] == "arriba"
+
+    def test_una_senal_que_el_reloj_no_mide_llega_como_sin_dato(self, client):
+        # Varios Garmin de gama media no calculan Training Readiness:
+        # eso no es "moderado", es que no hay dato (doctrina 6).
+        usuario = _crear_usuario(client)
+        client.post(
+            f"/users/{usuario['id']}/readiness/manual-checkin",
+            json={
+                "target_date": "2026-08-02",
+                "hrv_today": 65.0,
+                "hrv_baseline_28d": 65.0,
+                "hrv_trend_7d": 0.0,
+                "body_battery_am": 80,
+                "sleep_score": 85,
+                "acwr": 1.0,
+                "joint_pain_flag": False,
+            },
+        )
+
+        dia = client.get(
+            f"/users/{usuario['id']}/readiness/history",
+            params={"as_of": "2026-08-02", "days": 1},
+        ).json()[0]
+
+        por_senal = {s["senal"]: s["estado"] for s in dia["senales"]}
+        assert por_senal["training_readiness"] == "unknown"
+        assert dia["resultado"] == "green"  # el resto de señales deciden solas
+
     def test_dias_fuera_de_rango_da_422(self, client):
         usuario = _crear_usuario(client)
         resp = client.get(f"/users/{usuario['id']}/readiness/history", params={"days": 0})
