@@ -1,10 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api, ApiError, type GarminHealthDay, type ReadinessResult } from "@/lib/api";
+import {
+  api,
+  ApiError,
+  type GarminHealthDay,
+  type ReadinessResult,
+  type SignalCode,
+  type SignalState,
+} from "@/lib/api";
 import { diasDesdeHoy, fechaRelativa, masRecientePorFecha } from "@/lib/fechas";
 import { metricaPorCampo, type CampoMetrica } from "@/lib/metricasSalud";
-import { SIGNIFICADO_VEREDICTO } from "@/lib/senalesRecuperacion";
+import { CLASE_POR_ESTADO, SIGNIFICADO_VEREDICTO } from "@/lib/senalesRecuperacion";
 import { CoachNarrativeBlock } from "./CoachNarrativeBlock";
 import { DesgloseSenales } from "./DesgloseSenales";
 import { ErrorState } from "./ui/ErrorState";
@@ -89,6 +96,25 @@ export function RecoveryStatusCard({ userId }: { userId: number }) {
   const datosDeHoy = dia !== null && diasDesdeHoy(dia.fecha) === 0;
   const cargando = readiness === null || historial === null;
 
+  /**
+   * El estado con el que el motor juzgó cada señal, para teñir la cifra
+   * que le corresponde. Tres condiciones, y las tres importan:
+   *
+   *  - solo si el veredicto es del MISMO día que las cifras: teñir el
+   *    sueño de hoy con el estado de ayer sería pintar un color de otro
+   *    día (el veredicto necesita la noche, así que a media mañana es
+   *    normal que vayan desfasados);
+   *  - `unknown` no se tiñe: hay cifra en pantalla, lo que falta es el
+   *    juicio, y apagarla la haría parecer un dato peor de lo que es;
+   *  - las métricas sin señal (estrés, pulso, pasos) se quedan en tinta
+   *    normal en vez de estrenar un umbral que el motor no tiene.
+   */
+  const estadoPorSenal = new Map<SignalCode, SignalState>(
+    veredicto && dia && veredicto.fecha === dia.fecha
+      ? veredicto.senales.map((s) => [s.senal, s.estado])
+      : []
+  );
+
   if (error) {
     return (
       <section className="rounded-[10px] border border-line bg-surface p-5">
@@ -153,13 +179,20 @@ export function RecoveryStatusCard({ userId }: { userId: number }) {
             sueño sin poder preguntarle nada. El nombre, la unidad y los
             decimales salen de `METRICAS_SALUD`, los mismos que usa el
             detalle, para que la métrica no se llame de dos formas
-            según desde dónde se mire. */}
+            según desde dónde se mire.
+
+            El color de la cifra es el estado de su señal en el veredicto
+            de arriba (doctrina 1: color = información). Así "Recuperación
+            baja" se puede rastrear de un vistazo hasta la cifra que la
+            baja, sin bajar hasta la tabla; ver `estadoPorSenal` para las
+            tres condiciones que lo hacen honesto. */}
         {dia && (
           <MetricGrid>
             {METRICAS_EN_HERO.map((campo) => {
               const metrica = metricaPorCampo(campo);
               const valor = dia[campo];
               if (valor == null) return null;
+              const estado = metrica.senal ? estadoPorSenal.get(metrica.senal) : undefined;
               return (
                 <StatTile
                   key={campo}
@@ -168,6 +201,9 @@ export function RecoveryStatusCard({ userId }: { userId: number }) {
                   unit={metrica.unidad}
                   decimals={metrica.decimales}
                   href={`/salud/${metrica.slug}`}
+                  valueClassName={
+                    estado && estado !== "unknown" ? CLASE_POR_ESTADO[estado] : "text-ink"
+                  }
                 />
               );
             })}

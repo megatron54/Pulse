@@ -555,14 +555,18 @@ export const api = {
   getGarminExerciseSets: (userId: number, activityId: string) =>
     request<GarminExerciseSet[]>(`/users/${userId}/garmin/activities/${activityId}/exercise-sets`),
 
+  /** Sin `categoria`, el volumen de todos los deportes juntos: es el
+   *  total de la semana que necesita "Sesiones › Todas". */
   getGarminWeeklyVolume: (
     userId: number,
-    categoria: "running" | "ciclismo" | "gimnasio",
+    categoria?: "running" | "ciclismo" | "gimnasio",
     weeks = 12,
     asOf = todayLocalDate()
   ) =>
     request<WeeklyVolume[]>(
-      `/users/${userId}/garmin/activities/volume?categoria=${categoria}&weeks=${weeks}&as_of=${asOf}`
+      `/users/${userId}/garmin/activities/volume?weeks=${weeks}&as_of=${asOf}${
+        categoria ? `&categoria=${categoria}` : ""
+      }`
     ),
 
   getGarminHealthHistory: (userId: number, days = 90) =>

@@ -142,17 +142,23 @@ def get_exercise_sets(
 @router.get("/activities/volume", response_model=list[WeeklyVolumeOut])
 def get_weekly_volume(
     user_id: int,
-    categoria: CategoriaDeporte = Query(
-        ...,
-        description="Categoría de deporte (running/ciclismo/gimnasio) - obligatoria, a diferencia de /activities donde es opcional.",
+    categoria: CategoriaDeporte | None = Query(
+        default=None,
+        description=(
+            "Categoría de deporte (running/ciclismo/gimnasio). Si se omite, agrega "
+            "todos los deportes, igual que en /activities: en ese caso "
+            "distancia_total_m suma kilómetros de disciplinas distintas (carrera y "
+            "bici) y solo vale como volumen total, no como distancia comparable."
+        ),
     ),
     weeks: int = Query(default=12, ge=1, le=52),
     as_of: date | None = Query(default=None),
     db: Session = Depends(get_db),
 ) -> list[WeeklyVolumeOut]:
     """Volumen semanal agregado (distancia, duración, número de
-    sesiones) de una categoría de deporte - Épica 10 del plan de
-    expansión (gráficas de volumen por deporte, backlog MUST-HAVE).
+    sesiones) de una categoría de deporte, o de todos los deportes
+    juntos si se omite `categoria` - Épica 10 del plan de expansión
+    (gráficas de volumen por deporte, backlog MUST-HAVE).
     Devuelve SIEMPRE `weeks` puntos en orden ascendente, incluyendo
     semanas sin actividad con 0 sesiones explícitas."""
     semanas = get_weekly_volume_for_user(

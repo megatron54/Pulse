@@ -457,7 +457,14 @@ class WeeklyVolumeOut(BaseModel):
     """Épica 10 del plan de expansión: un punto de la gráfica de
     volumen semanal por deporte. `distancia_total_m`/`duracion_total_seg`
     son `None` si ninguna actividad de esa semana trae ese campo -
-    "unknown is not zero", nunca 0 inventado."""
+    "unknown is not zero", nunca 0 inventado.
+
+    Cuando se pide sin `categoria`, los valores son la suma de todas las
+    disciplinas, así que `distancia_total_m` mezcla kilómetros de
+    carrera con kilómetros de bici: sirve como volumen total, no es
+    comparable con la distancia de una categoría concreta ni entre
+    categorías. La duración sí es homogénea, y es la métrica que usa la
+    vista "Todas" del frontend por ese motivo."""
 
     semana_inicio: date
     distancia_total_m: float | None

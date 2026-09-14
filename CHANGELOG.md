@@ -203,6 +203,48 @@ mono-usuario - no hay compromiso de compatibilidad de API entre versiones).
   mezclar caracteres de un alfabeto no latino (ej. chino) no solicitados
   - nueva barrera de forma los rechaza.
 
+- **Color en las cifras de "Hoy", y sacado del veredicto en vez de
+  inventado.** El usuario pidió una interfaz menos "gris y vacía", con
+  "colores donde hacen falta". Las tres cifras del hero que el motor
+  juzga (sueño, Body Battery y VFC) se tiñen ahora con el estado de su
+  señal, tal y como lo manda el backend - nunca con un umbral copiado a
+  mano en un componente de React. Solo si el veredicto es del mismo día
+  que las cifras; "sin medir" se queda en tinta neutra; y las tres que
+  el motor no evalúa (estrés, pulso en reposo, pasos) siguen en tinta
+  normal, porque pintar un 16 de estrés de verde sería decirle a la
+  persona que está bien según un umbral que nadie ha decidido.
+- **Volumen por semana también en Sesiones › Todas.** La pestaña se
+  acababa en la fila 27 de una tabla sin decir en ningún momento cuánto
+  se había entrenado esta semana. `GET
+  /users/{id}/garmin/activities/volume` acepta ahora la petición sin
+  `categoria` y agrega los tres deportes en el servidor, en vez de
+  obligar al cliente a sumar tres respuestas. Ahí la métrica es la
+  duración: sumar los kilómetros de una carrera con los de una salida en
+  bici da una cifra que no significa nada.
+- Frase de la semana EN CURSO sobre esa gráfica ("Esta semana: 8.0 km,
+  3.0 km más que la anterior", o "Esta semana todavía sin sesiones
+  registradas"). Antes ponía "Última semana", que era la última con
+  datos - un lunes, la semana pasada - y sin nada con lo que comparar,
+  así que la cifra no respondía si se está entrenando más o menos que de
+  costumbre.
+- Icono del deporte en cada fila de Sesiones: el único uso de icono que
+  la doctrina permite además de la navegación, identificar algo. En una
+  lista de 27 sesiones mezcladas es lo que permite encontrar las
+  carreras sin leer las 27 etiquetas. Va `aria-hidden`, porque el nombre
+  del deporte está escrito al lado y un lector de pantalla no debe oír
+  "carrera" dos veces.
+- La proteína del objetivo, en gramos por kilo de la última pesada y con
+  la fecha de esa pesada: "138 g" no es juzgable, "1.8 g por kilo" sí
+  (la referencia en fuerza es 1,6-2,2 g/kg). Es la única de las tres
+  macros con una referencia conocida.
+- Bloque de cierre "Cómo saber si funciona" en Nutrición. La pantalla
+  eran dos tarjetas y medio metro de fondo vacío, y ese hueco escondía
+  la pregunta que la aplicación no contestaba en ningún sitio: si Pulse
+  no apunta lo que comes, para qué te da un objetivo y cómo sabes si lo
+  estás cumpliendo. La respuesta es el peso - lo único que aquí se mide
+  de verdad -, con el enlace a su tendencia en Cuerpo (que no se
+  duplica: la gráfica vive solo allí).
+
 ### Corregido
 - **"Recuperación baja" en rojo encima de "por eso el veredicto es
   verde".** Salió en una captura de verificación, literal. La frase de
@@ -337,7 +379,32 @@ mono-usuario - no hay compromiso de compatibilidad de API entre versiones).
   de `ensure_schema.py` no se había actualizado al añadir esas columnas
   en una sesión anterior. Añadida la migración que faltaba.
 
+- Las seis puertas al detalle de "Hoy" eran invisibles en un móvil: la
+  pista de que una cifra se puede pulsar era el subrayado de su etiqueta
+  **al pasar el cursor**, y en un teléfono no hay cursor (doctrina 5).
+  Ahora el subrayado está siempre, en el filete en reposo y en tinta al
+  enfocar.
+- El eje de la gráfica de volumen se rotula en horas cuando las semanas
+  son largas: en "Todas" salía "800 min" mientras la frase de al lado, en
+  la misma tarjeta, decía "13 h 20 min".
+- La línea de proteína por kilo desaparecía en cuanto se llevaba un mes
+  sin pesarse (pedía 30 días de historial), mientras el backend seguía
+  calculando las calorías con esa misma pesada antigua
+  (`get_latest_weight_kg` no tiene ventana). Pide un año, como el resto
+  de las tarjetas de peso, y escribe la fecha para que una pesada vieja
+  se lea como vieja.
+
 ### Cambiado
+- El minuto a minuto de hoy (Body Battery, estrés, pulso) pasa de
+  Entrenamiento › Recuperación a "Hoy": su eje es el día en curso, así
+  que contesta la pregunta de esa pantalla y no "cómo ha ido el mes".
+  Con su leyenda y un enlace a los días anteriores. "Hoy" deja de ser
+  tres bloques de texto sin una sola gráfica, que es de donde venía la
+  sensación de pantalla vacía.
+- La gráfica de volumen por semana pasa de debajo de la tabla de
+  sesiones a encima: con 27 sesiones en la lista, la única gráfica de la
+  pestaña quedaba a dos pantallas de scroll de la pregunta que contesta.
+  Primero el resumen, luego el detalle.
 - Frontend rehecho sobre el Design System v3: fuera los degradados, los
   brillos, los bordes de color y los iconos decorativos que el usuario
   identificó como "AI slop". Ningún emoji en la interfaz.

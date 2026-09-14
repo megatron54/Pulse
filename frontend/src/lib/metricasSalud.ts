@@ -1,4 +1,4 @@
-import type { GarminHealthDay, GarminIntradayMetrica } from "./api";
+import type { GarminHealthDay, GarminIntradayMetrica, SignalCode } from "./api";
 
 /**
  * Las métricas de salud del reloj, con su nombre en español, su unidad y
@@ -45,6 +45,17 @@ export type MetricaSalud = {
    *  es obligatorio: si una métrica no tiene dirección buena, no se
    *  puede interpretar y no debería estar en una pantalla de estado. */
   mejorHacia: "arriba" | "abajo";
+  /** La señal del motor de recuperación que juzga esta métrica, si
+   *  alguna. Es lo que permite teñir la cifra con su estado sin copiar
+   *  aquí los umbrales del motor: el backend ya manda `estado` y los dos
+   *  umbrales con los que decidió (ver `lib/senalesRecuperacion.ts`).
+   *
+   *  `undefined` en las que el motor no evalúa (estrés, pulso en reposo,
+   *  pasos, VO₂ máx): pintarlas de un color inventado aquí sería decirle
+   *  a la persona que 16 de estrés "está bien" según un umbral que nadie
+   *  ha decidido. Se quedan en tinta normal, con su comparación contra la
+   *  propia media en la página de detalle. */
+  senal?: SignalCode;
   /** Cómo se nombra un registro de esta métrica: el sueño se mide por
    *  noches y no por días, y llamar "día" a una noche obliga al usuario
    *  a traducir cada vez que lee la tabla (doctrina 8). */
@@ -59,6 +70,11 @@ export type MetricaSalud = {
     | {
         tipo: "intradia";
         serie: GarminIntradayMetrica;
+        /** Nombre corto de la SERIE, para la pestaña que la elige y para
+         *  rotularla en la gráfica. No vale `tituloCorto`: la métrica del
+         *  día es "Pulso reposo" y lo que el reloj guarda minuto a minuto
+         *  es el pulso entero. */
+        nombreSerie: string;
         /** Qué dibuja exactamente esa serie, para titular la gráfica del
          *  día. No es decorativo: en "Pulso en reposo" la cifra del día
          *  era 52 ppm y la línea del detalle subía a 180, porque el reloj
@@ -81,6 +97,7 @@ export const METRICAS_SALUD: readonly MetricaSalud[] = [
       "Puntuación de Garmin de 0 a 100 combinando cuánto has dormido, en qué fases y cuánto te has despertado. Por debajo de 50 cuenta como señal de mala recuperación.",
     rango: [0, 100],
     mejorHacia: "arriba",
+    senal: "sleep",
     nombreDelRegistro: "noche",
     detalleDelRegistro: { tipo: "fases-sueno" },
   },
@@ -95,10 +112,12 @@ export const METRICAS_SALUD: readonly MetricaSalud[] = [
       "La estimación de energía disponible de Garmin al levantarte, de 0 a 100. Depende casi entera de la noche anterior, así que es la métrica que más se mueve al acostarse antes.",
     rango: [0, 100],
     mejorHacia: "arriba",
+    senal: "body_battery",
     nombreDelRegistro: "día",
     detalleDelRegistro: {
       tipo: "intradia",
       serie: "body_battery",
+      nombreSerie: "Body Battery",
       leyenda: "Body Battery minuto a minuto",
     },
   },
@@ -112,6 +131,7 @@ export const METRICAS_SALUD: readonly MetricaSalud[] = [
     explicacion:
       "Cuánto varía el tiempo entre latidos mientras duermes. Es la señal principal de recuperación, y solo significa algo comparada contigo mismo: no hay un valor bueno universal, pero varios días seguidos por debajo de tu media indican fatiga acumulada.",
     mejorHacia: "arriba",
+    senal: "hrv_delta",
     nombreDelRegistro: "noche",
   },
   {
@@ -129,6 +149,7 @@ export const METRICAS_SALUD: readonly MetricaSalud[] = [
     detalleDelRegistro: {
       tipo: "intradia",
       serie: "stress",
+      nombreSerie: "Estrés",
       leyenda: "Estrés minuto a minuto",
     },
   },
@@ -146,6 +167,7 @@ export const METRICAS_SALUD: readonly MetricaSalud[] = [
     detalleDelRegistro: {
       tipo: "intradia",
       serie: "heart_rate",
+      nombreSerie: "Pulso",
       leyenda: "Pulso de todo el día, minuto a minuto",
     },
   },
@@ -174,6 +196,41 @@ export const METRICAS_SALUD: readonly MetricaSalud[] = [
     nombreDelRegistro: "día",
   },
 ];
+
+/** Una serie que el reloj guarda minuto a minuto, con la métrica del día
+ *  a la que pertenece (para su unidad, su rango y su página de detalle). */
+export type SerieIntradia = {
+  serie: GarminIntradayMetrica;
+  nombreSerie: string;
+  leyenda: string;
+  metrica: MetricaSalud;
+};
+
+/**
+ * Las tres series intradía, en orden de lectura del día.
+ *
+ * Existe porque `IntradayMetricCard` tenía su propia lista con el nombre,
+ * la unidad y el rango de cada una, copiados a mano: con esa copia, la
+ * unidad del pulso llegó a decir " bpm" mientras el resto de la app decía
+ * " ppm". Aquí la unidad es la de la métrica, una sola vez.
+ *
+ * El orden empieza por el Body Battery porque es la serie que mejor se
+ * lee sola (0 a 100, y su forma es la del día: sube durmiendo, baja
+ * entrenando); el pulso de todo el día es la más ruidosa, así que no
+ * abre la tarjeta.
+ */
+export const SERIES_INTRADIA: readonly SerieIntradia[] = METRICAS_SALUD.flatMap((metrica) =>
+  metrica.detalleDelRegistro?.tipo === "intradia"
+    ? [
+        {
+          serie: metrica.detalleDelRegistro.serie,
+          nombreSerie: metrica.detalleDelRegistro.nombreSerie,
+          leyenda: metrica.detalleDelRegistro.leyenda,
+          metrica,
+        },
+      ]
+    : []
+);
 
 export function metricaPorSlug(slug: string): MetricaSalud | undefined {
   return METRICAS_SALUD.find((m) => m.slug === slug);

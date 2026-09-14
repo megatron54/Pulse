@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { api, ApiError, todayLocalDate, type GarminIntradayMetrica } from "@/lib/api";
 import { plural } from "@/lib/fechas";
+import { SERIES_INTRADIA } from "@/lib/metricasSalud";
 import { TrendChart } from "./ui/TrendChart";
 import { SegmentedControl } from "./ui/SegmentedControl";
 import { Card } from "./ui/Card";
@@ -10,20 +12,6 @@ import { EmptyState } from "./ui/EmptyState";
 import { ErrorState } from "./ui/ErrorState";
 import { LoadingState } from "./ui/LoadingState";
 
-const PESTANAS: readonly {
-  valor: GarminIntradayMetrica;
-  label: string;
-  etiquetaSerie: string;
-  unidad: string;
-  /** Límites físicos de la métrica: el eje no debe rotular un Body
-   *  Battery de 102 ni un estrés negativo. El pulso no los lleva - no
-   *  hay un techo que tenga sentido dibujar. */
-  rango?: readonly [number, number];
-}[] = [
-  { valor: "heart_rate", label: "Pulso", etiquetaSerie: "Pulso", unidad: " ppm" },
-  { valor: "body_battery", label: "Body Battery", etiquetaSerie: "Body Battery", unidad: "", rango: [0, 100] },
-  { valor: "stress", label: "Estrés", etiquetaSerie: "Estrés", unidad: "", rango: [0, 100] },
-];
 
 /**
  * Serie minuto a minuto del día en curso. Petición explícita del
@@ -36,11 +24,22 @@ const PESTANAS: readonly {
  * neutras), unidad correcta en el pulso (" ppm", no " bpm", que es la
  * sigla inglesa) y el recuento de puntos con su plural resuelto.
  *
+ * Vive en "Hoy": es la única gráfica de la app cuyo eje es el día en
+ * curso, así que responde a la pregunta de esa página ("cómo estoy hoy")
+ * y no a la de Entrenamiento › Recuperación ("cómo ha ido el mes"),
+ * donde estaba antes. Desde ella se llega al histórico de la misma
+ * métrica, que es lo que uno quiere después de ver la forma del día.
+ *
+ * Las tres series, con su nombre, su unidad y su rango, salen de
+ * `SERIES_INTRADIA` (el catálogo de métricas) y no de una lista propia:
+ * la copia local era la que podía decir " bpm" donde el resto de la app
+ * dice " ppm".
+ *
  * Si el scheduler todavía no ha sincronizado la serie de hoy se dice
  * así, en vez de dibujar una gráfica vacía.
  */
 export function IntradayMetricCard({ userId }: { userId: number }) {
-  const [metrica, setMetrica] = useState<GarminIntradayMetrica>("heart_rate");
+  const [metrica, setMetrica] = useState<GarminIntradayMetrica>(SERIES_INTRADIA[0].serie);
   const [puntos, setPuntos] = useState<{ timestamp_utc: string; valor: number }[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [intentos, setIntentos] = useState(0);
@@ -64,7 +63,7 @@ export function IntradayMetricCard({ userId }: { userId: number }) {
     };
   }, [userId, metrica, intentos]);
 
-  const pestanaActiva = PESTANAS.find((p) => p.valor === metrica)!;
+  const serieActiva = SERIES_INTRADIA.find((s) => s.serie === metrica)!;
   const datosGrafica = (puntos ?? []).map((p) => ({ fecha: p.timestamp_utc, valor: p.valor }));
 
   return (
@@ -72,7 +71,10 @@ export function IntradayMetricCard({ userId }: { userId: number }) {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
         <h2 className="t-section text-ink">Minuto a minuto de hoy</h2>
         <SegmentedControl
-          options={PESTANAS.map(({ valor, label }) => ({ value: valor, label }))}
+          options={SERIES_INTRADIA.map(({ serie, nombreSerie }) => ({
+            value: serie,
+            label: nombreSerie,
+          }))}
           value={metrica}
           onChange={setMetrica}
           ariaLabel="Métrica intradía"
@@ -96,16 +98,28 @@ export function IntradayMetricCard({ userId }: { userId: number }) {
         <div className="flex flex-col gap-2">
           <TrendChart
             data={datosGrafica}
-            unidad={pestanaActiva.unidad}
+            unidad={serieActiva.metrica.unidad}
             decimales={0}
-            rango={pestanaActiva.rango}
-            etiqueta={pestanaActiva.etiquetaSerie}
+            rango={serieActiva.metrica.rango}
+            etiqueta={serieActiva.nombreSerie}
             alto={170}
             formatoEjeX="hora"
           />
-          <p className="t-secondary text-ink-3">
-            {plural(puntos.length, "medición registrada hoy", "mediciones registradas hoy")}.
-          </p>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+            <p className="t-secondary text-ink-3">
+              {serieActiva.leyenda}.{" "}
+              {plural(puntos.length, "medición registrada hoy", "mediciones registradas hoy")}.
+            </p>
+            {/* La forma del día lleva a los días anteriores: sin este
+                enlace, la gráfica se acababa en sí misma y comparar con
+                ayer exigía volver a "Hoy" y pulsar la cifra. */}
+            <Link
+              href={`/salud/${serieActiva.metrica.slug}`}
+              className="t-secondary text-ink-2 underline underline-offset-4 hover:text-ink"
+            >
+              Ver los días anteriores
+            </Link>
+          </div>
         </div>
       )}
     </Card>

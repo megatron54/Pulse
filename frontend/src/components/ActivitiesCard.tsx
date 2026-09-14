@@ -4,6 +4,7 @@ import { Fragment, useEffect, useState } from "react";
 import { api, ApiError, type GarminActivity } from "@/lib/api";
 import { formatDistancia, formatDuracion, nombreActividad } from "@/lib/activityFormat";
 import { fechaRelativa, plural } from "@/lib/fechas";
+import { IconoDeporte } from "@/lib/iconosDeporte";
 import { CoachNarrativeBlock } from "./CoachNarrativeBlock";
 import { ExerciseSetsDetail } from "./ExerciseSetsDetail";
 import { Card } from "./ui/Card";
@@ -129,17 +130,27 @@ export function ActivitiesCard({
 
   return (
     <Card plano>
-      {/* El hueco bajo el título lo pone la narrativa cuando existe, no
-          el contenedor: en "Todas" (sin narrativa) quedaba una franja de
-          36px en blanco entre el título y la primera línea de la tabla,
-          que se leía como un elemento que no había cargado. */}
-      <div className={`px-5 pt-5 ${categoria ? "pb-5" : "pb-0"}`}>
+      <div className="p-5">
         <Encabezado
           titulo={titulo}
           detalle={`${plural(actividades.length, "sesión", "sesiones")} en ${DIAS_VENTANA} días`}
         />
         {categoria && <CoachNarrativeBlock userId={userId} categoria={categoria} />}
       </div>
+
+      {/* Orden de lectura: qué significa (narrativa, cuando hay deporte
+          concreto) → cuánto llevo esta semana → cada sesión. La gráfica
+          estaba al final, detrás de 27 filas de tabla, donde no la veía
+          nadie. También en "Todas" (sin `categoria`), donde la pestaña
+          se acababa en la fila 27 sin decir en ningún momento cuánto se
+          había entrenado esta semana. En esa vista la métrica es la
+          duración: sumar los kilómetros de una carrera con los de una
+          salida en bici da una cifra que no significa nada. */}
+      <WeeklyVolumeChart
+        userId={userId}
+        categoria={categoria}
+        metrica={categoria && !esGimnasio ? "distancia" : "duracion"}
+      />
 
       <div className="border-t border-line px-5 pb-5 pt-1">
         <Table cabeceras={cabeceras} etiqueta={`Sesiones de ${titulo.toLowerCase()}`}>
@@ -150,18 +161,25 @@ export function ActivitiesCard({
               <Fragment key={act.activity_id}>
                 <tr>
                   <Td envolver>
-                    {esGimnasio ? (
-                      <button
-                        type="button"
-                        aria-expanded={abierta}
-                        onClick={() => setExpandida(abierta ? null : act.activity_id)}
-                        className="t-body rounded text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-                      >
-                        {nombre}
-                      </button>
-                    ) : (
-                      nombre
-                    )}
+                    {/* El icono identifica el deporte de la fila (regla
+                        cero: iconos solo cuando identifican algo). En una
+                        lista de 27 sesiones mezcladas es lo que permite
+                        localizar las carreras sin leerlas todas. */}
+                    <span className="flex items-baseline gap-2">
+                      <IconoDeporte tipo={act.tipo} />
+                      {esGimnasio ? (
+                        <button
+                          type="button"
+                          aria-expanded={abierta}
+                          onClick={() => setExpandida(abierta ? null : act.activity_id)}
+                          className="t-body rounded text-left text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                        >
+                          {nombre}
+                        </button>
+                      ) : (
+                        nombre
+                      )}
+                    </span>
                     <span className="t-secondary block text-ink-3">{fechaRelativa(act.fecha)}</span>
                   </Td>
                   <TdNum>{formatDuracion(act.duracion_seg)}</TdNum>
@@ -180,14 +198,6 @@ export function ActivitiesCard({
           })}
         </Table>
       </div>
-
-      {categoria && (
-        <WeeklyVolumeChart
-          userId={userId}
-          categoria={categoria}
-          metrica={esGimnasio ? "duracion" : "distancia"}
-        />
-      )}
     </Card>
   );
 }

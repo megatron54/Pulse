@@ -30,5 +30,14 @@ describe("StatTile", () => {
   it("sin `href` no finge ser pulsable", () => {
     render(<StatTile label="Sueño" value={83} />);
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.getByText("Sueño")).not.toHaveClass("underline");
+  });
+
+  it("la pista de que se puede pulsar no depende del cursor", () => {
+    // Con `group-hover:underline` las seis puertas al detalle de "Hoy"
+    // eran invisibles en móvil, que es donde se usa la app (doctrina 5:
+    // nada que solo se entienda con el cursor encima).
+    render(<StatTile label="Sueño" value={83} href="/salud/sueno" />);
+    expect(screen.getByText("Sueño")).toHaveClass("underline");
   });
 });

@@ -180,6 +180,27 @@ class TestGetWeeklyVolumeForUser:
         )
         assert all(s.num_sesiones == 0 for s in semanas)
 
+    def test_sin_categoria_suma_todos_los_deportes(self, session, usuario):
+        save_activity_if_new(
+            session,
+            usuario.id,
+            _actividad("1", "road_biking", fecha=date(2026, 8, 3), duracion_seg=3600),
+        )
+        save_activity_if_new(
+            session,
+            usuario.id,
+            _actividad("2", "running", fecha=date(2026, 8, 5), duracion_seg=1800),
+        )
+
+        semanas = get_weekly_volume_for_user(
+            session, usuario.id, as_of=date(2026, 8, 10), weeks=4
+        )
+
+        con_datos = [s for s in semanas if s.num_sesiones > 0]
+        assert len(con_datos) == 1
+        assert con_datos[0].num_sesiones == 2
+        assert con_datos[0].duracion_total_seg == 5400
+
     def test_semanas_ordenadas_cronologicamente_ascendente(self, session, usuario):
         semanas = get_weekly_volume_for_user(
             session, usuario.id, as_of=date(2026, 8, 10), categoria=CategoriaDeporte.RUNNING, weeks=4

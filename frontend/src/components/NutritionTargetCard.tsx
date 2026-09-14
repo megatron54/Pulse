@@ -2,14 +2,31 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { api, ApiError, todayLocalDate, type NutritionTarget } from "@/lib/api";
+import {
+  api,
+  ApiError,
+  todayLocalDate,
+  type BodyMeasurement,
+  type NutritionTarget,
+} from "@/lib/api";
 import { FASES_NUTRICION } from "@/lib/fasesNutricion";
+import { fechaCorta, masRecientePorFecha } from "@/lib/fechas";
+import { formatNumero } from "@/lib/numeros";
 import { Card } from "./ui/Card";
 import { DataList, DataRow } from "./ui/DataList";
 import { EmptyState } from "./ui/EmptyState";
 import { ErrorState } from "./ui/ErrorState";
 import { LoadingState } from "./ui/LoadingState";
 import { MacroBar } from "./ui/MacroBar";
+
+/** Cuánto historial de pesadas se pide para encontrar la última, igual
+ *  que en `BodyCompositionTile` y `BodyGoalInsightCard`: con 30 días la
+ *  línea de proteína por kilo desaparecía de esta tarjeta en cuanto se
+ *  llevaba un mes sin pesarse, mientras el backend seguía calculando las
+ *  calorías con esa misma pesada antigua (`get_latest_weight_kg` no tiene
+ *  ventana). La cifra se escribe con su fecha, así que una pesada vieja
+ *  se lee como vieja en vez de faltar. */
+const DIAS_CONSULTA = 365;
 
 /**
  * Objetivo de macros de hoy (Nutrición).
@@ -39,12 +56,24 @@ import { MacroBar } from "./ui/MacroBar";
  */
 export function NutritionTargetCard({ userId }: { userId: number }) {
   const [resultado, setResultado] = useState<NutritionTarget | null>(null);
+  /** La última pesada, solo para poder leer la proteína por kilo. Si
+   *  falla o no hay ninguna, la tarjeta se dibuja igual sin esa línea:
+   *  el objetivo en gramos no depende de ella. */
+  const [pesada, setPesada] = useState<BodyMeasurement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [faltaPeso, setFaltaPeso] = useState(false);
   const [intentos, setIntentos] = useState(0);
 
   useEffect(() => {
     let cancelado = false;
+    api
+      .getBodyMeasurementHistory(userId, DIAS_CONSULTA)
+      .then((historial) => {
+        if (!cancelado) setPesada(masRecientePorFecha(historial));
+      })
+      .catch(() => {
+        // Línea secundaria: sin peso, la tarjeta no la escribe.
+      });
     api
       .getNutritionTarget(userId, todayLocalDate())
       .then((r) => {
@@ -130,17 +159,30 @@ export function NutritionTargetCard({ userId }: { userId: number }) {
           <p className="t-secondary mt-1 text-ink-3">Para hoy, con tu actividad habitual.</p>
         </div>
 
-        <MacroBar
-          macros={[
-            { label: "Proteína", gramos: resultado.proteina_g, kcal: resultado.proteina_g * 4 },
-            {
-              label: "Carbohidratos",
-              gramos: resultado.carbohidratos_g,
-              kcal: resultado.carbohidratos_g * 4,
-            },
-            { label: "Grasa", gramos: resultado.grasa_g, kcal: resultado.grasa_g * 9 },
-          ]}
-        />
+        <div>
+          <MacroBar
+            macros={[
+              { label: "Proteína", gramos: resultado.proteina_g, kcal: resultado.proteina_g * 4 },
+              {
+                label: "Carbohidratos",
+                gramos: resultado.carbohidratos_g,
+                kcal: resultado.carbohidratos_g * 4,
+              },
+              { label: "Grasa", gramos: resultado.grasa_g, kcal: resultado.grasa_g * 9 },
+            ]}
+          />
+          {/* La proteína en gramos por kilo es la única de las tres
+              cifras que tiene una referencia conocida (1,6-2,2 g/kg en
+              fuerza), así que es lo que convierte "185 g" en algo
+              juzgable. Se escribe de qué pesada sale: con una del mes
+              pasado, la división miente. */}
+          {pesada && (
+            <p className="t-secondary mt-3 text-pretty text-ink-3">
+              {formatNumero(resultado.proteina_g / pesada.peso_kg, 1)} g de proteína por kilo, con
+              tu peso de {formatNumero(pesada.peso_kg, 1)} kg del {fechaCorta(pesada.fecha)}.
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="border-t border-line px-5 py-4">

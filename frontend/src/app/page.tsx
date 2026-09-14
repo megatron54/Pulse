@@ -2,6 +2,7 @@
 
 import { useUser } from "@/lib/UserContext";
 import { DailySessionCard } from "@/components/DailySessionCard";
+import { IntradayMetricCard } from "@/components/IntradayMetricCard";
 import { RecoveryStatusCard } from "@/components/RecoveryStatusCard";
 import { FadeIn } from "@/components/ui/FadeIn";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -26,6 +27,14 @@ import { PageHeader } from "@/components/ui/PageHeader";
  *    que no informa de nada y exige pulsar para calcular algo que el
  *    motor puede resolver solo. Su sitio es Nutrición, donde el
  *    objetivo se muestra ya calculado.
+ *
+ * Y se ha traído uno, `IntradayMetricCard` ("Minuto a minuto de hoy"),
+ * que vivía en Entrenamiento › Recuperación: su eje es el día en curso,
+ * o sea exactamente la pregunta de esta página. Con él, "Hoy" pasa de
+ * dos bloques de texto y cifras a tener la forma del día dibujada -
+ * cuándo se ha gastado la energía y cuándo ha subido el pulso -, que es
+ * lo que el usuario pedía al decir que la pantalla se le quedaba vacía y
+ * sin gráficas. No es una tendencia: sigue siendo hoy.
  */
 export default function HoyPage() {
   const user = useUser();
@@ -39,6 +48,9 @@ export default function HoyPage() {
         </FadeIn>
         <FadeIn delay={0.05}>
           <DailySessionCard userId={user.id} />
+        </FadeIn>
+        <FadeIn delay={0.1}>
+          <IntradayMetricCard userId={user.id} />
         </FadeIn>
       </div>
     </main>

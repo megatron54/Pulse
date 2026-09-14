@@ -10,7 +10,6 @@ import { ExercisePicker } from "@/components/ExercisePicker";
 import { SesionesEntrenamiento } from "@/components/SesionesEntrenamiento";
 import { GarminHealthHistoryCard } from "@/components/GarminHealthHistoryCard";
 import { HealthMetricsTodayCard } from "@/components/HealthMetricsTodayCard";
-import { IntradayMetricCard } from "@/components/IntradayMetricCard";
 import { ReadinessTrendCard } from "@/components/ReadinessTrendCard";
 import { CoachNarrativeBlock } from "@/components/CoachNarrativeBlock";
 import { PeriodicSummaryCard } from "@/components/PeriodicSummaryCard";
@@ -89,10 +88,14 @@ export default function EntrenamientoPage() {
       )}
 
       {/* Orden de lectura de la pestaña: narrativa (qué significa) →
-          cifras de la última medida → tendencia del mes → detalle
-          intradía → histórico completo. Una sola columna: son bloques
-          que se leen en secuencia, y a 1280px dos columnas obligaban a
-          saltar la vista de un lado al otro para seguir el hilo. */}
+          cifras de la última medida → tendencia del mes → histórico
+          completo. Una sola columna: son bloques que se leen en
+          secuencia, y a 1280px dos columnas obligaban a saltar la vista
+          de un lado al otro para seguir el hilo.
+
+          El minuto a minuto de hoy ya no está aquí: su eje es el día en
+          curso, así que pertenece a "Hoy". Esta pestaña responde "cómo
+          ha ido el mes". */}
       {tab === "recuperacion" && (
         <div className="flex flex-col gap-5">
           <FadeIn>
@@ -106,9 +109,6 @@ export default function EntrenamientoPage() {
                 no responde "cómo estoy hoy", pero sí "cómo ha ido el
                 mes", que es la pregunta de esta pestaña. */}
             <ReadinessTrendCard userId={user.id} />
-          </FadeIn>
-          <FadeIn delay={0.07}>
-            <IntradayMetricCard userId={user.id} />
           </FadeIn>
           <FadeIn delay={0.1}>
             <GarminHealthHistoryCard userId={user.id} />

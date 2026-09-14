@@ -151,8 +151,41 @@ describe("ActivitiesCard", () => {
     vi.mocked(api.getGarminActivities).mockResolvedValue([CARRERA]);
     render(<ActivitiesCard userId={1} categoria="running" titulo="Carrera" mensajeVacio="x" />);
 
-    await waitFor(() => expect(screen.getByText("Carrera", { selector: "td" })).toBeInTheDocument());
+    // Por la celda y no por `selector: "td"`: el nombre vive dentro del
+    // span que lo alinea con el icono del deporte.
+    await waitFor(() =>
+      expect(screen.getByRole("cell", { name: /carrera/i })).toBeInTheDocument()
+    );
     expect(screen.queryByRole("button", { name: "Carrera" })).not.toBeInTheDocument();
+  });
+
+  it("en \"Todas\" también pide el volumen semanal, sumando todos los deportes en duración", async () => {
+    // La pestaña se acababa en la última fila de la tabla: 27 sesiones
+    // sin decir en ningún sitio cuánto se había entrenado esta semana.
+    // Y en duración, porque sumar los kilómetros de una carrera con los
+    // de una salida en bici da una cifra que no significa nada.
+    vi.mocked(api.getGarminActivities).mockResolvedValue([CARRERA, FUERZA]);
+
+    render(<ActivitiesCard userId={1} titulo="Todas las sesiones" mensajeVacio="x" />);
+
+    await waitFor(() =>
+      expect(api.getGarminWeeklyVolume).toHaveBeenCalledWith(1, undefined, 12)
+    );
+  });
+
+  it("cada fila identifica su deporte con un icono, sin repetirlo en voz alta", async () => {
+    vi.mocked(api.getGarminActivities).mockResolvedValue([CARRERA]);
+
+    const { container } = render(
+      <ActivitiesCard userId={1} titulo="Todas las sesiones" mensajeVacio="x" />
+    );
+
+    await waitFor(() => expect(screen.getByRole("cell", { name: /carrera/i })).toBeInTheDocument());
+    const icono = container.querySelector("tbody svg");
+    expect(icono).not.toBeNull();
+    // El nombre del deporte ya está escrito al lado: el icono no vuelve
+    // a decirlo para un lector de pantalla.
+    expect(icono).toHaveAttribute("aria-hidden", "true");
   });
 
   it("resuelve el plural del recuento de sesiones", async () => {

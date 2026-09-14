@@ -272,11 +272,38 @@ class TestGetWeeklyVolume:
         assert len(semana_con_datos) == 1
         assert semana_con_datos[0]["distancia_total_m"] == 5000.0
 
-    def test_categoria_es_obligatoria(self, client):
-        c, _ = client
+    def test_sin_categoria_suma_todos_los_deportes(self, client):
+        """Es lo que necesita "Sesiones > Todas" para decir cuánto se ha
+        entrenado esta semana: sin esto había que pedir las tres
+        categorías y sumarlas en el cliente."""
+        c, engine = client
         usuario = _crear_usuario(c)
-        resp = c.get(f"/users/{usuario['id']}/garmin/activities/volume?weeks=4")
-        assert resp.status_code == 422
+        with Session(engine) as session:
+            for i, (tipo, duracion) in enumerate(
+                [("running", 1800), ("road_biking", 3600), ("strength_training", 2700)]
+            ):
+                session.add(
+                    GarminActivity(
+                        user_id=usuario["id"],
+                        activity_id=str(i),
+                        fecha=date(2026, 8, 3),
+                        tipo=tipo,
+                        duracion_seg=duracion,
+                        distancia_m=5000.0 if tipo != "strength_training" else None,
+                    )
+                )
+            session.commit()
+
+        resp = c.get(
+            f"/users/{usuario['id']}/garmin/activities/volume?weeks=4&as_of=2026-08-10"
+        )
+        assert resp.status_code == 200
+        semana = [s for s in resp.json() if s["num_sesiones"] > 0]
+        assert len(semana) == 1
+        assert semana[0]["num_sesiones"] == 3
+        assert semana[0]["duracion_total_seg"] == 1800 + 3600 + 2700
+        # La sesión de fuerza no trae distancia: no se suma como 0.
+        assert semana[0]["distancia_total_m"] == 10000.0
 
     def test_usuario_inexistente_da_404(self, client):
         c, _ = client

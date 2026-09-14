@@ -21,10 +21,16 @@ import { AnimatedNumber } from "./AnimatedNumber";
  * `href` convierte la métrica en la puerta a su detalle. La cifra era un
  * callejón sin salida - se veía "Sueño 72" y no había forma de saber qué
  * pasó esa noche ni cómo venía la semana -, y el usuario pidió
- * explícitamente poder pulsarla. La pista de que se puede pulsar es el
- * subrayado de la etiqueta al enfocar o pasar por encima, no un color de
- * acento: el color aquí sigue reservado para el estado del dato
- * (doctrina 1).
+ * explícitamente poder pulsarla.
+ *
+ * La pista de que se puede pulsar es el subrayado de la etiqueta, no un
+ * color de acento: el color aquí sigue reservado para el estado del dato
+ * (doctrina 1). Y el subrayado está SIEMPRE, no solo al pasar el cursor:
+ * en un móvil no hay cursor, así que un `group-hover:underline` dejaba
+ * las seis puertas al detalle invisibles justo en el dispositivo donde
+ * se usa la app (doctrina 5, "nada que solo se entienda con el cursor
+ * encima"). En reposo va en el filete; al enfocar o pasar por encima,
+ * en tinta.
  */
 export function StatTile({
   label,
@@ -44,7 +50,13 @@ export function StatTile({
 }) {
   const contenido = (
     <>
-      <span className="t-micro text-ink-3 group-hover:text-ink-2 group-hover:underline underline-offset-4">
+      <span
+        className={`t-micro text-ink-3 ${
+          href
+            ? "underline decoration-line-strong underline-offset-4 group-hover:text-ink-2 group-hover:decoration-ink"
+            : ""
+        }`}
+      >
         {label}
       </span>
       <p className={`t-metric ${valueClassName}`}>

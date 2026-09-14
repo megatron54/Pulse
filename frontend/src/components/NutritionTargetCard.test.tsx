@@ -10,6 +10,7 @@ vi.mock("@/lib/api", async () => {
     api: {
       ...actual.api,
       getNutritionTarget: vi.fn(),
+      getBodyMeasurementHistory: vi.fn(),
     },
   };
 });
@@ -23,9 +24,24 @@ const OBJETIVO = {
   deficit_pausado_por_guardrail: false,
 };
 
+const PESADA = {
+  id: 9,
+  fecha: "2026-07-01",
+  peso_kg: 76.7,
+  metodo: "manual" as const,
+  bodyfat_pct_rango_min: null,
+  bodyfat_pct_rango_max: null,
+  muscle_kg: null,
+  bone_kg: null,
+  water_pct: null,
+  bmi: null,
+};
+
 describe("NutritionTargetCard", () => {
   beforeEach(() => {
     vi.mocked(api.getNutritionTarget).mockReset();
+    vi.mocked(api.getBodyMeasurementHistory).mockReset();
+    vi.mocked(api.getBodyMeasurementHistory).mockResolvedValue([]);
   });
 
   it("calcula el objetivo al entrar, sin que haya que pulsar un botón", async () => {
@@ -52,6 +68,35 @@ describe("NutritionTargetCard", () => {
     // "Fase aplicada: cut" era el dato crudo del backend en pantalla.
     expect(screen.getByText("Déficit")).toBeInTheDocument();
     expect(screen.queryByText(/\bcut\b/)).not.toBeInTheDocument();
+  });
+
+  it("escribe la proteína por kilo y de qué pesada sale", async () => {
+    // "180 g" no es juzgable; "2.3 g por kilo" sí (1,6-2,2 g/kg en
+    // fuerza). Con la fecha, porque una pesada vieja hace mentir a la
+    // división.
+    vi.mocked(api.getNutritionTarget).mockResolvedValue(OBJETIVO);
+    vi.mocked(api.getBodyMeasurementHistory).mockResolvedValue([PESADA]);
+
+    render(<NutritionTargetCard userId={1} />);
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/2\.3 g de proteína por kilo, con tu peso de 76\.7 kg del 1 jul/i)
+      ).toBeInTheDocument()
+    );
+  });
+
+  it("pide un año de pesadas: la última puede ser de hace meses", async () => {
+    // Con 30 días la línea desaparecía en cuanto se llevaba un mes sin
+    // pesarse, mientras el backend seguía calculando las calorías con
+    // esa misma pesada antigua.
+    vi.mocked(api.getNutritionTarget).mockResolvedValue(OBJETIVO);
+
+    render(<NutritionTargetCard userId={1} />);
+
+    await waitFor(() =>
+      expect(api.getBodyMeasurementHistory).toHaveBeenCalledWith(1, 365)
+    );
   });
 
   it("sin ninguna pesada, dice qué falta y lleva a registrarlo", async () => {

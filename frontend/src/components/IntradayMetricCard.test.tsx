@@ -17,11 +17,18 @@ describe("IntradayMetricCard", () => {
     vi.mocked(api.getGarminIntradayHistory).mockReset();
   });
 
-  it("pide la metrica de ritmo cardiaco de hoy por defecto", async () => {
+  it("abre por el Body Battery de hoy: es la serie que se lee sola", async () => {
+    // La primera pestaña es también la que se pide sin tocar nada. El
+    // pulso de todo el día es la serie más ruidosa y ya no abre la
+    // tarjeta.
     vi.mocked(api.getGarminIntradayHistory).mockResolvedValue([]);
     render(<IntradayMetricCard userId={1} />);
     await waitFor(() =>
-      expect(api.getGarminIntradayHistory).toHaveBeenCalledWith(1, "heart_rate", expect.any(String))
+      expect(api.getGarminIntradayHistory).toHaveBeenCalledWith(
+        1,
+        "body_battery",
+        expect.any(String)
+      )
     );
   });
 
@@ -45,23 +52,33 @@ describe("IntradayMetricCard", () => {
     render(<IntradayMetricCard userId={1} />);
     await waitFor(() => expect(api.getGarminIntradayHistory).toHaveBeenCalledTimes(1));
 
-    await user.click(screen.getByRole("tab", { name: /body battery/i }));
+    await user.click(screen.getByRole("tab", { name: /^pulso$/i }));
 
     await waitFor(() =>
       expect(api.getGarminIntradayHistory).toHaveBeenLastCalledWith(
         1,
-        "body_battery",
+        "heart_rate",
         expect.any(String)
       )
     );
   });
 
-  it("con puntos, muestra el numero de puntos del dia", async () => {
+  it("con puntos, dice qué dibuja la línea, cuántas medidas hay y cómo ver los días anteriores", async () => {
     vi.mocked(api.getGarminIntradayHistory).mockResolvedValue([
       { timestamp_utc: "2026-08-09T06:00:00", valor: 60 },
       { timestamp_utc: "2026-08-09T06:02:00", valor: 62 },
     ]);
     render(<IntradayMetricCard userId={1} />);
-    await waitFor(() => expect(screen.getByText(/2 mediciones registradas hoy/i)).toBeInTheDocument());
+
+    await waitFor(() =>
+      expect(screen.getByText(/2 mediciones registradas hoy/i)).toBeInTheDocument()
+    );
+    // La leyenda sale del catálogo, la misma que titula la gráfica de un
+    // día en la página de detalle.
+    expect(screen.getByText(/body battery minuto a minuto/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /ver los días anteriores/i })).toHaveAttribute(
+      "href",
+      "/salud/body-battery"
+    );
   });
 });

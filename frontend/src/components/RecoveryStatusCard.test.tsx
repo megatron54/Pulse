@@ -213,6 +213,68 @@ describe("RecoveryStatusCard", () => {
     expect(screen.queryByRole("link", { name: /estrés/i })).not.toBeInTheDocument();
   });
 
+  it("tiñe cada cifra con el estado de su señal, y deja en tinta normal las que el motor no juzga", async () => {
+    // "Recuperación baja" en rojo grande y, debajo, seis cifras todas
+    // del mismo gris: no había forma de saber cuál la bajaba sin leerse
+    // la tabla entera. El color sale del `estado` que manda el motor, no
+    // de un umbral escrito aquí.
+    vi.mocked(api.getReadinessHistory).mockResolvedValue([
+      unDiaDeReadiness({
+        fecha: "2026-09-14",
+        resultado: "red",
+        senales: unasSenales({
+          sleep: { estado: "yellow", valor: 41 },
+          body_battery: { estado: "red", valor: 24 },
+        }),
+      }),
+    ]);
+    vi.mocked(api.getGarminHealthHistory).mockResolvedValue([
+      unDiaDeSalud({
+        fecha: "2026-09-14",
+        sleep_score: 41,
+        body_battery_am: 24,
+        hrv_value: 58,
+        stress_avg: 37,
+      }),
+    ]);
+
+    render(<RecoveryStatusCard userId={1} />);
+
+    // Por el enlace de la casilla y no por el texto de la cifra: el 24
+    // y el 41 salen dos veces a propósito (el hero y la tabla de
+    // señales), así que buscar "24" encuentra dos elementos.
+    const cifraDe = (etiqueta: RegExp) =>
+      screen.getByRole("link", { name: etiqueta }).querySelector("p");
+
+    await waitFor(() => expect(cifraDe(/^Body Battery/)).toHaveClass("text-neg"));
+    expect(cifraDe(/^Sueño/)).toHaveClass("text-warn");
+    expect(cifraDe(/^VFC/)).toHaveClass("text-pos");
+    // El estrés no tiene señal en el motor: teñirlo sería inventarse un
+    // umbral que nadie ha decidido.
+    expect(cifraDe(/^Estrés/)).toHaveClass("text-ink");
+  });
+
+  it("no tiñe las cifras de hoy con el veredicto de ayer", async () => {
+    // A media mañana es normal que el último veredicto sea de ayer (el
+    // cálculo necesita la noche). Pintar el sueño de hoy con el estado
+    // de ayer sería un color de otro día.
+    vi.mocked(api.getReadinessHistory).mockResolvedValue([
+      unDiaDeReadiness({
+        fecha: "2026-09-13",
+        resultado: "red",
+        senales: unasSenales({ sleep: { estado: "red", valor: 38 } }),
+      }),
+    ]);
+    vi.mocked(api.getGarminHealthHistory).mockResolvedValue([
+      unDiaDeSalud({ fecha: "2026-09-14", sleep_score: 88 }),
+    ]);
+
+    render(<RecoveryStatusCard userId={1} />);
+
+    await waitFor(() => expect(screen.getByText("88")).toBeInTheDocument());
+    expect(screen.getByText("88").closest("p")).toHaveClass("text-ink");
+  });
+
   it("no renderiza ningun formulario manual (check-in eliminado del todo)", async () => {
     vi.mocked(api.getReadinessHistory).mockResolvedValue([]);
     vi.mocked(api.getGarminHealthHistory).mockResolvedValue([]);

@@ -149,13 +149,22 @@ def get_weekly_volume_for_user(
     session: Session,
     user_id: int,
     as_of: date,
-    categoria: CategoriaDeporte,
+    categoria: CategoriaDeporte | None = None,
     weeks: int = _SEMANAS_VOLUMEN_POR_DEFECTO,
 ) -> list[WeeklyVolume]:
     """Agrega el historial de actividades de una categoría de deporte
     (Épica D) en `weeks` semanas ISO (lunes-domingo), para las gráficas
     de volumen por deporte del backlog MUST-HAVE (Épica 10 del plan de
-    expansión). Devuelve SIEMPRE `weeks` puntos, en orden cronológico
+    expansión).
+
+    `categoria=None` agrega TODOS los deportes, igual que
+    `get_activity_history_for_user`: es lo que necesita la vista
+    "Sesiones › Todas" para responder cuánto se ha entrenado esta semana
+    frente a la anterior. Sin ella, la única forma de tener ese total
+    era pedir las tres categorías y sumarlas en el cliente, con la suma
+    de "distancia desconocida" escrita dos veces (aquí y allí).
+
+    Devuelve SIEMPRE `weeks` puntos, en orden cronológico
     ascendente, con las semanas sin ninguna actividad incluidas
     explícitamente en 0 sesiones - la API nunca oculta un hueco real de
     entrenamiento aunque el frontend de hoy (WeeklyVolumeChart) decida
