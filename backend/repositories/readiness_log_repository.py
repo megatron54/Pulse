@@ -58,17 +58,29 @@ def get_recent_readiness_levels(
     """Últimos `n` resultados de readiness ANTERIORES a `as_of` (no
     incluye el día actual, que aún no se ha calculado en el momento en
     que se consulta este historial), en orden cronológico ascendente -
-    el formato que espera engine.guardrails.should_pause_calorie_deficit."""
+    el formato que espera engine.guardrails.should_pause_calorie_deficit.
+
+    Un resultado por día (gana el `id` más alto): `ReadinessLog` es
+    append-only, así que un día recalculado N veces (job cada 2h +
+    sincronizaciones manuales) tenía N filas. Aquí eso era peligroso,
+    no solo cosmético: el consumidor cuenta días RED **consecutivos**
+    para decidir si pausa el déficit calórico, y un único día rojo
+    repetido cinco veces se leía como cinco días rojos seguidos,
+    disparando un guardrail de seguridad que nadie había cumplido.
+    Además, sin ordenar por `id` dentro de la fecha, cuál de las filas
+    duplicadas ganaba era indeterminado."""
     fecha_inicio = as_of - timedelta(days=n)
     stmt = (
-        select(ReadinessLog.resultado)
+        select(ReadinessLog.fecha, ReadinessLog.resultado)
         .where(ReadinessLog.user_id == user_id)
         .where(ReadinessLog.fecha >= fecha_inicio)
         .where(ReadinessLog.fecha < as_of)
-        .order_by(ReadinessLog.fecha.asc())
+        .order_by(ReadinessLog.fecha.asc(), ReadinessLog.id.desc())
     )
-    filas = session.execute(stmt).scalars().all()
-    return [ReadinessLevel(valor) for valor in filas]
+    por_fecha: dict[date, str] = {}
+    for fecha_fila, resultado in session.execute(stmt).all():
+        por_fecha.setdefault(fecha_fila, resultado)
+    return [ReadinessLevel(valor) for valor in por_fecha.values()]
 
 
 def get_readiness_history(
@@ -88,16 +100,26 @@ def get_readiness_history(
     criterio que `get_activity_history`/`get_daily_metrics_history`.
     `services.periodic_summary_service` ya filtraba explícitamente para
     compensar esta inconsistencia; ese filtro queda ahora redundante
-    pero inofensivo (no cambia ningún resultado)."""
+    pero inofensivo (no cambia ningún resultado).
+
+    Deduplicado a una fila por día (gana el `id` más alto = el cálculo
+    más reciente), mismo criterio que
+    `garmin_repository.get_daily_metrics_history`: un endpoint de
+    historial para gráfica debe devolver un único punto por día. Sin
+    esto, un día recalculado cinco veces salía como cinco puntos
+    apilados en la misma fecha."""
     fecha_inicio = as_of - timedelta(days=days - 1)
     stmt = (
         select(ReadinessLog)
         .where(ReadinessLog.user_id == user_id)
         .where(ReadinessLog.fecha >= fecha_inicio)
         .where(ReadinessLog.fecha <= as_of)
-        .order_by(ReadinessLog.fecha.asc(), ReadinessLog.id.asc())
+        .order_by(ReadinessLog.fecha.asc(), ReadinessLog.id.desc())
     )
-    return list(session.execute(stmt).scalars().all())
+    por_fecha: dict[date, ReadinessLog] = {}
+    for fila in session.execute(stmt).scalars().all():
+        por_fecha.setdefault(fila.fecha, fila)
+    return list(por_fecha.values())
 
 
 def set_volumen_pct_ajustado(

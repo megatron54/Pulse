@@ -116,6 +116,40 @@ class TestGetRecentReadinessLevels:
         session.commit()
         assert get_recent_readiness_levels(session, usuario.id, hoy, n=3) == []
 
+    def test_un_dia_recalculado_varias_veces_cuenta_como_un_solo_dia(self, session, usuario):
+        """`ReadinessLog` es append-only y en datos reales un mismo día
+        llegó a tener cinco filas (job cada 2h + sincronizaciones
+        manuales). Aquí eso no es cosmético: el consumidor
+        (`should_pause_calorie_deficit`) cuenta días RED CONSECUTIVOS, y
+        un único día rojo repetido cinco veces se leía como cinco días
+        rojos seguidos - suficiente para disparar un guardrail que
+        nadie había cumplido."""
+        hoy = date(2026, 8, 10)
+        for _ in range(5):
+            session.add(
+                ReadinessLog(
+                    user_id=usuario.id, fecha=hoy - timedelta(days=1), resultado="red"
+                )
+            )
+        session.commit()
+
+        assert get_recent_readiness_levels(session, usuario.id, hoy, n=3) == [
+            ReadinessLevel.RED
+        ]
+
+    def test_de_un_dia_duplicado_gana_el_calculo_mas_reciente(self, session, usuario):
+        hoy = date(2026, 8, 10)
+        ayer = hoy - timedelta(days=1)
+        session.add(ReadinessLog(user_id=usuario.id, fecha=ayer, resultado="red"))
+        session.commit()
+        # Recálculo posterior del mismo día con datos ya completos.
+        session.add(ReadinessLog(user_id=usuario.id, fecha=ayer, resultado="green"))
+        session.commit()
+
+        assert get_recent_readiness_levels(session, usuario.id, hoy, n=3) == [
+            ReadinessLevel.GREEN
+        ]
+
 
 class TestSetVolumenPctAjustado:
     def test_actualiza_la_fila_mas_reciente_del_dia(self, session, usuario):

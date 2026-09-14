@@ -7,6 +7,24 @@ mono-usuario - no hay compromiso de compatibilidad de API entre versiones).
 ## [Unreleased]
 
 ### Añadido
+- `GET` y `DELETE /users/{id}/training-blocks`: el mensaje de planes
+  solapados le pedía al usuario "deja solo uno activo", algo que la
+  aplicación no le dejaba hacer - ni listar sus planes ni borrar uno. El
+  único camino era entrar a la base de datos a mano. El borrado limpia
+  también las filas de `WeeklySchedule` (la FK no declara `ON DELETE
+  CASCADE`) y filtra por `user_id`, para que otro id en la URL no borre
+  un plan ajeno.
+- `PlanesActivosCard` en Entrenamiento › Plan: los planes del usuario
+  con su estado ("En curso" / "Aún no empieza" / "Terminado") y, cuando
+  dos se pisan, el aviso marcado **en las filas implicadas** y no solo
+  arriba (con cuatro planes, "tienes planes que se pisan" obliga a
+  comparar fechas a ojo). Borrar es en dos pasos y la confirmación
+  nombra el plan: se lleva por delante varias semanas de planificación y
+  no hay deshacer.
+- `?seccion=` en `/entrenamiento` para enlazar a una pestaña concreta;
+  "Hoy" manda ahí cuando falta el plan o cuando hay planes solapados, en
+  vez de dejar al usuario en "Sesiones" buscando dónde se hace lo que se
+  le acaba de pedir.
 - **Design System v3** (`01-arquitectura/05-design-system-v3.md`): doctrina
   numerada y citada por número desde el código, que deroga a v2
   (`04-design-system-v2.md`, conservado como histórico). El usuario real
@@ -125,6 +143,41 @@ mono-usuario - no hay compromiso de compatibilidad de API entre versiones).
   - nueva barrera de forma los rechaza.
 
 ### Corregido
+- **"Recuperación baja" en rojo con todas las cifras buenas.** El
+  semáforo de "Hoy" contradecía a las métricas que él mismo mostraba
+  debajo: VFC un 16 % POR ENCIMA de la baseline de 28 días, Body Battery
+  80, sueño 85, ACWR 1.0 y sin dolor articular, y aun así ROJO. El motor
+  aplicaba bien sus reglas sobre datos corruptos: `GarminDailyMetrics`
+  es append-only a propósito (permite resincronizar un día sin perder
+  histórico), pero `_valores_hrv_en_rango` - que alimenta tanto
+  `get_hrv_baseline_28d` como `get_hrv_trend_7d` - contaba CADA fila
+  como un día distinto. Con 15 sincronizaciones del mismo día (job cada
+  2h + manuales), un día malo repetido pesaba 15 veces en la ventana y
+  hundía `hrv_trend_7d` hasta ≈ −0,19, por debajo del umbral rojo de
+  −0,10. Ahora se deduplica por día al LEER (gana el `id` más alto = la
+  sincronización más reciente), mismo criterio que
+  `get_daily_metrics_history`; el arreglo no es un `UNIQUE(user_id,
+  fecha)`, que rompería el append-only intencionado.
+- El mismo defecto en `readiness_log_repository`, y ahí no era
+  cosmético: `get_recent_readiness_levels` cuenta días RED
+  **consecutivos** para decidir si pausa el déficit calórico, así que un
+  único día rojo recalculado cinco veces se leía como cinco días rojos
+  seguidos y disparaba un guardrail de seguridad que nadie había
+  cumplido. Además, sin ordenar por `id` dentro de la fecha, cuál de las
+  filas duplicadas ganaba era indeterminado. `get_readiness_history`
+  (gráfica de tendencia) devolvía cinco puntos apilados en la misma
+  fecha por el mismo motivo.
+- Dos planes de entrenamiento solapados dejaban a "Hoy" sin poder
+  decidir la sesión, y sin decir por qué ni cómo salir de ahí: el
+  backend lanzaba "user_id=4 tiene múltiples TrainingBlock activos y
+  solapados" (un id interno y el nombre de un modelo en pantalla,
+  doctrina 8) con un `motivo` que el frontend no mapeaba, así que la
+  tarjeta degradaba a "Falta algún dato para decidir la sesión de hoy"
+  sin ninguna acción. Ahora hay un error tipado
+  (`OverlappingTrainingBlocksError`, `motivo: "planes_solapados"`) con
+  texto escrito para una persona, la tarjeta explica el conflicto y
+  enlaza a la pestaña donde se resuelve.
+
 - La narrativa de salud del día (página "Hoy") filtraba jerga interna en
   pantalla cuando caía a la plantilla de respaldo (sin LLM o tras
   fallarle la validación): "(hrv_hoy_ms: 69.0, hrv_baseline_28d_ms:

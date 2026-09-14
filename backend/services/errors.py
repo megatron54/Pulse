@@ -39,3 +39,16 @@ class NoActiveWeeklyPlanError(SessionNotDecidableError):
     """No hay plan semanal activo y no se pasó una sesión explícita."""
 
     motivo = "sin_plan"
+
+
+class OverlappingTrainingBlocksError(SessionNotDecidableError):
+    """Dos o más bloques de periodización cubren la misma fecha.
+
+    No es un bug ni un dato que falte: son dos planes que el usuario
+    creó y que se pisan, y solo él puede decidir cuál vale. Se le pide
+    que lo resuelva en vez de desambiguar en silencio (elegir el más
+    reciente ajustaría el volumen contra un objetivo que quizá ya
+    descartó, sin avisar).
+    """
+
+    motivo = "planes_solapados"

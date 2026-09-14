@@ -471,6 +471,12 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  listTrainingBlocks: (userId: number) =>
+    request<TrainingBlock[]>(`/users/${userId}/training-blocks`),
+
+  deleteTrainingBlock: (userId: number, blockId: number) =>
+    request<void>(`/users/${userId}/training-blocks/${blockId}`, { method: "DELETE" }),
+
   getTrainingLoad: (userId: number, asOf = todayLocalDate()) =>
     request<TrainingLoad>(`/users/${userId}/session/training-load?as_of=${asOf}`),
 

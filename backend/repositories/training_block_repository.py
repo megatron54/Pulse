@@ -15,6 +15,13 @@ from sqlalchemy.orm import Session
 
 from engine.periodization import SessionType
 from models.schema import TrainingBlock, WeeklySchedule
+# Único import de `services` desde un repositorio, y a propósito:
+# `services.errors` es el módulo de excepciones de DOMINIO compartidas
+# (lo dice su docstring), no lógica de servicio. La alternativa era
+# seguir lanzando un `ValueError` genérico y traducirlo en
+# session_service, que obligaba a tratar cualquier ValueError de esta
+# función como "planes solapados" y perdía la precisión del motivo.
+from services.errors import OverlappingTrainingBlocksError
 
 _DIAS_SEMANA_ISO = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 
@@ -50,9 +57,15 @@ def get_planned_session_for_date(
     try:
         resultado = session.execute(stmt).scalar_one_or_none()
     except MultipleResultsFound as exc:
-        raise ValueError(
-            f"user_id={user_id} tiene múltiples TrainingBlock activos y solapados "
-            f"para {target_date} - revisa/corrige los rangos de fechas de tus bloques "
-            "de periodización (no deberían solaparse)."
+        # El texto es de INTERFAZ, no de log (doctrina 8: el `detail` de
+        # un error HTTP lo lee una persona). La versión anterior decía
+        # "user_id=4 tiene múltiples TrainingBlock activos y solapados -
+        # revisa/corrige los rangos de fechas de tus bloques de
+        # periodización": un id interno y el nombre del modelo en
+        # pantalla, y sin ninguna acción que el usuario pudiera tomar.
+        raise OverlappingTrainingBlocksError(
+            "Tienes dos planes de entrenamiento que se solapan en esta fecha, "
+            "así que no se sabe cuál manda. Deja solo uno activo para poder "
+            "ajustar la sesión de hoy."
         ) from exc
     return SessionType(resultado) if resultado is not None else None

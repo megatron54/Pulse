@@ -15,7 +15,7 @@ from sqlalchemy.pool import StaticPool
 
 from api.dependencies import get_db
 from api.main import app
-from models.schema import Base
+from models.schema import Base, WeeklySchedule
 
 
 @pytest.fixture()
@@ -32,7 +32,13 @@ def client():
             yield session
 
     app.dependency_overrides[get_db] = override_get_db
-    yield TestClient(app)
+    cliente = TestClient(app)
+    # Para los pocos tests que necesitan comprobar en la BD un efecto
+    # que la API no expone por ningún endpoint (p. ej. que borrar un
+    # bloque borre también sus filas de WeeklySchedule, que no se
+    # pueden leer de vuelta).
+    cliente.engine_de_test = engine
+    yield cliente
     app.dependency_overrides.clear()
 
 
@@ -469,6 +475,117 @@ class TestTrainingBlocks:
             json={"target_date": "2026-08-03"},
         )
         assert resp.status_code == 400
+        cuerpo = resp.json()
+        # El frontend distingue cada caso por `motivo` para decir qué
+        # hacer; sin código propio, "planes solapados" caía en el mismo
+        # mensaje genérico y sin acción que "falta algún dato".
+        assert cuerpo["motivo"] == "planes_solapados"
+        # Doctrina 8: el `detail` es texto de interfaz. Antes decía
+        # "user_id=4 tiene múltiples TrainingBlock activos y solapados".
+        for jerga in ("TrainingBlock", "user_id"):
+            assert jerga not in cuerpo["detail"]
+
+
+class TestListarYBorrarTrainingBlocks:
+    """El mensaje de bloques solapados le pide al usuario dejar solo un
+    plan activo; sin listar ni borrar desde la API, eso solo se podía
+    hacer entrando a la base de datos a mano."""
+
+    def _crear_bloque(self, client, user_id, fecha_inicio, fecha_fin, objetivo="strength"):
+        resp = client.post(
+            f"/users/{user_id}/training-blocks",
+            json={
+                "fecha_inicio": fecha_inicio,
+                "fecha_fin": fecha_fin,
+                "objetivo_prioritario": objetivo,
+                "weekly_schedule": {"mon": "strength_heavy"},
+            },
+        )
+        assert resp.status_code == 201
+        return resp.json()
+
+    def test_lista_los_bloques_del_mas_reciente_al_mas_antiguo(self, client):
+        usuario = _crear_usuario(client)
+        self._crear_bloque(client, usuario["id"], "2026-07-01", "2026-07-28", "endurance")
+        self._crear_bloque(client, usuario["id"], "2026-08-01", "2026-09-12", "strength")
+
+        resp = client.get(f"/users/{usuario['id']}/training-blocks")
+
+        assert resp.status_code == 200
+        assert [b["objetivo_prioritario"] for b in resp.json()] == ["strength", "endurance"]
+
+    def test_lista_vacia_si_no_hay_ningun_plan(self, client):
+        usuario = _crear_usuario(client)
+        assert client.get(f"/users/{usuario['id']}/training-blocks").json() == []
+
+    def test_no_lista_los_planes_de_otro_usuario(self, client):
+        usuario = _crear_usuario(client)
+        otro = _crear_usuario(client)
+        self._crear_bloque(client, otro["id"], "2026-08-01", "2026-09-12")
+
+        assert client.get(f"/users/{usuario['id']}/training-blocks").json() == []
+
+    def test_borrar_uno_de_dos_solapados_desbloquea_la_sesion_del_dia(self, client):
+        """La razón de existir del borrado: el usuario resuelve el
+        solapamiento y la sesión de hoy vuelve a poder calcularse."""
+        usuario = _crear_usuario(client)
+        self._crear_bloque(client, usuario["id"], "2026-08-01", "2026-09-12")
+        sobrante = self._crear_bloque(client, usuario["id"], "2026-08-01", "2026-09-12")
+        client.post(
+            f"/users/{usuario['id']}/readiness/manual-checkin",
+            json={
+                "target_date": "2026-08-03",  # lunes
+                "hrv_today": 65.0,
+                "hrv_baseline_28d": 65.0,
+                "hrv_trend_7d": 0.0,
+                "body_battery_am": 80,
+                "training_readiness": "high",
+                "sleep_score": 85,
+                "acwr": 1.0,
+                "joint_pain_flag": False,
+            },
+        )
+
+        assert (
+            client.delete(f"/users/{usuario['id']}/training-blocks/{sobrante['id']}").status_code
+            == 204
+        )
+
+        resp = client.post(
+            f"/users/{usuario['id']}/session/daily", json={"target_date": "2026-08-03"}
+        )
+        assert resp.status_code == 200
+        assert resp.json()["session_type"] == "strength_heavy"
+
+    def test_borrar_un_bloque_borra_tambien_su_plan_semanal(self, client):
+        # La FK de WeeklySchedule no declara ON DELETE CASCADE: si el
+        # router no las borra, quedan filas de plan semanal apuntando a
+        # un bloque que ya no existe.
+        usuario = _crear_usuario(client)
+        bloque = self._crear_bloque(client, usuario["id"], "2026-08-01", "2026-09-12")
+
+        client.delete(f"/users/{usuario['id']}/training-blocks/{bloque['id']}")
+
+        with Session(client.engine_de_test) as s:
+            assert s.query(WeeklySchedule).filter_by(training_block_id=bloque["id"]).count() == 0
+
+    def test_borrar_un_bloque_inexistente_da_404(self, client):
+        usuario = _crear_usuario(client)
+        assert (
+            client.delete(f"/users/{usuario['id']}/training-blocks/9999").status_code == 404
+        )
+
+    def test_no_se_puede_borrar_el_plan_de_otro_usuario(self, client):
+        # Sin filtrar por user_id en el DELETE, poner otro id en la URL
+        # borraba un plan ajeno.
+        usuario = _crear_usuario(client)
+        otro = _crear_usuario(client)
+        ajeno = self._crear_bloque(client, otro["id"], "2026-08-01", "2026-09-12")
+
+        resp = client.delete(f"/users/{usuario['id']}/training-blocks/{ajeno['id']}")
+
+        assert resp.status_code == 404
+        assert len(client.get(f"/users/{otro['id']}/training-blocks").json()) == 1
 
 
 class TestReadinessHistory:

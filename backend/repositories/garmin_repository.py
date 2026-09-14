@@ -102,16 +102,35 @@ def _media_hrv_en_ventana(
 def _valores_hrv_en_rango(
     session: Session, user_id: int, fecha_inicio: date, fecha_fin_exclusiva: date
 ) -> list[float]:
+    """Un valor de HRV por día, en orden cronológico ascendente.
+
+    Deduplicado por día con el mismo criterio que
+    `get_daily_metrics_history` (gana el `id` más alto = la
+    sincronización más reciente): `GarminDailyMetrics` es append-only
+    sin UNIQUE(user_id, fecha), así que un día sincronizado N veces
+    tenía N filas aquí y cada una CONTABA como un día distinto.
+
+    Bug real que esto arregla: con 15 filas del mismo día (scheduler
+    cada 2h + sincronizaciones manuales), un día malo repetido pesaba
+    15 veces en la media de la ventana y hundía `get_hrv_trend_7d` por
+    debajo del umbral de -0.10, marcando la recuperación en ROJO con
+    una VFC que estaba un 16 % POR ENCIMA de la baseline. El semáforo
+    contradecía a las cifras que la propia tarjeta mostraba debajo.
+    Ordenar por fecha asc + id desc y quedarse con la primera de cada
+    fecha preserva el orden cronológico que `get_hrv_trend_7d`
+    necesita para comparar primera mitad contra segunda mitad."""
     stmt = (
         select(GarminDailyMetrics.fecha, GarminDailyMetrics.hrv_value)
         .where(GarminDailyMetrics.user_id == user_id)
         .where(GarminDailyMetrics.fecha >= fecha_inicio)
         .where(GarminDailyMetrics.fecha < fecha_fin_exclusiva)
         .where(GarminDailyMetrics.hrv_value.is_not(None))
-        .order_by(GarminDailyMetrics.fecha.asc())
+        .order_by(GarminDailyMetrics.fecha.asc(), GarminDailyMetrics.id.desc())
     )
-    filas = session.execute(stmt).all()
-    return [hrv for _fecha, hrv in filas]
+    por_fecha: dict[date, float] = {}
+    for fecha_fila, hrv in session.execute(stmt).all():
+        por_fecha.setdefault(fecha_fila, hrv)
+    return list(por_fecha.values())
 
 
 def save_activity_if_new(session: Session, user_id: int, actividad: dict[str, Any]) -> bool:

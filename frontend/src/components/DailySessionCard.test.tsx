@@ -68,11 +68,36 @@ describe("DailySessionCard", () => {
     );
     render(<DailySessionCard userId={1} />);
     await waitFor(() => expect(screen.getByText(/plan semanal activo/i)).toBeInTheDocument());
+    // A la pestaña del plan, no a la pestaña por defecto de
+    // Entrenamiento: aterrizar en "Sesiones" dejaba al usuario buscando
+    // dónde se hace lo que se le acababa de pedir.
     expect(screen.getByRole("link", { name: /plan semanal/i })).toHaveAttribute(
       "href",
-      "/entrenamiento"
+      "/entrenamiento?seccion=plan"
     );
     expect(screen.queryByRole("button", { name: /sincronizar/i })).not.toBeInTheDocument();
+  });
+
+  it("si dos planes se pisan, explica el conflicto y lleva a resolverlo", async () => {
+    // Era el caso real que el usuario tenía en pantalla: dos bloques
+    // sobre las mismas fechas caían en el `motivo` no mapeado, así que
+    // la tarjeta decía "Falta algún dato para decidir la sesión de hoy"
+    // y no ofrecía ninguna acción.
+    vi.mocked(api.getDailySession).mockRejectedValue(
+      new ApiError(
+        400,
+        "Tienes dos planes de entrenamiento que se solapan en esta fecha.",
+        undefined,
+        "planes_solapados"
+      )
+    );
+    render(<DailySessionCard userId={1} />);
+    await waitFor(() => expect(screen.getByText(/no se sabe cuál manda/i)).toBeInTheDocument());
+    expect(screen.getByRole("link", { name: /revisar mis planes/i })).toHaveAttribute(
+      "href",
+      "/entrenamiento?seccion=plan"
+    );
+    expect(screen.queryByText(/falta algún dato/i)).not.toBeInTheDocument();
   });
 
   it("sincronizar Garmin vuelve a pedir la sesion, que es lo que el usuario queria", async () => {

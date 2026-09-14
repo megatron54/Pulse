@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useUser } from "@/lib/UserContext";
 import { WeeklyScheduleForm } from "@/components/WeeklyScheduleForm";
+import { PlanesActivosCard } from "@/components/PlanesActivosCard";
 import { TrainingLoadCard } from "@/components/TrainingLoadCard";
 import { ExercisePicker } from "@/components/ExercisePicker";
 import { SesionesEntrenamiento } from "@/components/SesionesEntrenamiento";
@@ -43,7 +45,19 @@ const TABS = [
  */
 export default function EntrenamientoPage() {
   const user = useUser();
-  const [tab, setTab] = useState<Tab>("sesiones");
+  // `?seccion=` para poder enlazar a una pestaña concreta desde otra
+  // pantalla: "Hoy" manda aquí cuando falta el plan o cuando hay dos
+  // planes solapados, y aterrizar en "Sesiones" dejaba al usuario
+  // buscando dónde se hace lo que se le acababa de pedir. Valor
+  // desconocido en la URL -> la pestaña por defecto, sin fallar.
+  const seccion = useSearchParams().get("seccion");
+  const [tab, setTab] = useState<Tab>(
+    TABS.some((t) => t.value === seccion) ? (seccion as Tab) : "sesiones",
+  );
+  // Un plan recién creado tiene que aparecer en el listado de arriba
+  // sin recargar la página: si no, el usuario no ve el solapamiento que
+  // acaba de provocar.
+  const [planesCreados, setPlanesCreados] = useState(0);
 
   return (
     <main className="content-container py-6 md:py-8">
@@ -56,8 +70,18 @@ export default function EntrenamientoPage() {
 
       {tab === "plan" && (
         <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
+          {/* Primero qué planes tengo (y si se pisan entre ellos), luego
+              la carga, luego el formulario para crear uno nuevo: sin el
+              listado, dos planes solapados eran invisibles desde la app
+              y solo se notaban porque "Hoy" dejaba de decidir sesión. */}
+          <div className="lg:col-span-2">
+            <PlanesActivosCard userId={user.id} refreshKey={planesCreados} />
+          </div>
           <TrainingLoadCard userId={user.id} />
-          <WeeklyScheduleForm userId={user.id} />
+          <WeeklyScheduleForm
+            userId={user.id}
+            onCreated={() => setPlanesCreados((n) => n + 1)}
+          />
           <div className="lg:col-span-2">
             <ExercisePicker />
           </div>

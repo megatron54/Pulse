@@ -158,6 +158,9 @@ function mensajeDe(motivo: string | undefined): string {
   if (motivo === "sin_plan") {
     return "No tienes un plan semanal activo. Pulse ajusta el volumen de lo que ya tengas planificado para hoy; sin plan no hay sesión que ajustar.";
   }
+  if (motivo === "planes_solapados") {
+    return "Tienes dos planes de entrenamiento que cubren el día de hoy, así que no se sabe cuál manda. Deja solo uno activo y la sesión de hoy volverá a calcularse.";
+  }
   return "Falta algún dato para decidir la sesión de hoy.";
 }
 
@@ -177,16 +180,30 @@ function AccionDe({
     // Enlace, no botón: el plan semanal se crea en Entrenamiento, donde
     // está el formulario - duplicarlo aquí escondería en la pantalla de
     // hoy una decisión de varias semanas.
-    return (
-      <Link
-        href="/entrenamiento"
-        className="t-body rounded-md font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-      >
-        Crear mi plan semanal
-      </Link>
-    );
+    return <EnlaceAPlan>Crear mi plan semanal</EnlaceAPlan>;
+  }
+  if (falta.motivo === "planes_solapados") {
+    // Mismo criterio: el conflicto se resuelve donde se ven los dos
+    // planes enteros (fechas y objetivo de cada uno), no a ciegas desde
+    // aquí. Borrar un plan de varias semanas no es una acción para
+    // ofrecer de pasada en la pantalla del día.
+    return <EnlaceAPlan>Revisar mis planes</EnlaceAPlan>;
   }
   return null;
+}
+
+/** A la pestaña "Plan" de Entrenamiento, no a la pestaña por defecto:
+ * caer en "Sesiones" dejaba al usuario buscando dónde estaba lo que se
+ * le acababa de pedir hacer. */
+function EnlaceAPlan({ children }: { children: React.ReactNode }) {
+  return (
+    <Link
+      href="/entrenamiento?seccion=plan"
+      className="t-body rounded-md font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+    >
+      {children}
+    </Link>
+  );
 }
 
 /** Sincronización manual del día en curso (`POST /garmin/sync`): pocas

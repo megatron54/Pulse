@@ -12,6 +12,7 @@ import {
   type TrainingBlock,
 } from "@/lib/api";
 import { fechaCorta } from "@/lib/fechas";
+import { OBJETIVOS_ENTRENAMIENTO } from "@/lib/objetivosEntrenamiento";
 import { Card } from "./ui/Card";
 import { Button } from "./ui/Button";
 import { FormField, fieldInputClass } from "./ui/FormField";
@@ -39,15 +40,11 @@ const SESSION_LABELS: Record<SessionTypeValue, string> = {
 
 /** El backend acepta texto libre (`String(50)`), pero pedirle al usuario
  *  que escriba "strength, hypertrophy, running, bjj" - el placeholder de
- *  v2 - es pedirle que adivine el vocabulario interno en inglés. */
-const OBJETIVOS = [
-  { valor: "fuerza", label: "Ganar fuerza" },
-  { valor: "hipertrofia", label: "Ganar masa muscular" },
-  { valor: "resistencia", label: "Mejorar resistencia" },
-  { valor: "artes_marciales", label: "Artes marciales" },
-  { valor: "recomposicion", label: "Recomposición corporal" },
-  { valor: "mantenimiento", label: "Mantenerme" },
-] as const;
+ *  v2 - es pedirle que adivine el vocabulario interno en inglés. La
+ *  lista vive en `lib/objetivosEntrenamiento` porque ahora también la
+ *  lee `PlanesActivosCard` para mostrar el objetivo de un plan ya
+ *  creado. */
+const OBJETIVOS = OBJETIVOS_ENTRENAMIENTO;
 
 const DURACIONES = [4, 6, 8, 12] as const;
 

@@ -176,6 +176,55 @@ class TestHrvTrend7d:
         baseline = get_hrv_baseline_28d(session, usuario.id, hoy)
         assert baseline == pytest.approx(60.0, abs=0.01)
 
+    def test_un_dia_sincronizado_varias_veces_no_cuenta_como_varios_dias(
+        self, session, usuario
+    ):
+        """Bug real observado en datos de producción: `GarminDailyMetrics`
+        es append-only, y el job cada 2h más las sincronizaciones
+        manuales dejaron 15 filas del MISMO día. Cada fila contaba como
+        un día distinto en la ventana, así que un único día de VFC baja
+        pesaba 15 veces, hundía la tendencia por debajo de -0.10 y
+        marcaba la recuperación en rojo con una VFC un 16 % por encima
+        de la baseline. La tendencia debe ser idéntica se haya
+        sincronizado ese día una vez o quince."""
+        hoy = date(2026, 8, 10)
+        _sembrar_hrv(
+            session,
+            usuario.id,
+            hoy,
+            {7: 60.0, 6: 60.0, 5: 60.0, 4: 60.0, 3: 60.0, 2: 60.0, 1: 40.0},
+        )
+        trend_una_sola_sincronizacion = get_hrv_trend_7d(session, usuario.id, hoy)
+
+        for _ in range(14):
+            session.add(
+                GarminDailyMetrics(
+                    user_id=usuario.id, fecha=hoy - timedelta(days=1), hrv_value=40.0
+                )
+            )
+        session.commit()
+
+        assert get_hrv_trend_7d(session, usuario.id, hoy) == pytest.approx(
+            trend_una_sola_sincronizacion
+        )
+
+    def test_de_un_dia_duplicado_gana_la_sincronizacion_mas_reciente(self, session, usuario):
+        """Mismo criterio que `get_daily_metrics_history`: si Garmin
+        corrige el dato de un día en una sincronización posterior, vale
+        el último (`id` más alto), no el primero ni la media de los
+        dos."""
+        hoy = date(2026, 8, 10)
+        _sembrar_hrv(session, usuario.id, hoy, {2: 60.0, 1: 100.0})
+        session.add(
+            GarminDailyMetrics(
+                user_id=usuario.id, fecha=hoy - timedelta(days=1), hrv_value=50.0
+            )
+        )
+        session.commit()
+
+        # (60 + 50) / 2 = 55. Ni 80 (con el 100 obsoleto) ni 70 (contando ambas).
+        assert get_hrv_baseline_28d(session, usuario.id, hoy) == pytest.approx(55.0)
+
 
 class TestSaveActivityIfNew:
     def _actividad(self, **overrides):
