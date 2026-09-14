@@ -1,7 +1,8 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BodyCompositionTile } from "./BodyCompositionTile";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, type User } from "@/lib/api";
+import { UserProvider } from "@/lib/UserContext";
 
 vi.mock("@/lib/api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
@@ -13,6 +14,23 @@ vi.mock("@/lib/api", async () => {
     },
   };
 });
+
+const USUARIO: User = {
+  id: 1,
+  nombre: "Miguel",
+  altura_cm: 176,
+  fecha_nacimiento: "2002-11-28",
+  sexo: "M",
+  fase_peso_actual: "maintenance",
+};
+
+function montar(props: { userId: number; refreshKey?: number }, sexo: "M" | "F" = "M") {
+  return render(
+    <UserProvider user={{ ...USUARIO, sexo }} onUserChange={vi.fn()}>
+      <BodyCompositionTile {...props} />
+    </UserProvider>
+  );
+}
 
 const base = {
   id: 1,
@@ -34,14 +52,14 @@ describe("BodyCompositionTile", () => {
 
   it("no muestra nada si todavia no hay mediciones", async () => {
     vi.mocked(api.getBodyMeasurementHistory).mockResolvedValue([]);
-    const { container } = render(<BodyCompositionTile userId={1} />);
+    const { container } = montar({ userId: 1 });
     await waitFor(() => expect(api.getBodyMeasurementHistory).toHaveBeenCalled());
     expect(container).toBeEmptyDOMElement();
   });
 
   it("no muestra nada si la ultima medicion es solo peso, sin composicion", async () => {
     vi.mocked(api.getBodyMeasurementHistory).mockResolvedValue([base]);
-    const { container } = render(<BodyCompositionTile userId={1} />);
+    const { container } = montar({ userId: 1 });
     await waitFor(() => expect(api.getBodyMeasurementHistory).toHaveBeenCalled());
     expect(container).toBeEmptyDOMElement();
   });
@@ -60,7 +78,7 @@ describe("BodyCompositionTile", () => {
       },
     ]);
 
-    render(<BodyCompositionTile userId={1} />);
+    montar({ userId: 1 });
 
     await waitFor(() => expect(screen.getByText(/% grasa/i)).toBeInTheDocument());
     expect(screen.getByText(/músculo/i)).toBeInTheDocument();
@@ -81,7 +99,7 @@ describe("BodyCompositionTile", () => {
       { ...base, id: 1, fecha: "2026-06-01", bmi: 22.2 },
     ]);
 
-    render(<BodyCompositionTile userId={1} />);
+    montar({ userId: 1 });
 
     await waitFor(() => expect(screen.getByText("24.8")).toBeInTheDocument());
     expect(screen.getByText(/última medida: 1 jul/i)).toBeInTheDocument();
@@ -91,7 +109,7 @@ describe("BodyCompositionTile", () => {
 
   it("pide un año de historial: la ultima pesada puede ser de hace meses", async () => {
     vi.mocked(api.getBodyMeasurementHistory).mockResolvedValue([]);
-    render(<BodyCompositionTile userId={1} />);
+    montar({ userId: 1 });
     await waitFor(() => expect(api.getBodyMeasurementHistory).toHaveBeenCalledWith(1, 365));
   });
 
@@ -100,7 +118,7 @@ describe("BodyCompositionTile", () => {
       { ...base, bodyfat_pct_rango_min: 15.0, bodyfat_pct_rango_max: 19.0 },
     ]);
 
-    render(<BodyCompositionTile userId={1} />);
+    montar({ userId: 1 });
 
     // El "%" va en su propio <span> (unidad atenuada), asi que se
     // compara el texto completo del parrafo. Guion largo, no "-": es un
@@ -112,9 +130,50 @@ describe("BodyCompositionTile", () => {
     );
   });
 
+  it("colorea el IMC y el % de grasa segun su rango de referencia (doctrina 1: color = informacion)", async () => {
+    vi.mocked(api.getBodyMeasurementHistory).mockResolvedValue([
+      { ...base, bodyfat_pct_rango_min: 22.0, bodyfat_pct_rango_max: 22.0, bmi: 32.0 },
+    ]);
+
+    montar({ userId: 1 }, "M");
+
+    // El color vive en el <p> que envuelve la cifra (StatTile), no en el
+    // <span> que anima el número - de ahí el `.closest("p")`.
+    // IMC 32 en un hombre: obesidad (rango OMS) -> rojo.
+    await waitFor(() =>
+      expect(screen.getByText("32.0").closest("p")).toHaveClass("text-neg")
+    );
+    // 22% de grasa en un hombre supera el rango normal (ACE, 20-25) -> amarillo.
+    expect(screen.getByText("22.0").closest("p")).toHaveClass("text-warn");
+  });
+
+  it("el agua solo se marca 'bajo' (azul) si cae por debajo del rango: un agua alta no es un riesgo conocido", async () => {
+    vi.mocked(api.getBodyMeasurementHistory).mockResolvedValue([
+      { ...base, water_pct: 40.0 },
+    ]);
+
+    montar({ userId: 1 }, "M");
+
+    await waitFor(() =>
+      expect(screen.getByText("40.0").closest("p")).toHaveClass("text-data")
+    );
+  });
+
+  it("no colorea musculo ni hueso: son kg absolutos sin rango de referencia valido", async () => {
+    vi.mocked(api.getBodyMeasurementHistory).mockResolvedValue([
+      { ...base, muscle_kg: 34.1, bone_kg: 3.2 },
+    ]);
+
+    montar({ userId: 1 });
+
+    await waitFor(() => expect(screen.getByText("34.1")).toBeInTheDocument());
+    expect(screen.getByText("34.1").closest("p")).toHaveClass("text-ink");
+    expect(screen.getByText("3.2").closest("p")).toHaveClass("text-ink");
+  });
+
   it("muestra un error si la peticion falla", async () => {
     vi.mocked(api.getBodyMeasurementHistory).mockRejectedValue(new ApiError(500, "caido"));
-    render(<BodyCompositionTile userId={1} />);
+    montar({ userId: 1 });
     await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
   });
 });

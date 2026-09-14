@@ -81,10 +81,15 @@ def generate_sport_narrative_for_user(
     )
     decision_label = _etiqueta_tendencia(semana_actual.num_sesiones, media_previas)
 
+    # Claves en español legible: si cae a la plantilla de respaldo se ven
+    # tal cual en pantalla (doctrina 8), y `_formatear_datos_legibles`
+    # (narrative_service.py) solo cambia "_" por espacios, no traduce.
     datos = {
-        "sesiones_esta_semana": semana_actual.num_sesiones,
-        "media_sesiones_4_semanas_previas": round(media_previas, 1) if media_previas else None,
-        "distancia_esta_semana_km": (
+        "sesiones esta semana": semana_actual.num_sesiones,
+        "media de sesiones en las 4 semanas previas": (
+            round(media_previas, 1) if media_previas else None
+        ),
+        "distancia esta semana (km)": (
             round(semana_actual.distancia_total_m / 1000, 1)
             if semana_actual.distancia_total_m is not None
             else None

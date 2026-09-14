@@ -58,13 +58,18 @@ def generate_health_narrative_for_user(
     metrica_hoy = metricas_del_dia[0] if metricas_del_dia else None
     baseline_hrv = get_hrv_baseline_28d(session, user_id, fecha)
 
+    # Las claves son el texto que ve el usuario si cae a la plantilla de
+    # respaldo (`_formatear_datos_legibles` en narrative_service.py solo
+    # cambia "_" por espacios, no traduce jerga) - por eso van ya en
+    # español legible y con unidad, no con el nombre interno del campo
+    # (doctrina 8: cero jerga interna en pantalla).
     datos = {
-        "hrv_hoy_ms": metrica_hoy.hrv_value if metrica_hoy else None,
-        "hrv_baseline_28d_ms": round(baseline_hrv, 1) if baseline_hrv is not None else None,
-        "body_battery": metrica_hoy.body_battery_am if metrica_hoy else None,
-        "sleep_score": metrica_hoy.sleep_score if metrica_hoy else None,
-        "estres_medio": metrica_hoy.stress_avg if metrica_hoy else None,
-        "pulso_en_reposo": metrica_hoy.resting_hr if metrica_hoy else None,
+        "VFC hoy (ms)": metrica_hoy.hrv_value if metrica_hoy else None,
+        "VFC media de 28 días (ms)": round(baseline_hrv, 1) if baseline_hrv is not None else None,
+        "Body Battery": metrica_hoy.body_battery_am if metrica_hoy else None,
+        "puntuación de sueño": metrica_hoy.sleep_score if metrica_hoy else None,
+        "estrés medio": metrica_hoy.stress_avg if metrica_hoy else None,
+        "pulso en reposo (lpm)": metrica_hoy.resting_hr if metrica_hoy else None,
     }
     decision_label = _ETIQUETAS_RESULTADO.get(readiness_log.resultado, readiness_log.resultado)
 

@@ -10,7 +10,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from models.schema import Base, GarminCredentials, ReadinessLog, UserProfile
+from models.schema import Base, GarminActivity, GarminCredentials, ReadinessLog, UserProfile
 from services.garmin_manual_sync_service import GarminNoConectadoError, sync_today_for_user
 
 
@@ -46,6 +46,7 @@ def _fake_api():
     fake_api.get_rhr_day.return_value = None
     fake_api.get_max_metrics.return_value = None
     fake_api.get_heart_rates.return_value = None
+    fake_api.get_activities_by_date.return_value = []
     return fake_api
 
 
@@ -84,6 +85,30 @@ class TestSyncTodayForUser:
         fake_api.get_hrv_data.assert_called_once_with("2026-08-10")
         assert resultado.fecha == date(2026, 8, 10)
         assert session.query(ReadinessLog).filter_by(user_id=usuario.id).count() == 1
+
+    def test_sincroniza_actividades_de_los_ultimos_3_dias_e_informa_el_conteo(
+        self, session, monkeypatch
+    ):
+        usuario = _usuario_con_garmin(session)
+        fake_api = _fake_api()
+        fake_api.get_activities_by_date.return_value = [
+            {
+                "activityId": 1,
+                "startTimeLocal": "2026-08-09 07:00:00",
+                "activityType": {"typeKey": "running"},
+                "duration": 1800.0,
+            }
+        ]
+
+        import garmin_sync.client as client_module
+
+        monkeypatch.setattr(client_module, "_default_api_factory", lambda: lambda *a, **k: fake_api)
+
+        resultado = sync_today_for_user(session, usuario.id, target_date=date(2026, 8, 10))
+
+        fake_api.get_activities_by_date.assert_called_once_with("2026-08-08", "2026-08-10")
+        assert resultado.actividades_nuevas == 1
+        assert session.query(GarminActivity).filter_by(user_id=usuario.id).count() == 1
 
     def test_por_defecto_sincroniza_hoy(self, session, monkeypatch):
         usuario = _usuario_con_garmin(session)

@@ -4,6 +4,13 @@ import { useEffect, useState } from "react";
 import { api, ApiError, type BodyMeasurement } from "@/lib/api";
 import { dedupeUltimaPorDia } from "@/lib/dedupe";
 import { fechaRelativa } from "@/lib/fechas";
+import { useUser } from "@/lib/UserContext";
+import {
+  CLASE_POR_ESTADO,
+  estadoAguaCorporal,
+  estadoGrasaCorporal,
+  estadoImc,
+} from "@/lib/rangosCorporales";
 import { Card, CardTitle } from "./ui/Card";
 import { ErrorState } from "./ui/ErrorState";
 import { LoadingState } from "./ui/LoadingState";
@@ -32,6 +39,7 @@ export function BodyCompositionTile({
    * formulario hermano. */
   refreshKey?: number;
 }) {
+  const usuario = useUser();
   const [mediciones, setMediciones] = useState<BodyMeasurement[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [intentos, setIntentos] = useState(0);
@@ -107,16 +115,29 @@ export function BodyCompositionTile({
           (grasaEsRango ? (
             // Rango real (método Navy), no un punto: la precisión falsa
             // está prohibida, así que este caso no puede usar StatTile.
+            // El color sí se puede aplicar al extremo superior del
+            // rango: es el dato más desfavorable, y es el mismo criterio
+            // (rango de ACE) que usa el caso de abajo con un solo punto.
             <div className="flex w-full flex-col gap-1">
               <span className="t-micro text-ink-3">% Grasa</span>
-              <p className="t-metric text-ink">
+              <p
+                className={`t-metric ${CLASE_POR_ESTADO[estadoGrasaCorporal(ultimo.bodyfat_pct_rango_max!, usuario.sexo)]}`}
+              >
                 {ultimo.bodyfat_pct_rango_min.toFixed(1)}–
                 {ultimo.bodyfat_pct_rango_max!.toFixed(1)}
                 <span className="t-body text-ink-2">%</span>
               </p>
             </div>
           ) : (
-            <StatTile label="% Grasa" value={ultimo.bodyfat_pct_rango_min} unit="%" decimals={1} />
+            <StatTile
+              label="% Grasa"
+              value={ultimo.bodyfat_pct_rango_min}
+              unit="%"
+              decimals={1}
+              valueClassName={
+                CLASE_POR_ESTADO[estadoGrasaCorporal(ultimo.bodyfat_pct_rango_min, usuario.sexo)]
+              }
+            />
           ))}
         {ultimo.muscle_kg != null && (
           <StatTile label="Músculo" value={ultimo.muscle_kg} unit=" kg" decimals={1} />
@@ -125,12 +146,29 @@ export function BodyCompositionTile({
           <StatTile label="Hueso" value={ultimo.bone_kg} unit=" kg" decimals={1} />
         )}
         {ultimo.water_pct != null && (
-          <StatTile label="Agua" value={ultimo.water_pct} unit="%" decimals={1} />
+          <StatTile
+            label="Agua"
+            value={ultimo.water_pct}
+            unit="%"
+            decimals={1}
+            valueClassName={CLASE_POR_ESTADO[estadoAguaCorporal(ultimo.water_pct, usuario.sexo)]}
+          />
         )}
         {/* "IMC", no "BMI": el nombre del campo del backend es inglés,
             la interfaz no (doctrina 9). */}
-        {ultimo.bmi != null && <StatTile label="IMC" value={ultimo.bmi} decimals={1} />}
+        {ultimo.bmi != null && (
+          <StatTile
+            label="IMC"
+            value={ultimo.bmi}
+            decimals={1}
+            valueClassName={CLASE_POR_ESTADO[estadoImc(ultimo.bmi)]}
+          />
+        )}
       </MetricGrid>
+      <p className="t-secondary mt-4 text-ink-3">
+        Las dos últimas cifras van en kilogramos sin rango de referencia: sin tu altura y
+        complexión, un umbral de "normal" en kg sería inventado.
+      </p>
     </Card>
   );
 }

@@ -2,13 +2,21 @@
 complementa al job nocturno de backfill/scheduler sin sustituirlo.
 
 Deliberadamente acotado a un puñado de días recientes (por defecto solo
-HOY): a diferencia de `garmin_backfill_service.backfill_full_history`
-(pensado para 90 días de histórico en una conexión nueva), este módulo
-existe justo para el caso contrario - refrescar el día en curso con
-pocas llamadas (recovery + intradía de un solo día = 10 peticiones a
-Garmin), sin el riesgo de rate-limit de un backfill amplio. Ver
-docstring de `garmin_backfill_service` para el razonamiento completo
-del riesgo de volumen de peticiones.
+HOY para recovery/intradía): a diferencia de
+`garmin_backfill_service.backfill_full_history` (pensado para 90 días
+de histórico en una conexión nueva), este módulo existe justo para el
+caso contrario - refrescar el día en curso con pocas llamadas (recovery
++ intradía de un solo día = 10 peticiones a Garmin), sin el riesgo de
+rate-limit de un backfill amplio. Ver docstring de
+`garmin_backfill_service` para el razonamiento completo del riesgo de
+volumen de peticiones.
+
+También sincroniza actividades en una ventana corta (por defecto los
+últimos 3 días, mismo criterio que
+`scheduler_service.run_daily_activity_sync_for_all_users`): antes de
+esto, una actividad recién terminada solo aparecía con el job nocturno
+de actividades, hasta 24h de retraso. `sync_activities` es idempotente
+(`save_activity_if_new`), así que repetirla aquí no duplica nada.
 
 También es la base del job de sync frecuente (`scheduler/app.py`,
 cada 1-3h) que da datos "quasi en tiempo real": mismo camino, solo
@@ -16,18 +24,23 @@ cambia quién lo dispara (usuario vs. cron)."""
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 
 from sqlalchemy.orm import Session
 
 from garmin_sync.client import GarminClient
 from repositories.garmin_credentials_repository import get_active_garmin_credentials
 from services.errors import EntityNotFoundError
+from services.garmin_activity_service import sync_activities
 from services.garmin_intraday_service import sync_intraday_metrics
 from services.readiness_service import sync_and_compute_readiness
 
 _ACWR_NEUTRAL_POR_DEFECTO = 1.0
 _JOINT_PAIN_FLAG_POR_DEFECTO = False
+# Misma ventana que `scheduler_service._VENTANA_ACTIVIDADES_DIAS_POR_DEFECTO`:
+# actividades puede mirar unos días atrás sin coste extra relevante
+# (idempotente), para no perder una que Garmin tardó en consolidar.
+_VENTANA_ACTIVIDADES_DIAS_POR_DEFECTO = 3
 
 
 class GarminNoConectadoError(EntityNotFoundError):
@@ -39,6 +52,7 @@ class GarminNoConectadoError(EntityNotFoundError):
 class ManualSyncResult:
     fecha: date
     puntos_intradia_nuevos: int
+    actividades_nuevas: int
 
 
 def sync_today_for_user(
@@ -72,8 +86,18 @@ def sync_today_for_user(
         joint_pain_flag=_JOINT_PAIN_FLAG_POR_DEFECTO,
     )
     resultado_intradia = sync_intraday_metrics(session, user_id, client, target_date)
+
+    resultado_actividades = sync_activities(
+        session,
+        user_id,
+        client,
+        start_date=target_date - timedelta(days=_VENTANA_ACTIVIDADES_DIAS_POR_DEFECTO - 1),
+        end_date=target_date,
+    )
     session.commit()
 
     return ManualSyncResult(
-        fecha=target_date, puntos_intradia_nuevos=resultado_intradia.total_puntos_nuevos
+        fecha=target_date,
+        puntos_intradia_nuevos=resultado_intradia.total_puntos_nuevos,
+        actividades_nuevas=resultado_actividades.ingresadas,
     )

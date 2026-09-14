@@ -125,6 +125,28 @@ mono-usuario - no hay compromiso de compatibilidad de API entre versiones).
   - nueva barrera de forma los rechaza.
 
 ### Corregido
+- La narrativa de salud del día (página "Hoy") filtraba jerga interna en
+  pantalla cuando caía a la plantilla de respaldo (sin LLM o tras
+  fallarle la validación): "(hrv_hoy_ms: 69.0, hrv_baseline_28d_ms:
+  59.3, body_battery: 80, sleep_score: 85...)" — nombres de campo en
+  inglés y snake_case, no texto de interfaz (doctrina 8). La causa: el
+  diccionario `datos` que arma `health_narrative_service.py` (y su
+  hermano `sport_narrative_service.py`, mismo patrón) usaba las claves
+  internas del modelo directamente como texto a mostrar, y la plantilla
+  genérica de `narrative_service.py` solo cambia "_" por espacios, no
+  traduce. Ahora ambos servicios arman `datos` ya con claves en español
+  legible y su unidad ("VFC hoy (ms)", "Body Battery", "pulso en reposo
+  (lpm)"...).
+- Una actividad recién terminada en el reloj no aparecía en Pulse hasta
+  el día siguiente: ni el job de sync frecuente (`sync_frecuente_garmin`,
+  cada 2h) ni el botón "actualizar ahora" (`POST
+  /users/{id}/garmin/sync`) sincronizaban actividades - solo recovery.
+  Las actividades solo se traían en el job nocturno de una vez al día
+  (`sync_actividades_garmin`, 04:15). Ahora ambos caminos también
+  sincronizan actividades (ventana de los últimos 3 días, igual que el
+  job nocturno, para no perder una que Garmin tardó en consolidar). El
+  arreglo es barato porque `sync_activities` ya es idempotente
+  (`save_activity_if_new`): repetirla en cada pasada no duplica nada.
 - La gráfica de tendencia rellenaba el área bajo la curva con un
   degradado, y mentía dos veces: el relleno se lee como "cantidad desde
   cero" cuando ningún eje parte de cero (el del peso empieza en 75 kg),

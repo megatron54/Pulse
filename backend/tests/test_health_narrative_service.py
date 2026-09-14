@@ -78,6 +78,12 @@ class TestGenerateHealthNarrativeForUser:
         assert resultado.source == "template"
         assert "60" in resultado.text
         assert "82" in resultado.text
+        # Doctrina 8: cero jerga interna en pantalla. La plantilla de
+        # respaldo no traduce nada por sí sola (solo cambia "_" por
+        # espacios) - si `datos` llevara nombres de campo en vez de
+        # texto legible, se filtrarían tal cual a la pantalla.
+        for jerga in ("hrv_hoy_ms", "hrv_baseline_28d_ms", "body_battery", "sleep_score"):
+            assert jerga not in resultado.text
 
     def test_sin_metricas_garmin_ese_dia_igual_explica_solo_la_decision(self, session, usuario):
         # El readiness pudo calcularse por check-in manual sin que

@@ -398,6 +398,7 @@ class GarminManualSyncOut(BaseModel):
 
     fecha: date
     puntos_intradia_nuevos: int
+    actividades_nuevas: int
 
     model_config = {"from_attributes": True}
 

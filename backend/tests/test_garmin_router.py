@@ -447,14 +447,20 @@ class TestSyncNow:
 
         from services.garmin_manual_sync_service import ManualSyncResult
 
-        resultado = ManualSyncResult(fecha=date(2026, 8, 10), puntos_intradia_nuevos=42)
+        resultado = ManualSyncResult(
+            fecha=date(2026, 8, 10), puntos_intradia_nuevos=42, actividades_nuevas=1
+        )
         with patch(
             "api.routers.garmin.sync_today_for_user", return_value=resultado
         ) as mock_sync:
             resp = c.post(f"/users/{usuario['id']}/garmin/sync")
 
         assert resp.status_code == 200
-        assert resp.json() == {"fecha": "2026-08-10", "puntos_intradia_nuevos": 42}
+        assert resp.json() == {
+            "fecha": "2026-08-10",
+            "puntos_intradia_nuevos": 42,
+            "actividades_nuevas": 1,
+        }
         assert mock_sync.call_args.kwargs["target_date"] is None
 
     def test_usuario_sin_garmin_conectado_da_404(self, client):

@@ -133,7 +133,15 @@ def job_sincronizacion_frecuente() -> None:
     pero disparado cada pocas horas y siempre con `target_date=hoy` -
     ver docstring del módulo. Job SEPARADO del nocturno a propósito:
     el nocturno documenta/audita como "sync diario" y este como "sync
-    frecuente", para poder distinguirlos en `AuditLog` si algo falla."""
+    frecuente", para poder distinguirlos en `AuditLog` si algo falla.
+
+    Incluye también actividades (no solo recovery): antes de este
+    cambio una actividad recién terminada no aparecía hasta el job
+    nocturno de actividades (04:15), hasta 24h de retraso para algo que
+    Garmin ya tiene disponible en minutos. `sync_activities` es
+    idempotente (`save_activity_if_new`), así que repetirla aquí no
+    duplica nada - solo añade una llamada de lista + detalle de lo
+    nuevo desde la última pasada."""
     session = get_session()
     try:
         resultado = run_daily_sync_for_all_users(session, target_date=date.today())
@@ -145,6 +153,22 @@ def job_sincronizacion_frecuente() -> None:
         )
     except Exception:  # noqa: BLE001 - el proceso del scheduler debe sobrevivir
         logger.exception("Fallo inesperado en el batch de sincronización frecuente")
+    finally:
+        session.close()
+
+    session = get_session()
+    try:
+        resultado_actividades = run_daily_activity_sync_for_all_users(
+            session, end_date=date.today()
+        )
+        logger.info(
+            "sync frecuente de actividades completado: exitosos=%s fallidos=%s omitidos=%s",
+            resultado_actividades.exitosos,
+            resultado_actividades.fallidos,
+            resultado_actividades.omitidos,
+        )
+    except Exception:  # noqa: BLE001 - el proceso del scheduler debe sobrevivir
+        logger.exception("Fallo inesperado sincronizando actividades en el batch frecuente")
     finally:
         session.close()
 
