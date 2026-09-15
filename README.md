@@ -118,17 +118,6 @@ npm run tauri build
 3. **[03-vision-produccion.md](02-roadmap/03-vision-produccion.md)** — Documento vivo: estado real de cada épica, hallazgos, decisiones pendientes. **Empieza aquí.**
 4. [04-plan-desarrollo-siguiente-fase.md](02-roadmap/04-plan-desarrollo-siguiente-fase.md) — Plan de desarrollo priorizado y secuenciado a partir del backlog de `03-vision-produccion.md`
 
-### 📦 recursos/ — Material descargado y referencias
-- `recursos/repos/` — Repos GitHub clonados localmente (código real reutilizable, no versionado)
-- [recursos/00-indice-recursos.md](recursos/00-indice-recursos.md) — Índice completo con enlaces
-
-## Principios que no cambian
-
-- **TDD real**: tests antes que implementación, revisión de código antes de cada merge.
-- **Nunca falsa precisión**: rangos donde el dominio es incierto, categorías donde el motor es categórico. Ninguna métrica se fabrica cuando faltan datos ("unknown is not zero").
-- **La IA nunca decide**, solo explica una decisión ya tomada por reglas deterministas auditables.
-- **Reutilizar antes que reinventar**: wger antes que una integración externa nueva; cuando ni eso sirve (ej. diario de comidas, báscula Feelfit), se construye un motor/cliente propio en vez de forzar un encaje que no tiene sentido, y se documenta la decisión.
-
 ## Autor
 
 **Miguel Serra Ferrando** — Telecommunications Engineer
